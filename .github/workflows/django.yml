@@ -44,12 +44,12 @@ jobs:
 
     - name: Loud Mouth Covered
       run: |
-          echo "DB_NAME=${{ secrets.T_DB_NAME }}" >> $GITHUB_ENV
-          echo "DB_NAME=${{ secrets.T_DB_USER }}" >> $GITHUB_ENV
-          echo "DB_NAME=${{ secrets.T_DB_PASSWORD }}" >> $GITHUB_ENV
-          echo "DB_NAME=${{ secrets.T_DB_HOST }}" >> $GITHUB_ENV
-          echo "DB_NAME=${{ secrets.T_DB_PORT }}" >> $GITHUB_ENV
-          echo "DB_NAME=${{ secrets.T_DB_URL }}" >> $GITHUB_ENV
+          echo "T_DB_NAME=${{ secrets.T_DB_NAME }}" >> $GITHUB_ENV
+          echo "T_DB_USER=${{ secrets.T_DB_USER }}" >> $GITHUB_ENV
+          echo "T_DB_PASSWORD=${{ secrets.T_DB_PASSWORD }}" >> $GITHUB_ENV
+          echo "T_DB_HOST=${{ secrets.T_DB_HOST }}" >> $GITHUB_ENV
+          echo "T_DB_PORT=${{ secrets.T_DB_PORT }}" >> $GITHUB_ENV
+          echo "T_DB_URL=${{ secrets.T_DB_URL }}" >> $GITHUB_ENV
 
         
     - name: Run Tests
