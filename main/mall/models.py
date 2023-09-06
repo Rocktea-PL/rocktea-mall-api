@@ -14,7 +14,6 @@ class CustomUserManager(BaseUserManager):
    def create_user(self, username, email, password=None, is_store_owner=False):
         if not username:
             username = self.generate_unique_username()
-            
         if not email:
             raise ValueError('The Email field must be set')
 
