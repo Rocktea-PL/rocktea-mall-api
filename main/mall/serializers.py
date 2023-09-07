@@ -24,7 +24,7 @@ class StoreOwnerSerializer(ModelSerializer):
 class SubCategorySerializer(ModelSerializer):
     class Meta:
         model = SubCategories
-        fields = "__all__"
+        fields = ["id", "name"]
 
 
 class CategorySerializer(ModelSerializer):
@@ -35,11 +35,11 @@ class CategorySerializer(ModelSerializer):
       model = Category
       fields = "__all__"
       
-      
+       
    def to_representation(self, instance):
       data = super(CategorySerializer, self).to_representation(instance)
       return {
-            "id": instance.id,
+            "category_id": instance.id,
             "category_name": data["category_name"],
             "subcategories": data["subcategories"]
         }
