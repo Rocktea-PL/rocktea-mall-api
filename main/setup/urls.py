@@ -23,6 +23,8 @@ router = routers.DefaultRouter()
 router.register('storeowner', CreateStoreOwner, basename="user")
 router.register('categories', GetCategories, basename='categories')
 
+
 urlpatterns = [
     path('rocktea/', include(router.urls)),
+    path('mall/', include("mall.urls"))
 ]

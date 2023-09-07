@@ -1,5 +1,6 @@
 from pathlib import Path
-import environ
+import environ, datetime
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,10 +34,10 @@ INSTALLED_APPS = [
     "django_phonenumbers",
     "cloudinary_storage",
     'multiselectfield',
+    'rest_framework_simplejwt',
     
     # Caution
     'django_extensions',
-    
     
 ]
 
@@ -100,6 +101,32 @@ CLOUDINARY_STORAGE = {
 }
 
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+SIMPLE_JWT = {
+  # It will work instead of the default serializer(TokenObtainPairSerializer).
+  'USER_ID_FIELD': 'uid',
+  "TOKEN_OBTAIN_SERIALIZER": "mall.serializers.SignInAuthSerializers",
+  'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
+  'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
+  # ...
+}
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    
+}
+
+JWT_AUTH = {
+    'JWT_SECRET_KEY': env("SECRET_KEY"),  # Use your project's secret key
+    'JWT_ALLOW_REFRESH': True,
+    'JWT_REFRESH_EXPIRATION_DELTA': datetime.timedelta(days=7),
+    'JWT_AUTH_HEADER_PREFIX': 'Bearer',
+}
 
 
 # Password validation
