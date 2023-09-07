@@ -14,7 +14,7 @@ environ.Env.read_env()
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = []
 
@@ -29,11 +29,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # third-parties
     "django_phonenumbers",
     "cloudinary_storage",
+    'multiselectfield',
     
     # Caution
     'django_extensions',
+    
+    
 ]
 
 MIDDLEWARE = [

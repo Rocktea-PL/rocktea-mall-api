@@ -1,38 +1,30 @@
 import requests
-import json
 
-url = 'https://client.harmonweb.com/includes/api.php'
+def verify_tin(self, request):
+    url = "https://api.appruve.co/v1/verifications/ng/tin"
 
-data = {
-    'action': 'DomainWhois',
-    'username': 'JQXsYZqlcEkgMXhtWNdD95WCA3br4qDX',
-    'password': 'W3fBNlVZekTolVAIg3IUSXTkL0QT3P8k',
-    'domain': 'www.rockteapl.com',
-    'responsetype': 'json',
-}
+    data = {
+        "id": "00000001-0000",
+        "name": "John Doe Inc.",
+        "email": "john.doe@gmail.com",
+        "phone_number": "+234000000000",
+        "registration_number": "",
+        "tax_office": ""
+    }
 
-# Convert the data to JSON format
-data_json = json.dumps(data)
+    # Replace 'YOUR_BEARER_TOKEN' with your actual bearer token
+    bearer_token = 'eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS5hcHBydXZlLmNvIiwianRpIjoiMjEyZWIyNjMtYzIyZS00NzEwLThjODUtMDExM2FmY2MwZDUzIiwiYXVkIjoiZmM4OTM3YjktYTM0Yi00OWY3LWJlOWEtYTM5ODVhMWYzNjQ2Iiwic3ViIjoiY2Q4YjUwZGYtODFkNC00MmIzLTliNjAtMDgzODhmNjkwMThmIiwibmJmIjowLCJzY29wZXMiOlsidmVyaWZpY2F0aW9uX3ZpZXciLCJ2ZXJpZmljYXRpb25fbGlzdCIsInZlcmlmaWNhdGlvbl9kb2N1bWVudCIsInZlcmlmaWNhdGlvbl9pZGVudGl0eSJdLCJleHAiOjMyNzE5MzcwMTEsImlhdCI6MTY5NDAxMzgxMX0.NjT49_v6eX7cuJlABYSgvRw5O9B7oPi54dMBLbDGL30'
 
-# Define the headers to specify JSON content
-headers = {
-    'Content-Type': 'application/json',
-}
 
-# Use the headers parameter to include headers in the request
-response = requests.post(url, data=data_json, headers=headers)
+    headers = {
+        'Authorization': f'Bearer {bearer_token}',  # Add Bearer token as header
+        'Content-Type': 'application/json'  # Specify the content type
+    }
 
-# Check if the response status code indicates success (e.g., 200 OK)
-if response.status_code == 200:
-    if response.text.strip():  # Check if the response body is not empty
-        try:
-            # Attempt to parse the JSON response
-            response_json = response.json()
-            print(response_json)
-        except json.JSONDecodeError as e:
-            print(f"JSON decoding error: {e}")
-    else:
-        print("Response body is empty.")
-else:
-    print(f"Request failed with status code: {response.status_code}")
-    print(response.text)
+    # Send the POST request with the JSON payload
+    response = requests.post(url, json=data, headers=headers)
+
+    # Print the response content to the terminal
+    print(response.text)  # This will print the response content as a string
+
+    return response 
