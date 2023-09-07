@@ -1,6 +1,6 @@
 from .models import CustomUser
-from rest_framework.serializers import ModelSerializer
-from .models import CustomUser, Store
+from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField
+from .models import CustomUser, Store, Category, SubCategories
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -19,3 +19,27 @@ class StoreOwnerSerializer(ModelSerializer):
          user.save()
          
       return user
+
+   
+class SubCategorySerializer(ModelSerializer):
+    class Meta:
+        model = SubCategories
+        fields = "__all__"
+
+
+class CategorySerializer(ModelSerializer):
+   subcategories = SubCategorySerializer(many=True, read_only=True)
+   category_name = ReadOnlyField(source='name')
+   
+   class Meta:
+      model = Category
+      fields = "__all__"
+      
+      
+   def to_representation(self, instance):
+      data = super(CategorySerializer, self).to_representation(instance)
+      return {
+            "id": instance.id,
+            "category_name": data["category_name"],
+            "subcategories": data["subcategories"]
+        }

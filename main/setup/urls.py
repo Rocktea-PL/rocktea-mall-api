@@ -17,10 +17,11 @@ Including another URLconf
 
 from django.urls import path, include
 from rest_framework import routers
-from mall.views import CreateStoreOwner
+from mall.views import CreateStoreOwner, GetCategories
 
 router = routers.DefaultRouter()
 router.register('storeowner', CreateStoreOwner, basename="user")
+router.register('categories', GetCategories, basename='categories')
 
 urlpatterns = [
     path('rocktea/', include(router.urls)),
