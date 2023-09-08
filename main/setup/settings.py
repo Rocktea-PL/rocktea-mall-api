@@ -39,9 +39,12 @@ INSTALLED_APPS = [
     # Caution
     'django_extensions',
     
+    # Security
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -94,6 +97,32 @@ DATABASES = {
         'PORT': env('DB_PORT'),
     },  
 }
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://rocktea-mall.vercel.app/"
+]
+
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
 
 # File Storage
 CLOUDINARY_STORAGE = {

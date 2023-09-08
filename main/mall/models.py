@@ -38,6 +38,7 @@ class CustomUserManager(BaseUserManager):
             username = generate_unique_code()
             if not self.model.objects.filter(username=username).exists():
                 return username
+        
 
     def validate_password(self, password):
         """
@@ -54,6 +55,7 @@ class CustomUserManager(BaseUserManager):
                 'Password must contain at least one lowercase character.')
         if not any(not char.isalnum() for char in password):
             raise ValueError('Password must contain at least one symbol.')
+        return password
 
 
 # StoreOwner models
@@ -88,13 +90,15 @@ class CustomUser(AbstractBaseUser):
 
 class Store(models.Model):
    owner = models.OneToOneField(CustomUser, related_name="owners",
-                                 on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
+                                on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
    name = models.CharField(max_length=150, unique=True)
    email = models.EmailField(unique=True)
    TIN_number = models.IntegerField()
    logo = models.FileField(storage=RawMediaCloudinaryStorage)
+   cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator])
    domain_name = models.CharField(max_length=100, unique=True)
+   category = models.OneToOneField('Category', on_delete=models.CASCADE, null=True)
    store_url = models.URLField(unique=True)
 
    def __str__(self):
@@ -103,7 +107,6 @@ class Store(models.Model):
 
 class Product(models.Model):
    COLORS = (
-      # Existing colors
       ('Red', 'Red'),
       ('Yellow', 'Yellow'),
       ('Blue', 'Blue'),
@@ -129,8 +132,6 @@ class Product(models.Model):
       ('Gold', 'Gold'),
       ('Silver', 'Silver'),
       ('Bronze', 'Bronze'),
-
-      # Additional colors (not already in the list)
       ('Nude', 'Nude'),
       ('Neutral', 'Neutral'),
       ('Berge', 'Berge'),
@@ -148,8 +149,18 @@ class Product(models.Model):
    name = models.CharField(max_length=50)
    quantity = models.IntegerField()
    color = models.CharField(choices=COLORS, max_length=9)
-   category = models.ForeignKey('Category', on_delete=models.CASCADE)
+   category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
+   subcategory = models.ForeignKey('SubCategories', on_delete=models.CASCADE, null=True)
+   brand = models.ForeignKey('Brand', on_delete=models.CASCADE, null=True)
+   is_available = models.BooleanField(default=True)
+   created_at=models.DateTimeField(auto_created=True, null=True)
+   on_promo = models.BooleanField(default=False)
    
+   
+   def formatted_created_at(self):
+        # Format the created_at field as "YMD, Timestamp"
+        return self.created_at.strftime("%Y-%m-%d, %H:%M:%S")
+    
    def save(self, *args, **kwargs):
       if not self.sn:
          self.sn = generate_unique_code()
@@ -195,7 +206,7 @@ class SubCategories(models.Model):
 
 
 class Brand(models.Model):
-   category = models.OneToOneField(Category, on_delete=models.CASCADE)
+   subcategory = models.ManyToManyField(SubCategories)
    name = models.CharField(max_length=25, unique=True)
    
    def __str__(self):
