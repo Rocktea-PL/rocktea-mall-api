@@ -6,7 +6,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
       model=CustomUser
-      fields = ("uid", "first_name", "last_name", "email", "contact", "profile_image", "is_store_owner","password")
+      fields = ("uid", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
       
    def create(self, validated_data):
       # extract password from validated_data list
