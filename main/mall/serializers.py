@@ -1,21 +1,31 @@
 from .models import CustomUser
-from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField
+from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
 from .models import CustomUser, Store, Category, SubCategories
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+import re
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
       model=CustomUser
       fields = ("uid", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
       
+   
    def create(self, validated_data):
-      # extract password from validated_data list
+       # Extract password from validated_data
       password = validated_data.pop("password", None)
 
-      user = CustomUser.objects.create(**validated_data)
-      # confirm user as store_owner
-      user.is_store_owner=True
       if password:
+         # Validate the password using regular expressions
+         if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+            raise ValidationError({"error":"Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+
+      user = CustomUser.objects.create(**validated_data)
+
+      # Confirm the user as a store owner
+      user.is_store_owner = True
+
+      if password:
+         # Set and save the user's password only if a valid password is provided
          user.set_password(password)
          user.save()
 

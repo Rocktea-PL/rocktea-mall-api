@@ -16,13 +16,22 @@ def generate_unique_code():
 class CustomUserManager(BaseUserManager):
     def create_user(self, username, email, password=None, is_store_owner=False):
         if not username:
-            username = self.generate_unique_username()
+            username = self.generate_username()
+
+        if CustomUser.objects.filter(username=username).exists():
+            raise ValueError('Username is already in use.')
+
+        if CustomUser.objects.filter(email=email).exists():
+            raise ValueError('Email is already in use.')
+
         if not email:
             raise ValueError('The Email field must be set')
 
         # Check password validity
         if password:
-            self.validate_password(password)
+            # Validate the password using regular expressions
+            if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+                raise ValueError('Password does not meet the requirements.')
 
         user = self.model(
             username=username,
@@ -33,29 +42,11 @@ class CustomUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def generate_unique_username(self):
+    def generate_username():
         while True:
-            username = generate_unique_code()
-            if not self.model.objects.filter(username=username).exists():
-                return username
-        
-
-    def validate_password(self, password):
-        """
-        Custom password validation logic to ensure it contains
-        symbols, digits, uppercase, and lowercase characters.
-        """
-        if not any(char.isdigit() for char in password):
-            raise ValueError('Password must contain at least one digit.')
-        if not any(char.isupper() for char in password):
-            raise ValueError(
-                'Password must contain at least one uppercase character.')
-        if not any(char.islower() for char in password):
-            raise ValueError(
-                'Password must contain at least one lowercase character.')
-        if not any(not char.isalnum() for char in password):
-            raise ValueError('Password must contain at least one symbol.')
-        return password
+            code = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+            if not CustomUser.objects.filter(username=code).exists():
+                return code
 
 
 # StoreOwner models
