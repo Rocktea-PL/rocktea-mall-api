@@ -4,6 +4,7 @@ from .serializers import StoreOwnerSerializer, SubCategorySerializer, CategorySe
 from .models import CustomUser, Category
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
+from rest_framework.renderers import JSONRenderer
 
 
 # Create your views here.
@@ -13,6 +14,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    """
    queryset = CustomUser.objects.all()
    serializer_class = StoreOwnerSerializer
+   renderer_classes= [JSONRenderer]
 
 
 # Sign In Users

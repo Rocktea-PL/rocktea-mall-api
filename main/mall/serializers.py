@@ -3,6 +3,7 @@ from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, 
 from .models import CustomUser, Store, Category, SubCategories
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
+from PIL import Image
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -32,6 +33,36 @@ class StoreOwnerSerializer(ModelSerializer):
       return user
 
 
+
+class CreateStoreSerializer(ModelSerializer):
+   class Meta:
+      model = Store
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "domain_name", "category", "store_url")
+   
+   def validate_TIN_number(self, value):
+      if len(value) != 9:  # Check if TIN number has exactly 9 characters
+            raise ValidationError("Invalid TIN number. It should be 9 characters long.")
+      return value
+
+   def validate_owner(self, value):
+      user_uid = self.context["request"].user.uid
+      try:
+            owner = CustomUser.objects.get(uid=user_uid)
+      except CustomUser.DoesNotExist:
+            raise ValidationError("User does not exist.")
+      return owner
+   
+   def validate_logo(self, value):
+      if value:
+         try:
+            img = Image.open(value)
+            img_format = img.format.lower()
+            if img_format not in ['png', 'jpeg', 'jpg']:
+               raise ValidationError("Invalid Image format. Only PNG and JPEG are allowed.")
+         except Exception as e:
+            raise ValidationError("Invalid image file. Please upload a valid image")
+      return value
+   
 class SubCategorySerializer(ModelSerializer):
     class Meta:
         model = SubCategories
@@ -83,3 +114,4 @@ class SignInUser(TokenObtainPairSerializer):
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
       return data
+   
