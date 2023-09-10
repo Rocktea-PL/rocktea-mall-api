@@ -109,6 +109,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall.vercel.app",
 ]
 
+CORS_ALLOW_CREDENTIALS: True
+
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
