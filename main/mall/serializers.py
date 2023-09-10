@@ -4,6 +4,7 @@ from .models import CustomUser, Store, Category, SubCategories
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from PIL import Image
+from rest_framework import status
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -36,32 +37,41 @@ class StoreOwnerSerializer(ModelSerializer):
 
 class CreateStoreSerializer(ModelSerializer):
    class Meta:
-      model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "domain_name", "category", "store_url")
+        model = Store
+        fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "domain_name", "category", "store_url")
    
    def validate_TIN_number(self, value):
-      if len(value) != 9:  # Check if TIN number has exactly 9 characters
-            raise ValidationError("Invalid TIN number. It should be 9 characters long.")
+      if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
+         raise serializers.ValidationError("Invalid TIN number. It should be 9 characters long.")
       return value
-
-   def validate_owner(self, value):
-      user_uid = self.context["request"].user.uid
-      try:
-            owner = CustomUser.objects.get(uid=user_uid)
-      except CustomUser.DoesNotExist:
-            raise ValidationError("User does not exist.")
-      return owner
    
    def validate_logo(self, value):
       if value:
          try:
-            img = Image.open(value)
-            img_format = img.format.lower()
-            if img_format not in ['png', 'jpeg', 'jpg']:
-               raise ValidationError("Invalid Image format. Only PNG and JPEG are allowed.")
+               img = Image.open(value)
+               img_format = img.format.lower()
+               if img_format not in ['png', 'jpeg', 'jpg']:
+                  raise ValidationError("Invalid Image format. Only PNG and JPEG are allowed.")
          except Exception as e:
-            raise ValidationError("Invalid image file. Please upload a valid image")
+               raise ValidationError("Invalid image file. Please upload a valid image")
       return value
+    
+   # def create(self, validated_data):
+   #    owner_uid = self.context.get('request').user.uid
+   #    verified_owner = self._verify_owner(owner_uid)
+      
+   #    if verified_owner is None:
+   #       raise ValidationError({"error": "Sorry, you can only have one store."})
+      
+   #    validated_data['owner'] = verified_owner
+   #    store = Store.objects.create(**validated_data)
+   #    return store
+      
+   # def _verify_owner(self, owner_uid):
+   #    owner = CustomUser.objects.filter(is_store_owner=True, owner=owner_uid).first()
+   #    return owner
+      
+    
    
 class SubCategorySerializer(ModelSerializer):
     class Meta:
@@ -87,31 +97,42 @@ class CategorySerializer(ModelSerializer):
         }
       
 
-class SignInUser(TokenObtainPairSerializer):
-   username_field = 'email'
-   
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    @classmethod
    def get_token(cls, user):
-        token = super().get_token(user)
-        return token
-
+      token = super().get_token(user)
+      token['email'] = user.email
+      return token
+   
    def validate(self, attrs):
       data = super().validate(attrs)
-      user = self.user
-      
-      # Get user data
       data['user_data'] = {
-         "uid": user.uid,
-         "first_name": user.first_name,
-         "last_name": user.last_name,
-         "email": user.email,
-         "username": getattr(user, 'username', None),
-         "profile_image": getattr(user.profile_image, 'url', None),
-         "is_store_owner": user.is_store_owner,
-         "is_consumer": user.is_consumer
-      }
-      refresh = self.get_token(user)
+            "uid": self.user.uid,
+            "first_name": self.user.first_name,
+            "last_name": self.user.last_name,
+            "email": self.user.email,
+            "username":self.user.username,
+            "contact": f"{self.user.contact}",
+            "is_volunteer": self.user.is_store_owner
+            }
+      refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
+
       return data
-   
+    
+   #  def validate(self, attrs):
+   #      data = super().validate(attrs)
+   #      data['user_data'] = {
+   #          "uid": self.user.uid,
+   #          "first_name": self.user.first_name,
+   #          "last_name": self.user.last_name,
+   #          "email": self.user.email,
+   #          "username":self.user.username,
+   #          "contact": f"{self.user.contact}",
+   #          "is_volunteer": self.user.is_store_owner
+   #          }
+   #      refresh = self.get_token(self.user)
+   #      data["refresh"] = str(refresh)
+   #      data["access"] = str(refresh.access_token)
+   #      return data

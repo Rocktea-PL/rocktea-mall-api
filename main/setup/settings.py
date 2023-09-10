@@ -1,5 +1,5 @@
 from pathlib import Path
-import environ, datetime
+import environ, datetime, os
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -15,7 +15,7 @@ environ.Env.read_env()
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -52,6 +52,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'mall.middleware.DomainMiddleware',
 ]
 
 ROOT_URLCONF = 'setup.urls'
@@ -132,13 +133,25 @@ CLOUDINARY_STORAGE = {
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {
-  # It will work instead of the default serializer(TokenObtainPairSerializer).
-  'USER_ID_FIELD': 'uid',
-  "TOKEN_OBTAIN_SERIALIZER": "mall.serializers.SignInAuthSerializers",
-  'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-  'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
-  # ...
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+    "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(minutes=60),
+    "SLIDING_TOKEN_LIFETIME": timedelta(minutes=120),
+    "SLIDING_TOKEN_REFRESH_LIFETIME_GRACE_PERIOD": timedelta(minutes=0),
+    "ROTATE_REFRESH_TOKENS": False,
+    "ALGORITHM": "HS256",  # Use HMAC-SHA256 for signing and verification
+    "SIGNING_KEY": env("SECRET_KEY"),  # Use your Django secret key
+    "VERIFYING_KEY": None,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "uid",
+    "USER_ID_CLAIM": "user_uid",
+    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
+    "SLIDING_TOKEN_REFRESH_EXP_CLAIM": "refresh_exp",
+    "SLIDING_TOKEN_LIFETIME_EXP_CLAIM": "exp",
 }
+
 
 
 REST_FRAMEWORK = {
@@ -153,13 +166,6 @@ REST_FRAMEWORK = {
     ]
 }
 
-
-JWT_AUTH = {
-    'JWT_SECRET_KEY': env("SECRET_KEY"),  # Use your project's secret key
-    'JWT_ALLOW_REFRESH': True,
-    'JWT_REFRESH_EXPIRATION_DELTA': datetime.timedelta(days=7),
-    'JWT_AUTH_HEADER_PREFIX': 'Bearer',
-}
 
 
 # Password validation
