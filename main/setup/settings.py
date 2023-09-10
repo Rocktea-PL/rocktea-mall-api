@@ -105,6 +105,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://rocktea-mall-api-test.up.railway.app"
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://rocktea-mall.vercel.app",
+]
+
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
