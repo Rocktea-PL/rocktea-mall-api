@@ -25,8 +25,11 @@ class CreateStore(viewsets.ModelViewSet):
    serializer_class = CreateStoreSerializer
    renderer_classes = [JSONRenderer]
    
-   def perform_create(self):
+   def perform_create(self): #TODO Create a store while ensuring only 1 owner per store
       pass
+   
+   def get_store_owner(self):
+      store_owner
 
 # Sign In Users
 class SignInUserView(TokenObtainPairView):
