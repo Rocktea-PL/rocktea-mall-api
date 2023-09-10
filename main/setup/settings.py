@@ -107,6 +107,7 @@ CORS_ALLOWED_ORIGINS = [
 
 CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall.vercel.app",
+    "https://rocktea-mall-api-test.up.railway.app"
 ]
 
 CORS_ALLOW_CREDENTIALS: True
