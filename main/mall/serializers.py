@@ -10,8 +10,7 @@ class StoreOwnerSerializer(ModelSerializer):
    class Meta:
       model=CustomUser
       fields = ("uid", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
-      
-   
+       
    def create(self, validated_data):
        # Extract password from validated_data
       password = validated_data.pop("password", None)
@@ -56,22 +55,6 @@ class CreateStoreSerializer(ModelSerializer):
                raise ValidationError("Invalid image file. Please upload a valid image")
       return value
     
-   # def create(self, validated_data):
-   #    owner_uid = self.context.get('request').user.uid
-   #    verified_owner = self._verify_owner(owner_uid)
-      
-   #    if verified_owner is None:
-   #       raise ValidationError({"error": "Sorry, you can only have one store."})
-      
-   #    validated_data['owner'] = verified_owner
-   #    store = Store.objects.create(**validated_data)
-   #    return store
-      
-   # def _verify_owner(self, owner_uid):
-   #    owner = CustomUser.objects.filter(is_store_owner=True, owner=owner_uid).first()
-   #    return owner
-      
-    
    
 class SubCategorySerializer(ModelSerializer):
     class Meta:
@@ -86,7 +69,6 @@ class CategorySerializer(ModelSerializer):
    class Meta:
       model = Category
       fields = "__all__"
-      
        
    def to_representation(self, instance):
       data = super(CategorySerializer, self).to_representation(instance)

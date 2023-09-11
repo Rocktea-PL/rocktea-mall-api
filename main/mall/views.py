@@ -1,11 +1,12 @@
 from django.shortcuts import render
 from rest_framework import viewsets
 from .serializers import StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer
-from .models import CustomUser, Category, Store
+from .models import CustomUser, Category, Store, Product
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
-
+from rest_framework.response import Response
+from rest_framework import status
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -23,14 +24,10 @@ class CreateStore(viewsets.ModelViewSet):
    """
    queryset = Store.objects.all()
    serializer_class = CreateStoreSerializer
-   renderer_classes = [JSONRenderer]
-   
-   def perform_create(self): #TODO Create a store while ensuring only 1 owner per store
-      pass
-   
-   def get_store_owner(self):
-      store_owner
+   # renderer_classes = [JSONRenderer]
 
+   
+   
 # Sign In Users
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
