@@ -103,6 +103,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "https://rocktea-mall.vercel.app",
     "https://rocktea-mall-api-test.up.railway.app"
+    "https://rocktea-mall-git-test-rockteamall.vercel.app"
 ]
 
 CSRF_TRUSTED_ORIGINS = [
