@@ -9,7 +9,7 @@ from rest_framework import status
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
       model=CustomUser
-      fields = ("uid", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
+      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
        
    def create(self, validated_data):
        # Extract password from validated_data
@@ -89,7 +89,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    def validate(self, attrs):
       data = super().validate(attrs)
       data['user_data'] = {
-            "uid": self.user.uid,
+            "uid": self.user.id,
             "first_name": self.user.first_name,
             "last_name": self.user.last_name,
             "email": self.user.email,
@@ -102,19 +102,3 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       data["access"] = str(refresh.access_token)
 
       return data
-    
-   #  def validate(self, attrs):
-   #      data = super().validate(attrs)
-   #      data['user_data'] = {
-   #          "uid": self.user.uid,
-   #          "first_name": self.user.first_name,
-   #          "last_name": self.user.last_name,
-   #          "email": self.user.email,
-   #          "username":self.user.username,
-   #          "contact": f"{self.user.contact}",
-   #          "is_volunteer": self.user.is_store_owner
-   #          }
-   #      refresh = self.get_token(self.user)
-   #      data["refresh"] = str(refresh)
-   #      data["access"] = str(refresh.access_token)
-   #      return data

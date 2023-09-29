@@ -23,6 +23,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "django.contrib.admin",
     "mall.apps.MallConfig",
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -41,6 +42,7 @@ INSTALLED_APPS = [
     
     # Security
     "corsheaders",
+    "order"
 ]
 
 MIDDLEWARE = [
@@ -142,23 +144,9 @@ CLOUDINARY_STORAGE = {
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {
+    'USER_ID_FIELD': 'id',
     "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
-    "SLIDING_TOKEN_REFRESH_LIFETIME": timedelta(minutes=60),
-    "SLIDING_TOKEN_LIFETIME": timedelta(minutes=120),
-    "SLIDING_TOKEN_REFRESH_LIFETIME_GRACE_PERIOD": timedelta(minutes=0),
-    "ROTATE_REFRESH_TOKENS": False,
-    "ALGORITHM": "HS256",  # Use HMAC-SHA256 for signing and verification
-    "SIGNING_KEY": env("SECRET_KEY"),  # Use your Django secret key
-    "VERIFYING_KEY": None,
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "USER_ID_FIELD": "uid",
-    "USER_ID_CLAIM": "user_uid",
-    "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
-    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
-    "TOKEN_TYPE_CLAIM": "token_type",
-    "SLIDING_TOKEN_REFRESH_EXP_CLAIM": "refresh_exp",
-    "SLIDING_TOKEN_LIFETIME_EXP_CLAIM": "exp",
 }
 
 

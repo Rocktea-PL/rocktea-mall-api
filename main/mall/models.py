@@ -12,39 +12,69 @@ from multiselectfield import MultiSelectField
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
+class CustomUserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        # Create a standard user
+        if not email:
+            raise ValueError('The Email field must be set')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        # Create a superuser
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        return self.create_user(email, password, **extra_fields)
 
 
 # StoreOwner models
 class CustomUser(AbstractUser):
-    uid = models.UUIDField(default=uuid4, unique=True,
-                           primary_key=True, db_index=True)
-    username = models.CharField(max_length=5, unique=True)
-    email = models.EmailField(unique=True)
-    first_name = models.CharField(max_length=250)
-    last_name = models.CharField(max_length=250)
-    contact = PhoneNumberField()
-    is_store_owner = models.BooleanField(default=False)
-    is_consumer = models.BooleanField(default=False)
-    password = models.CharField(max_length=200)
-    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
-    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
+   id = models.CharField(default=uuid4, unique=True, primary_key=True, db_index=True, max_length=36)
+   username = models.CharField(max_length=7, unique=True)
+   email = models.EmailField(unique=True)
+   first_name = models.CharField(max_length=250)
+   last_name = models.CharField(max_length=250)
+   contact = PhoneNumberField()
+   is_store_owner = models.BooleanField(default=False)
+   is_consumer = models.BooleanField(default=False)
+   password = models.CharField(max_length=200)
+   associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
+   profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = []
+   USERNAME_FIELD = 'email'
+   REQUIRED_FIELDS = []
 
-    class Meta:
-        # Add an index for the 'uid' field
-        indexes = [
-            models.Index(fields=['uid'], name='uid_idx'),
-        ]
-
-    def __str__(self):
-        return self.first_name
+   objects = CustomUserManager()
+   
+   class Meta:
+      # Add an index for the 'uid' field
+      indexes = [
+         models.Index(fields=['id'], name='id_idx'),
+      ]
+   
+   def save(self, *args, **kwargs):
+        if not self.username:
+            self.username = self._generate_unique_username()
+        return super().save(*args, **kwargs)
+    
+   def _generate_unique_username(self):
+        return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
+     
+   def __str__(self):
+      return self.first_name
 
 
 class Store(models.Model):
-    owner = models.OneToOneField(CustomUser, related_name="owners",
-                                    on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
+    owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
     name = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     TIN_number = models.IntegerField()
@@ -57,6 +87,7 @@ class Store(models.Model):
 
     def __str__(self):
         return self.name
+
 
 
 class Product(models.Model):
@@ -97,6 +128,12 @@ class Product(models.Model):
       ('Burgundy', 'Burgundy'),
       ('Rose Gold', 'Rose Gold'),
    )
+   
+   UPLOAD_STATUS = (
+      ("Approved", "Approved"),
+      ("Pending", "Pending"),
+      ("Rejected", "Rejected")
+   )
 
    sn = models.IntegerField(unique=True)
    sku = models.CharField(max_length=8, unique=True)
@@ -109,6 +146,7 @@ class Product(models.Model):
    is_available = models.BooleanField(default=True)
    created_at=models.DateTimeField(auto_created=True, null=True)
    on_promo = models.BooleanField(default=False)
+   upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True)
    
    def formatted_created_at(self):
         # Format the created_at field as "YMD, Timestamp"
@@ -164,3 +202,19 @@ class Brand(models.Model):
    
    def __str__(self):
        return self.name
+   
+    
+class AccountDetails(models.Model):
+   user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
+   account_name = models.CharField(max_length=300)
+   nuban = models.CharField(max_length=10, unique=True)
+   bank_code = models.IntegerField()
+   
+   def __str__(self):
+      return f"{user.first_name}"
+   
+   
+class Wallet(models.Model):
+   balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+   pending_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+   paid = models.BooleanField(default=False)

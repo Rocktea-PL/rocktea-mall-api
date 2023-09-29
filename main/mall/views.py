@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from rest_framework import viewsets
 from .serializers import StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer
 from .models import CustomUser, Category, Store, Product
@@ -26,8 +25,6 @@ class CreateStore(viewsets.ModelViewSet):
    serializer_class = CreateStoreSerializer
    # renderer_classes = [JSONRenderer]
 
-   
-   
 # Sign In Users
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
@@ -38,4 +35,6 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
    serializer_class = CategorySerializer #TODO Differ this based on user
    
+
+
    
