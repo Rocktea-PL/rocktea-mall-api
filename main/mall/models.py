@@ -82,7 +82,7 @@ class Store(models.Model):
     cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
     year_of_establishment = models.DateField(validators=[YearValidator])
     domain_name = models.CharField(max_length=100, unique=True)
-    category = models.OneToOneField('Category', on_delete=models.CASCADE, null=True)
+    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
     store_url = models.URLField(unique=True)
 
     def __str__(self):
