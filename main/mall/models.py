@@ -10,30 +10,30 @@ from multiselectfield import MultiSelectField
 
 
 def generate_unique_code():
-    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+   return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
-        # Create a standard user
-        if not email:
-            raise ValueError('The Email field must be set')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
+      # Create a standard user
+      if not email:
+         raise ValueError('The Email field must be set')
+      email = self.normalize_email(email)
+      user = self.model(email=email, **extra_fields)
+      user.set_password(password)
+      user.save(using=self._db)
+      return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        # Create a superuser
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
+      # Create a superuser
+      extra_fields.setdefault('is_staff', True)
+      extra_fields.setdefault('is_superuser', True)
 
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Superuser must have is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Superuser must have is_superuser=True.')
+      if extra_fields.get('is_staff') is not True:
+         raise ValueError('Superuser must have is_staff=True.')
+      if extra_fields.get('is_superuser') is not True:
+         raise ValueError('Superuser must have is_superuser=True.')
 
-        return self.create_user(email, password, **extra_fields)
+      return self.create_user(email, password, **extra_fields)
 
 
 # StoreOwner models
@@ -62,31 +62,40 @@ class CustomUser(AbstractUser):
       ]
    
    def save(self, *args, **kwargs):
-        if not self.username:
-            self.username = self._generate_unique_username()
-        return super().save(*args, **kwargs)
-    
+      if not self.username:
+         self.username = self._generate_unique_username()
+      return super().save(*args, **kwargs)
+
    def _generate_unique_username(self):
-        return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
-     
+      return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
    def __str__(self):
       return self.first_name
+   
+class StoreDomainPaymentInfo(models.Model):
+   user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
+   amount_paid = models.CharField(max_length=10, editable=False)
+   one_time_payment_status = models.BooleanField(default=False)
+   payment_reference = models.CharField(max_length=30, unique=True)
+   
+   def __str__(self):
+      return "{self.user.first_name} {self.one_time_payment_status}"
+   
 
 
 class Store(models.Model):
-    owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
-    name = models.CharField(max_length=150, unique=True)
-    email = models.EmailField(unique=True)
-    TIN_number = models.IntegerField()
-    logo = models.FileField(storage=RawMediaCloudinaryStorage)
-    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
-    year_of_establishment = models.DateField(validators=[YearValidator])
-    domain_name = models.CharField(max_length=100, unique=True)
-    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
-    store_url = models.URLField(unique=True)
+   owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
+   name = models.CharField(max_length=150, unique=True)
+   email = models.EmailField(unique=True)
+   TIN_number = models.IntegerField()
+   logo = models.FileField(storage=RawMediaCloudinaryStorage)
+   cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+   year_of_establishment = models.DateField(validators=[YearValidator])
+   domain_name = models.CharField(max_length=100, unique=True)
+   category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
+   store_url = models.URLField(unique=True)
 
-    def __str__(self):
-        return self.name
+   def __str__(self):
+      return self.name
 
 
 
@@ -149,9 +158,9 @@ class Product(models.Model):
    upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True)
    
    def formatted_created_at(self):
-        # Format the created_at field as "YMD, Timestamp"
-        return self.created_at.strftime("%Y-%m-%d, %H:%M:%S")
-    
+      # Format the created_at field as "YMD, Timestamp"
+      return self.created_at.strftime("%Y-%m-%d, %H:%M:%S")
+   
    def save(self, *args, **kwargs):
       if not self.sn:
          self.sn = generate_unique_code()
@@ -201,9 +210,8 @@ class Brand(models.Model):
    name = models.CharField(max_length=25, unique=True)
    
    def __str__(self):
-       return self.name
+      return self.name
    
-    
 class AccountDetails(models.Model):
    user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
    account_name = models.CharField(max_length=300)

@@ -208,3 +208,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # AbstractUser
 AUTH_USER_MODEL="mall.CustomUser"
+
+# Paystack
+TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
+TEST_SECRET_KEY = env("TEST_SECRET_KEY")

@@ -55,6 +55,11 @@ jobs:
     - name: Cloudinary
       run: echo "CLOUDINARY_URL=${{ secrets.CLOUDINARY_URL }}" >> $GITHUB_ENV
 
+    - name: Paystack Test
+      run: |
+          echo "TEST_PUBLIC_KEY=${{ secrets.TEST_PUBLIC_KEY }}" >> $GITHUB_ENV
+          echo "TEST_SECRET_KEY=${{ secrets.TEST_SECRET_KEY }}" >> $GITHUB_ENV
+      
         
     - name: Run Tests
       run: |
