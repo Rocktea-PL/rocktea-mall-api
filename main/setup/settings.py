@@ -1,5 +1,5 @@
 from pathlib import Path
-import environ, datetime
+import environ, datetime, os
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -15,7 +15,7 @@ environ.Env.read_env()
 SECRET_KEY = env('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -23,6 +23,7 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "django.contrib.admin",
     "mall.apps.MallConfig",
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -39,9 +40,13 @@ INSTALLED_APPS = [
     # Caution
     'django_extensions',
     
+    # Security
+    "corsheaders",
+    "order"
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -49,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'mall.middleware.DomainMiddleware',
 ]
 
 ROOT_URLCONF = 'setup.urls'
@@ -95,6 +101,41 @@ DATABASES = {
     },  
 }
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "https://rocktea-mall.vercel.app",
+    "https://rocktea-mall-api-test.up.railway.app",
+    "https://rocktea-mall-git-test-rockteamall.vercel.app"
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://rocktea-mall.vercel.app",
+    "https://rocktea-mall-api-test.up.railway.app"
+]
+
+CORS_ALLOW_CREDENTIALS: True
+
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
 # File Storage
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
@@ -103,13 +144,11 @@ CLOUDINARY_STORAGE = {
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {
-  # It will work instead of the default serializer(TokenObtainPairSerializer).
-  'USER_ID_FIELD': 'uid',
-  "TOKEN_OBTAIN_SERIALIZER": "mall.serializers.SignInAuthSerializers",
-  'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-  'REFRESH_TOKEN_LIFETIME': timedelta(days=14),
-  # ...
+    'USER_ID_FIELD': 'id',
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
 }
+
 
 
 REST_FRAMEWORK = {
@@ -118,15 +157,12 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
-    
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ]
 }
 
-JWT_AUTH = {
-    'JWT_SECRET_KEY': env("SECRET_KEY"),  # Use your project's secret key
-    'JWT_ALLOW_REFRESH': True,
-    'JWT_REFRESH_EXPIRATION_DELTA': datetime.timedelta(days=7),
-    'JWT_AUTH_HEADER_PREFIX': 'Bearer',
-}
 
 
 # Password validation
@@ -172,3 +208,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # AbstractUser
 AUTH_USER_MODEL="mall.CustomUser"
+
+# Paystack
+TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
+TEST_SECRET_KEY = env("TEST_SECRET_KEY")

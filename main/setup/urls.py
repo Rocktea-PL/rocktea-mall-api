@@ -16,15 +16,19 @@ Including another URLconf
 """
 
 from django.urls import path, include
+from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories
+from mall.views import CreateStoreOwner, GetCategories, CreateStore
 
 router = routers.DefaultRouter()
 router.register('storeowner', CreateStoreOwner, basename="user")
 router.register('categories', GetCategories, basename='categories')
+router.register('create/store', CreateStore, basename='create-store')
+
 
 
 urlpatterns = [
+    path('admin/', admin.site.urls),
     path('rocktea/', include(router.urls)),
     path('mall/', include("mall.urls"))
 ]
