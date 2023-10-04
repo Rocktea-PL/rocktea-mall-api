@@ -10,6 +10,7 @@ class StoreOwnerSerializer(ModelSerializer):
    class Meta:
       model=CustomUser
       fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
+      read_only_fields = ("username", "is_store_owner")
       
    def create(self, validated_data):
       # Extract password from validated_data
