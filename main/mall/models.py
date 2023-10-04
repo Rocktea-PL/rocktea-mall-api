@@ -68,21 +68,13 @@ class CustomUser(AbstractUser):
 
    def _generate_unique_username(self):
       return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
+   
    def __str__(self):
       return self.first_name
    
-class StoreDomainPaymentInfo(models.Model):
-   user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
-   amount_paid = models.CharField(max_length=10, editable=False)
-   one_time_payment_status = models.BooleanField(default=False)
-   payment_reference = models.CharField(max_length=30, unique=True)
-   
-   def __str__(self):
-      return "{self.user.first_name} {self.one_time_payment_status}"
-   
-
 
 class Store(models.Model):
+   id = models.CharField(max_length=36, default=uuid4, unique=True, db_index=True, primary_key=True)
    owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
    name = models.CharField(max_length=150, unique=True)
    email = models.EmailField(unique=True)
@@ -90,12 +82,41 @@ class Store(models.Model):
    logo = models.FileField(storage=RawMediaCloudinaryStorage)
    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator])
-   domain_name = models.CharField(max_length=100, unique=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
-   store_url = models.URLField(unique=True)
-
+   
+   class Meta:
+      # Add an index for the 'uid' field
+      indexes = [
+         models.Index(fields=['id'], name='store_id_idx'),
+      ]
+      
    def __str__(self):
       return self.name
+   
+
+class StoreActivationInfo(models.Model):
+   PAYMENT_STATUS = (
+      ('PD', 'Paid'),
+      ('UP', 'Unpaid'),
+   )
+   
+   DOMAIN_ACTIVATION_STATUS = (
+      ('ACTIVATED', 'ACTIVATED'),
+      ('DISACTIVATED', 'DISACTIVATED'),
+      ('UNPROCESSED', 'UNPROCESSED'),
+      ('UNDER-REVIEW', 'UNDER-REVIEW')
+   )
+   user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
+   store = models.OneToOneField(Store, on_delete=models.CASCADE)
+   chosen_domain_name = models.CharField(max_length=20, unique=True)
+   amount_paid = models.CharField(max_length=10, editable=False)
+   status = models.CharField(max_length=12, choices=DOMAIN_ACTIVATION_STATUS, default='UNPROCESSED')
+   payment_status = models.CharField(max_length=6, choices=PAYMENT_STATUS, default='UP')
+   payment_reference = models.CharField(max_length=30, unique=True)
+   
+   def __str__(self):
+      return f'{self.store.name} {self.domain_activation}'
+   
 
 
 

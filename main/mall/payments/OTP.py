@@ -1,4 +1,4 @@
-from mall.models import CustomUser, StoreDomainPaymentInfo
+from mall.models import CustomUser
 from django.http import HttpRequest
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -68,6 +68,7 @@ class StoreOTPPayment(APIView):
       else:
          raise ValueError("Invalid store owner user ID.")
 
+
 class VerifyPayment(APIView):
    def get(self, request):
       # Use QueryDict to get query parameters
@@ -88,3 +89,20 @@ class VerifyPayment(APIView):
       else:
          response_data = response.text
          return Response({"message": f'{response_data}'}, status=response.status_code)
+      
+   # def update_payment_info(self, user_id, nested_status):
+   #    user_id = request.data["user"]
+   #    user = get_user_model().objects.filter(id=user_id, is_store_owner=True, is_consumer=False).first()
+
+   #    if user:
+   #       if nested_status == "success":
+   #             # Assuming that StoreDomainPaymentInfo has a foreign key to CustomUser with name 'user'
+   #             domain_info = StoreDomainPaymentInfo.objects.get(user=user)
+   #             domain_info.one_time_payment_status = True
+   #             domain_info.save()
+   #             print("Paumen")
+   #             return Response({"message": "Payment Successful"}, status=status.HTTP_200_OK)
+   #       elif nested_status == "abandoned":
+   #             return Response({"message": "Payment Not Completed"}, status=status.HTTP_200_OK)
+   #    else:
+   #       return Response({"message": "Invalid user ID"}, status=status.HTTP_400_BAD_REQUEST)

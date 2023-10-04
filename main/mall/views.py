@@ -34,7 +34,3 @@ class SignInUserView(TokenObtainPairView):
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
    serializer_class = CategorySerializer #TODO Differ this based on user
-   
-
-
-   
