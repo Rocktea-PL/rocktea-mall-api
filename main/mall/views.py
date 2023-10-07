@@ -36,6 +36,7 @@ class CreateStore(viewsets.ModelViewSet):
       # You can override this method to add custom logic when updating the instance
       serializer.save()
 
+
 # Sign In Store User
 class SignInUserView(BaseView):
    required_post_fields = ["email", "password"]

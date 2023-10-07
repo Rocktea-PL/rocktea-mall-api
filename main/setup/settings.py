@@ -89,6 +89,7 @@ DATABASES = {
         'PASSWORD': env('T_DB_PASSWORD'), 
         'HOST': env('T_DB_HOST'),
         'PORT': env('T_DB_PORT'),
+        
     },
     
     'production': {
@@ -98,7 +99,16 @@ DATABASES = {
         'PASSWORD': env('DB_PASSWORD'),
         'HOST': env('DB_HOST'),
         'PORT': env('DB_PORT'),
-    },  
+    },
+    
+    'test': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'PGUSER': env('PGUSER'),
+        'PGHOST': env('PGHOST'),
+        'NAME': env('PGDATABASE'),
+        'PGPORT': env('PGPORT'),
+        'PGPASSWORD': env('PGPASSWORD'),
+    },
 }
 
 CORS_ALLOWED_ORIGINS = [
