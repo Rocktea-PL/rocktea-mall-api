@@ -53,20 +53,21 @@ class CreateStoreSerializer(ModelSerializer):
                raise serializers.ValidationError("Invalid Image format. Only PNG is allowed.")
       return value
 
-   def validate_category(self, value):
-      if value:
-         # Use a dictionary to cache fetched categories to optimize performance
-         category_cache = getattr(self, '_category_cache', {})
-         category = category_cache.get(value, None)
+   # def validate_category(self, value):
+   #    if value:
+   #    # Use a dictionary to cache fetched categories to optimize performance
+   #       category_cache = getattr(self, '_category_cache', {})
+   #       category = category_cache.get(value, None)
 
-         if category is None:
-               category = get_object_or_404(Category, id=value)
-               category_cache[value] = category
-               setattr(self, '_category_cache', category_cache)
+   #       if category is None:
+   #          # Assuming value is the category ID, not the whole Category object
+   #          category = get_object_or_404(Category, id=value)
+   #          category_cache[value] = category.id  # Save the category ID
+   #          setattr(self, '_category_cache', category_cache)
 
-         return category
-      return None
-   
+   #       return category.id  # Return the category ID
+   #    return None
+      
    def validate_owner(self, value):
       try:
          user = CustomUser.objects.get(is_store_owner=True, id=value)
@@ -74,8 +75,19 @@ class CreateStoreSerializer(ModelSerializer):
          raise serializers.ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
       return value
    
-         
+   def update(self, instance, validated_data):
+      # Update the fields of the existing instance with the validated data
+      instance.name = validated_data.get('name', instance.name)
+      instance.email = validated_data.get('email', instance.email)
+      instance.TIN_number = validated_data.get('TIN_number', instance.TIN_number)
+      instance.logo = validated_data.get('logo', instance.logo)
+      instance.year_of_establishment = validated_data.get('year_of_establishment', instance.year_of_establishment)
+      instance.category = validated_data.get('category', instance.category)
       
+      # save the updated instance
+      instance.save()
+      return instance
+   
 class SubCategorySerializer(ModelSerializer):
    class Meta:
       model = SubCategories

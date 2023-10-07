@@ -32,28 +32,11 @@ class CreateStore(viewsets.ModelViewSet):
       # Assign the current user to the 'owner' field
       serializer.save(owner=self.request.user)
       
-   # def put(self, request, *args, **kwargs):
-   #    instance = self.get_object()
-   #    serializer = self.get_serializer(instance, data=request.data, partial=True)
-   #    serializer.is_valid(raise_exception=True)
+   def perform_update(self, serializer):
+      # You can override this method to add custom logic when updating the instance
+      serializer.save()
 
-   #    # Check if 'category' is present in the request data and extract the ID
-   #    category_data = request.data.get('category', {})
-   #    category_id = category_data.get('id')
-
-   #    # Update the request data to only include the ID for the 'category' field
-   #    request.data['category'] = category_id
-
-   #    self.perform_update(serializer)
-
-   #    return Response(serializer.data)
-      
-   
-# Sign In Users
-# class SignInUserView(TokenObtainPairView):
-#    permission_classes = (permissions.AllowAny,)
-#    serializer_class = MyTokenObtainPairSerializer
-
+# Sign In Store User
 class SignInUserView(BaseView):
    required_post_fields = ["email", "password"]
    def post(self, request, format=None):
