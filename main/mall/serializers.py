@@ -5,6 +5,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from PIL import Image
 from rest_framework import status
+from rest_framework import serializers
+from django.shortcuts import get_object_or_404
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -36,24 +38,44 @@ class CreateStoreSerializer(ModelSerializer):
    class Meta:
       model = Store
       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category")
-   
+      read_only_fields = ("owner",)
+
    def validate_TIN_number(self, value):
       if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
          raise serializers.ValidationError("Invalid TIN number. It should be 9 characters long.")
       return value
-   
+
    def validate_logo(self, value):
+      # check the file extension
       if value:
-         try:
-               img = Image.open(value)
-               img_format = img.format.lower()
-               if img_format not in ['png', 'jpeg', 'jpg']:
-                  raise ValidationError("Invalid Image format. Only PNG and JPEG are allowed.")
-         except Exception as e:
-               raise ValidationError("Invalid image file. Please upload a valid image")
+         file_extension = value.name.split('.')[-1].lower()
+         if file_extension not in ['png']:
+               raise serializers.ValidationError("Invalid Image format. Only PNG is allowed.")
+      return value
+
+   def validate_category(self, value):
+      if value:
+         # Use a dictionary to cache fetched categories to optimize performance
+         category_cache = getattr(self, '_category_cache', {})
+         category = category_cache.get(value, None)
+
+         if category is None:
+               category = get_object_or_404(Category, id=value)
+               category_cache[value] = category
+               setattr(self, '_category_cache', category_cache)
+
+         return category
+      return None
+   
+   def validate_owner(self, value):
+      try:
+         user = CustomUser.objects.get(is_store_owner=True, id=value)
+      except CustomUser.DoesNotExist:
+         raise serializers.ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
       return value
    
-   
+         
+      
 class SubCategorySerializer(ModelSerializer):
    class Meta:
       model = SubCategories
