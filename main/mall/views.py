@@ -27,45 +27,49 @@ class CreateStore(viewsets.ModelViewSet):
    """
    queryset = Store.objects.all()
    serializer_class = CreateStoreSerializer
-
-   def perform_create(self, serializer):
-      # Assign the current user to the 'owner' field
-      serializer.save(owner=self.request.user)
+   
+   def get_serializer_context(self):
+      return {'request': self.request}
       
    def perform_update(self, serializer):
       # You can override this method to add custom logic when updating the instance
       serializer.save()
-
+ 
 
 # Sign In Store User
-class SignInUserView(BaseView):
-   required_post_fields = ["email", "password"]
-   def post(self, request, format=None):
-      res = super().post(request, format)
-      if res:
-         return res
+class SignInUserView(TokenObtainPairView):
+   permission_classes = (permissions.AllowAny,)
+   serializer_class = MyTokenObtainPairSerializer
+   
+   
+# class SignInUserView(BaseView):
+#    required_post_fields = ["email", "password"]
+#    def post(self, request, format=None):
+#       res = super().post(request, format)
+#       if res:
+#          return res
       
-      try:
-         user = CustomUser.objects.get(is_store_owner=True, email=request.data["email"])
-      except CustomUser.DoesNotExist:
-         raise serializers.ValidationError({"error": "User does not exist"})
+#       try:
+#          user = CustomUser.objects.get(is_store_owner=True, email=request.data["email"])
+#       except CustomUser.DoesNotExist:
+#          raise serializers.ValidationError({"error": "User does not exist"})
 
-      if user.check_password(raw_password=request.data["password"]):
-         token = RefreshToken.for_user(user)
-         print(token)
-         res = {
-               "code":200,
-               "message":"success",
-               # "user": jsonify_user(user),
-               "token":str(token.access_token),
-         }
-         return Response(res, 200)
-      else:
-         res = {
-               "code":400,
-               "message":"invalid credentials"
-         }
-         return Response(res, 400)
+#       if user.check_password(raw_password=request.data["password"]):
+#          token = RefreshToken.for_user(user)
+#          print(token)
+#          res = {
+#                "code":200,
+#                "message":"success",
+#                # "user": jsonify_user(user),
+#                "token":str(token.access_token),
+#          }
+#          return Response(res, 200)
+#       else:
+#          res = {
+#                "code":400,
+#                "message":"invalid credentials"
+#          }
+#          return Response(res, 400)
 
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):

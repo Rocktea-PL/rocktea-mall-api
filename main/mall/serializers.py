@@ -32,8 +32,8 @@ class StoreOwnerSerializer(ModelSerializer):
          user.save()
       return user
 
-
-
+   
+   
 class CreateStoreSerializer(ModelSerializer):
    class Meta:
       model = Store
@@ -52,23 +52,11 @@ class CreateStoreSerializer(ModelSerializer):
          if file_extension not in ['png']:
                raise serializers.ValidationError("Invalid Image format. Only PNG is allowed.")
       return value
-
-   # def validate_category(self, value):
-   #    if value:
-   #    # Use a dictionary to cache fetched categories to optimize performance
-   #       category_cache = getattr(self, '_category_cache', {})
-   #       category = category_cache.get(value, None)
-
-   #       if category is None:
-   #          # Assuming value is the category ID, not the whole Category object
-   #          category = get_object_or_404(Category, id=value)
-   #          category_cache[value] = category.id  # Save the category ID
-   #          setattr(self, '_category_cache', category_cache)
-
-   #       return category.id  # Return the category ID
-   #    return None
       
    def validate_owner(self, value):
+      if value is None:
+         return value  # If owner is None, no validation is needed
+
       try:
          user = CustomUser.objects.get(is_store_owner=True, id=value)
       except CustomUser.DoesNotExist:
@@ -76,17 +64,17 @@ class CreateStoreSerializer(ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-      # Update the fields of the existing instance with the validated data
-      instance.name = validated_data.get('name', instance.name)
-      instance.email = validated_data.get('email', instance.email)
-      instance.TIN_number = validated_data.get('TIN_number', instance.TIN_number)
-      instance.logo = validated_data.get('logo', instance.logo)
-      instance.year_of_establishment = validated_data.get('year_of_establishment', instance.year_of_establishment)
-      instance.category = validated_data.get('category', instance.category)
+         for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category"]:
+            setattr(instance, field, validated_data.get(field, getattr(instance, field)))
+         instance.save()
+         return instance
       
-      # save the updated instance
-      instance.save()
-      return instance
+   def create(self, validated_data):
+      owner =self.context['request'].user
+      # print(owner)
+      storeowner=Store.objects.create(owner=owner, **validated_data)
+      return storeowner
+   
    
 class SubCategorySerializer(ModelSerializer):
    class Meta:
@@ -127,7 +115,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             "email": self.user.email,
             "username":self.user.username,
             "contact": f"{self.user.contact}",
-            "is_volunteer": self.user.is_store_owner
+            "is_storeowner": self.user.is_store_owner
             }
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)

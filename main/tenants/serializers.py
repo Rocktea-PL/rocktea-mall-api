@@ -38,12 +38,12 @@ class UserLogin(TokenObtainPairSerializer):
    
    def validate(self, attrs):
       # Get Store
-      store_id = self.context['request'].query_params.get('store_id')
+      # store_id = self.context['request'].query_params.get('store_id')
       
-      try:
-         store = Store.objects.get(id=store_id)
-      except Store.DoesNotExist:
-         raise serializers.ValidationError({'error': 'Store not found'})
+      # try:
+      #    store = Store.objects.get(id=store_id)
+      # except Store.DoesNotExist:
+      #    raise serializers.ValidationError({'error': 'Store not found'})
       
       # Verify User
       data = super().validate(attrs)
