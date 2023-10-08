@@ -7,6 +7,7 @@ from PIL import Image
 from rest_framework import status
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
+from django.db import IntegrityError
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -71,9 +72,28 @@ class CreateStoreSerializer(ModelSerializer):
       
    def create(self, validated_data):
       owner =self.context['request'].user
-      # print(owner)
-      storeowner=Store.objects.create(owner=owner, **validated_data)
+      try:
+         storeowner = Store.objects.create(owner=owner, **validated_data)
+      except IntegrityError as e:
+         # Catch the IntegrityError and customize the error message
+         if 'duplicate key' in str(e).lower():
+               raise ValidationError("You already have a store. Only one store per user is allowed.")
+         else:
+               raise e
+            
       return storeowner
+   
+   def get_owner(self, value):
+      if value:
+         try:
+            owner = CustomUser.objects.get(is_store_owner=True, id=value)
+         except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("User Does Not Exist or Is Not a Store Owner")
+         return value
+      if Store.objects.filter(owner=owner).exists:
+         raise serializers.ValidationError("Sorry you have a store already")
+      return serializers.ValidationError("Provide User")
+         
    
    
 class SubCategorySerializer(ModelSerializer):
