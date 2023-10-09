@@ -224,6 +224,9 @@ class SubCategories(models.Model):
    
    def __str__(self):
       return self.name
+   
+class ProductTypes(models.Model):
+   pass
 
 
 class Brand(models.Model):
