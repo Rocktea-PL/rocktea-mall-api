@@ -58,6 +58,12 @@ jobs:
       run: |
           echo "TEST_PUBLIC_KEY=${{ secrets.TEST_PUBLIC_KEY }}" >> $GITHUB_ENV
           echo "TEST_SECRET_KEY=${{ secrets.TEST_SECRET_KEY }}" >> $GITHUB_ENV
+
+    - name:  Redis Config
+      run: |
+        echo "REDISHOST=${{ secrets.REDISHOST }}" >> $GITHUB_ENV
+        echo "REDISPORT=${{ secrets.REDISPORT }}" >> $GITHUB_ENV
+        echo "REDISPASSWORD=${{ secrets.REDISPASSWORD }}" >> $GITHUB_ENV
         
     - name: Run Tests
       run: |

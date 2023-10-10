@@ -1,6 +1,5 @@
-from .models import CustomUser, Store
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import CustomUser, Store, Category, SubCategories
+from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from PIL import Image
@@ -8,6 +7,7 @@ from rest_framework import status
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
+from django.core.cache import cache
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -33,6 +33,28 @@ class StoreOwnerSerializer(ModelSerializer):
          user.save()
       return user
 
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+   @classmethod
+   def get_token(cls, user):
+      token = super().get_token(user)
+      token['email'] = user.email
+      return token
+   
+   def validate(self, attrs):
+      data = super().validate(attrs)
+      data['user_data'] = {
+            "id": self.user.id,
+            "first_name": self.user.first_name,
+            "last_name": self.user.last_name,
+            "email": self.user.email,
+            "username":self.user.username,
+            "contact": f"{self.user.contact}",
+            "is_storeowner": self.user.is_store_owner
+            }
+      refresh = self.get_token(self.user)
+      data["refresh"] = str(refresh)
+      data["access"] = str(refresh.access_token)
+      return data
    
    
 class CreateStoreSerializer(ModelSerializer):
@@ -93,55 +115,83 @@ class CreateStoreSerializer(ModelSerializer):
       if Store.objects.filter(owner=owner).exists:
          raise serializers.ValidationError("Sorry you have a store already")
       return serializers.ValidationError("Provide User")
-         
    
    
-class SubCategorySerializer(ModelSerializer):
+
+class SizeSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = Size
+      fields = '__all__'
+
+class PriceSerializer(serializers.ModelSerializer):
+   
+
+   class Meta:
+      model = Price
+      fields = ['size', 'price']
+
+class BrandSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = Brand
+      fields = '__all__'
+
+class SubCategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = SubCategories
-      fields = ["id", "name"]
+      fields = '__all__'
 
-
-class CategorySerializer(ModelSerializer):
-   subcategories = SubCategorySerializer(many=True, read_only=True)
-   category_name = ReadOnlyField(source='name')
-   
+class CategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = Category
-      fields = "__all__"
+      fields = '__all__'
+
+class ProductTypesSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductTypes
+      fields = '__all__'
+
+class ProductSerializer(serializers.ModelSerializer):
+   category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
+   sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
+   subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
+   brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
+   
+   class Meta:
+      model = Product
+      fields = ['sn', 'sku', 'name', 'description', 'quantity', 'color', 
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images']
+   
    
    def to_representation(self, instance):
-      data = super(CategorySerializer, self).to_representation(instance)
-      return {
-            "category_id": instance.id,
-            "category_name": data["category_name"],
-            "subcategories": data["subcategories"]
-      }
+      cache_key = f"product_data_{instance.id}"
+      cached_data = cache.get(cache_key)
       
+      if cached_data is not None:
+         return cached_data
+      
+      representation = super(ProductSerializer, self).to_representation(instance)
+      representation['created_at'] = instance.formatted_created_at()
+      
+      if representation['description'] is None:
+         del representation['description']
+         
+      if representation['images'] is None:
+         del representation['images']
+      
+      representation['sizes'] = [{"id": sizes.id, "name": sizes.name} 
+                                 for sizes in instance.sizes.all()]
+      
+      representation['brand'] = {"id": instance.brand.id,
+                                 "name": instance.brand.name}
+      
+      representation['category'] = {"id": instance.category.id,
+                                 "name": instance.category.name}
+      
+      representation['subcategory'] = {"id": instance.subcategory.id,
+                                       "name": instance.subcategory.name}
+      
+      representation['images'] = [{"url": prod.image.url} 
+                                 for prod in instance.images.all()]
 
-class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-   @classmethod
-   def get_token(cls, user):
-      token = super().get_token(user)
-      token['email'] = user.email
-      return token
-   
-   def validate(self, attrs):
-      data = super().validate(attrs)
-      data['user_data'] = {
-            "id": self.user.id,
-            "first_name": self.user.first_name,
-            "last_name": self.user.last_name,
-            "email": self.user.email,
-            "username":self.user.username,
-            "contact": f"{self.user.contact}",
-            "is_storeowner": self.user.is_store_owner
-            }
-      refresh = self.get_token(self.user)
-      data["refresh"] = str(refresh)
-      data["access"] = str(refresh.access_token)
-      return data
-   
-# TODO Create Sign Up and Registrationn Logic for Users
-
-
+      cache.set(cache_key, representation, timeout=60 * 10) #Cache product data for 10 mins
+      return representation

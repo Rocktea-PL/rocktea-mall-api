@@ -116,8 +116,6 @@ class StoreActivationInfo(models.Model):
    
    def __str__(self):
       return f'{self.store.name} {self.domain_activation}'
-   
-
 
 
 class Product(models.Model):
@@ -165,22 +163,34 @@ class Product(models.Model):
       ("Rejected", "Rejected")
    )
 
-   sn = models.IntegerField(unique=True)
-   sku = models.CharField(max_length=8, unique=True)
+   sn = models.CharField(max_length=5, unique=True, blank=True)
+   sku = models.CharField(max_length=8, unique=True, blank=True)
    name = models.CharField(max_length=50)
+   description = models.TextField(null=True)
    quantity = models.IntegerField()
-   color = models.CharField(choices=COLORS, max_length=9)
+   color = models.CharField(choices=COLORS, max_length=9, null=True, blank=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
    subcategory = models.ForeignKey('SubCategories', on_delete=models.CASCADE, null=True)
    brand = models.ForeignKey('Brand', on_delete=models.CASCADE, null=True)
-   is_available = models.BooleanField(default=True)
-   created_at=models.DateTimeField(auto_created=True, null=True)
+   created_at=models.DateTimeField(auto_now_add=True, null=True)
    on_promo = models.BooleanField(default=False)
-   upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True)
+   is_available = models.BooleanField(default=True)
+   upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True, default="Pending")
+   sizes = models.ManyToManyField('Size', through='Price')
+   images = models.ManyToManyField('ProductImage')
+   
+   class Meta:
+      # Add an index for the 'uid' field
+      indexes = [
+         models.Index(fields=['sn'], name='product_sn_snx'),
+         models.Index(fields=['sku'], name='product_sku_skux'),
+      ]
+      
+   
    
    def formatted_created_at(self):
       # Format the created_at field as "YMD, Timestamp"
-      return self.created_at.strftime("%Y-%m-%d, %H:%M:%S")
+      return self.created_at.strftime("%Y-%m-%d, %H:%M%p")
    
    def save(self, *args, **kwargs):
       if not self.sn:
@@ -190,10 +200,19 @@ class Product(models.Model):
       return super().save(*args, **kwargs)
    
    def _generate_sku(self):
-      return "".join(random.choices(string.ascii_uppercase + string.digits + string.ascii_lowercase, k=8))
+      return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
       
    def __str__(self):
       return self.sn
+
+
+class ProductImage(models.Model):
+   image = models.FileField(storage=RawMediaCloudinaryStorage)
+   
+   class Meta:
+      indexes = [
+         models.Index(fields=['image'], name='product_images_imagesx')
+      ]
 
 
 class Category(models.Model):
@@ -214,27 +233,80 @@ class Category(models.Model):
    )
    name = models.CharField(choices=CHOICES, unique=True, max_length=18)
    
+   class Meta:
+      indexes = [
+         models.Index(fields=['name'], name='category_name_namex')
+      ]
+   
    def __str__(self):
       return self.name
 
 
 class SubCategories(models.Model):
-   category = models.ForeignKey(Category, related_name="subcategories", on_delete=models.CharField)
+   category = models.ForeignKey(Category, related_name="subcategories", on_delete=models.CASCADE)
    name = models.CharField(max_length=30)
    
+   class Meta:
+      indexes = [
+         models.Index(fields=['name'], name='subcategories_name_namex')
+      ]
+   
    def __str__(self):
       return self.name
    
-class ProductTypes(models.Model):
-   pass
 
+class ProductTypes(models.Model):
+   subcategory = models.ForeignKey(SubCategories, related_name="producttypes", on_delete=models.CASCADE)
+   name = models.CharField(max_length=100, unique=True)
+   
+   class Meta:
+      indexes = [
+         models.Index(fields=['name'], name='producttypes_name_namex')
+      ]
+   
+   def __str__(self):
+      return self.name
+   
 
 class Brand(models.Model):
-   subcategory = models.ManyToManyField(SubCategories)
+   producttype = models.ManyToManyField(ProductTypes)
    name = models.CharField(max_length=25, unique=True)
+   
+   class Meta:
+      indexes = [
+         models.Index(fields=['name'], name='brand_name_namex')
+      ]
+   
    
    def __str__(self):
       return self.name
+   
+
+class Size(models.Model):
+   name = models.CharField(max_length=10, null=True, blank=True)
+   
+   class Meta:
+      indexes = [
+         models.Index(fields=['name'], name='size_name_namex')
+      ]
+   
+   def __str__(self):
+      return self.name
+
+
+class Price(models.Model):
+   product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
+   size = models.ForeignKey('Size', on_delete=models.CASCADE, null=True)
+   price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+   
+   class Meta:
+      indexes = [
+         models.Index(fields=['price'], name='price_price_pricex')
+      ]
+   
+   def __str__(self):
+      return f"{self.product.name} {self.size.name} - {self.price}"
+   
    
 class AccountDetails(models.Model):
    user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)

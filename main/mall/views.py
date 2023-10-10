@@ -1,6 +1,10 @@
 from rest_framework import viewsets
-from .serializers import StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer
-from .models import CustomUser, Category, Store, Product
+
+from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
+                           MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
+                           PriceSerializer, SizeSerializer)
+
+from .models import CustomUser, Category, Store, Product, Size, Price
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
@@ -41,35 +45,20 @@ class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
    serializer_class = MyTokenObtainPairSerializer
    
-   
-# class SignInUserView(BaseView):
-#    required_post_fields = ["email", "password"]
-#    def post(self, request, format=None):
-#       res = super().post(request, format)
-#       if res:
-#          return res
-      
-#       try:
-#          user = CustomUser.objects.get(is_store_owner=True, email=request.data["email"])
-#       except CustomUser.DoesNotExist:
-#          raise serializers.ValidationError({"error": "User does not exist"})
 
-#       if user.check_password(raw_password=request.data["password"]):
-#          token = RefreshToken.for_user(user)
-#          print(token)
-#          res = {
-#                "code":200,
-#                "message":"success",
-#                # "user": jsonify_user(user),
-#                "token":str(token.access_token),
-#          }
-#          return Response(res, 200)
-#       else:
-#          res = {
-#                "code":400,
-#                "message":"invalid credentials"
-#          }
-#          return Response(res, 400)
+class ProductViewSet(viewsets.ModelViewSet):
+   queryset = Product.objects.all()
+   serializer_class = ProductSerializer
+
+
+class SizeViewSet(viewsets.ModelViewSet):
+   queryset = Size.objects.all()
+   serializer_class = SizeSerializer
+
+
+class PriceViewSet(viewsets.ModelViewSet):
+   queryset = Price.objects.all()
+   serializer_class = PriceSerializer
 
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):

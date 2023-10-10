@@ -173,6 +173,22 @@ REST_FRAMEWORK = {
     ]
 }
 
+REDIS_HOST = env("REDISHOST")
+REDIS_PORT = env("REDISPORT")
+REDIS_PASSWORD = env("REDISPASSWORD")
+
+# settings.py
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
+        "OPTIONS": {
+            "PASSWORD": REDIS_PASSWORD,
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
 
 
 # Password validation
@@ -222,3 +238,4 @@ AUTH_USER_MODEL="mall.CustomUser"
 # Paystack
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
+
