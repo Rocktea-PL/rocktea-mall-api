@@ -123,32 +123,36 @@ class SizeSerializer(serializers.ModelSerializer):
       model = Size
       fields = '__all__'
 
-class PriceSerializer(serializers.ModelSerializer):
-   
 
+class PriceSerializer(serializers.ModelSerializer):
    class Meta:
       model = Price
       fields = ['size', 'price']
+
 
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
       model = Brand
       fields = '__all__'
 
+
 class SubCategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = SubCategories
       fields = '__all__'
+
 
 class CategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = Category
       fields = '__all__'
 
+
 class ProductTypesSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductTypes
       fields = '__all__'
+
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())

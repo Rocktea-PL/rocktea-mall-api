@@ -92,7 +92,9 @@ class Store(models.Model):
       
    def __str__(self):
       return self.name
-   
+
+
+
 
 class StoreActivationInfo(models.Model):
    PAYMENT_STATUS = (
@@ -214,6 +216,8 @@ class ProductImage(models.Model):
          models.Index(fields=['image'], name='product_images_imagesx')
       ]
 
+# class MarketPlace(models.Model):
+#    store = models.
 
 class Category(models.Model):
    CHOICES = (

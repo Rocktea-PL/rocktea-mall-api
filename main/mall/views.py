@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework import serializers
 from helpers.views import BaseView
 from rest_framework_simplejwt.tokens import RefreshToken
-
+from rest_framework.views import APIView
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
    """
@@ -64,3 +64,23 @@ class PriceViewSet(viewsets.ModelViewSet):
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
    serializer_class = CategorySerializer #TODO Differ this based on user
+
+
+class Check(APIView):
+    def get(self, request, *args, **kwargs):
+      # Collect and check user's existence
+      user_id = request.data.get("user")
+      
+      try:
+         user = CustomUser.objects.get(is_store_owner=True, id=user_id)
+      except CustomUser.DoesNotExist:
+         raise serializers.ValidationError("User Does Not Exist")
+      
+      # Check User Store
+      try:
+         store = Store.objects.get(owner=user)
+         has_store = True
+      except Store.DoesNotExist:
+         has_store = False
+
+      return Response({"has_store": has_store}, status=status.HTTP_200_OK)
