@@ -33,6 +33,7 @@ class StoreOwnerSerializer(ModelSerializer):
          user.save()
       return user
 
+
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    @classmethod
    def get_token(cls, user):
@@ -42,6 +43,19 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    
    def validate(self, attrs):
       data = super().validate(attrs)
+      user_id = self.user.id
+      
+      try:
+         user = CustomUser.objects.get(is_store_owner=True, id=user_id)
+      except CustomUser.DoesNotExist:
+         raise serializers.ValidationError("User Does Not Exist")
+      
+      try:
+         store = Store.objects.get(owner=user)
+         has_store = True
+      except Store.DoesNotExist:
+         has_store = False
+      
       data['user_data'] = {
             "id": self.user.id,
             "first_name": self.user.first_name,
@@ -49,14 +63,16 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             "email": self.user.email,
             "username":self.user.username,
             "contact": f"{self.user.contact}",
-            "is_storeowner": self.user.is_store_owner
+            "is_storeowner": self.user.is_store_owner,
+            "has_store": has_store
             }
+      
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
       return data
-   
-   
+
+
 class CreateStoreSerializer(ModelSerializer):
    class Meta:
       model = Store
@@ -102,7 +118,7 @@ class CreateStoreSerializer(ModelSerializer):
                raise ValidationError("You already have a store. Only one store per user is allowed.")
          else:
                raise e
-            
+      
       return storeowner
    
    def get_owner(self, value):
@@ -115,8 +131,7 @@ class CreateStoreSerializer(ModelSerializer):
       if Store.objects.filter(owner=owner).exists:
          raise serializers.ValidationError("Sorry you have a store already")
       return serializers.ValidationError("Provide User")
-   
-   
+
 
 class SizeSerializer(serializers.ModelSerializer):
    class Meta:

@@ -28,7 +28,7 @@ router.register('create/store', CreateStore, basename='create-store')
 router.register('signup/user', TenantSignUp, basename="signup-tenant")
 router.register('products', ProductViewSet, basename='products')
 router.register('sizes', SizeViewSet, basename='product-size')
-router.register('prices', PriceViewSet, basename='product-size')
+router.register(r'prices', PriceViewSet, basename='product-size')
 
 
 urlpatterns = [
