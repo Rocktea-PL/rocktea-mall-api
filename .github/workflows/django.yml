@@ -64,7 +64,7 @@ jobs:
         echo "REDISHOST=${{ secrets.REDISHOST }}" >> $GITHUB_ENV
         echo "REDISPORT=${{ secrets.REDISPORT }}" >> $GITHUB_ENV
         echo "REDISPASSWORD=${{ secrets.REDISPASSWORD }}" >> $GITHUB_ENV
-        
+        echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> $GITHUB_ENV
     - name: Run Tests
       run: |
         python manage.py test

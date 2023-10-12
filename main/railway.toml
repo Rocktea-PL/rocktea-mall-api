@@ -1,0 +1,6 @@
+[build]
+builder = "nixpacks"
+buildCommand = "echo building!"
+
+[deploy]
+startCommand = "gunicorn setup.wsgi --log-file - && celery -A setup worker -l INFO"

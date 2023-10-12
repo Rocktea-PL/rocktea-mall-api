@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes
+from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from PIL import Image
@@ -8,6 +8,8 @@ from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
+from setup.celery import app
+
 
 class StoreOwnerSerializer(ModelSerializer):
    class Meta:
@@ -76,7 +78,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 class CreateStoreSerializer(ModelSerializer):
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain")
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):
@@ -169,6 +171,12 @@ class ProductTypesSerializer(serializers.ModelSerializer):
       fields = '__all__'
 
 
+class ProductImageSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductImage
+      fields = '__all__'
+
+
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
    sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
@@ -177,12 +185,12 @@ class ProductSerializer(serializers.ModelSerializer):
    
    class Meta:
       model = Product
-      fields = ['sn', 'sku', 'name', 'description', 'quantity', 'color', 
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 'color', 
                'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images']
-   
+      read_only_fields = ('id', "sku",)
    
    def to_representation(self, instance):
-      cache_key = f"product_data_{instance.id}"
+      cache_key = f"product_data_{instance.sku}"
       cached_data = cache.get(cache_key)
       
       if cached_data is not None:
@@ -197,7 +205,7 @@ class ProductSerializer(serializers.ModelSerializer):
       if representation['images'] is None:
          del representation['images']
       
-      representation['sizes'] = [{"id": sizes.id, "name": sizes.name} 
+      representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available":sizes.available} 
                                  for sizes in instance.sizes.all()]
       
       representation['brand'] = {"id": instance.brand.id,

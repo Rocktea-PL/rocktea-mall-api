@@ -176,6 +176,7 @@ REST_FRAMEWORK = {
 REDIS_HOST=env("REDISHOST")
 REDIS_PORT=env("REDISPORT")
 REDIS_PASSWORD=env("REDISPASSWORD")
+REDIS_URL=env("REDIS_URL")
 
 # settings.py
 CACHES = {
@@ -238,4 +239,7 @@ AUTH_USER_MODEL="mall.CustomUser"
 # Paystack
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
+
+# Celery settings
+
 

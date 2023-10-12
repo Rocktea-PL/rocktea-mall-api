@@ -83,6 +83,7 @@ class Store(models.Model):
    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator])
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
+   associated_domain = models.CharField(max_length=15, null=True)
    
    class Meta:
       # Add an index for the 'uid' field
@@ -164,8 +165,8 @@ class Product(models.Model):
       ("Pending", "Pending"),
       ("Rejected", "Rejected")
    )
-
-   sn = models.CharField(max_length=5, unique=True, blank=True)
+   
+   id = models.CharField(max_length=36, default=uuid4, unique=True, primary_key=True)
    sku = models.CharField(max_length=8, unique=True, blank=True)
    name = models.CharField(max_length=50)
    description = models.TextField(null=True)
@@ -184,19 +185,17 @@ class Product(models.Model):
    class Meta:
       # Add an index for the 'uid' field
       indexes = [
-         models.Index(fields=['sn'], name='product_sn_snx'),
+         # models.Index(fields=[''], name='serial_number_serial_numberx'),
          models.Index(fields=['sku'], name='product_sku_skux'),
       ]
       
-   
-   
    def formatted_created_at(self):
       # Format the created_at field as "YMD, Timestamp"
       return self.created_at.strftime("%Y-%m-%d, %H:%M%p")
    
    def save(self, *args, **kwargs):
-      if not self.sn:
-         self.sn = generate_unique_code()
+      # if not self.serial_number:
+      #    self.serial_number = generate_unique_code()
       if not self.sku:
          self.sku = self._generate_sku()
       return super().save(*args, **kwargs)
@@ -288,6 +287,7 @@ class Brand(models.Model):
 
 class Size(models.Model):
    name = models.CharField(max_length=10, null=True, blank=True)
+   available = models.BooleanField(default=False)
    
    class Meta:
       indexes = [
@@ -302,16 +302,16 @@ class Price(models.Model):
    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
    size = models.ForeignKey('Size', on_delete=models.CASCADE, null=True)
    price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
-   
+
    class Meta:
       indexes = [
          models.Index(fields=['price'], name='price_price_pricex')
       ]
-   
+
    def __str__(self):
       return f"{self.product.name} {self.size.name} - {self.price}"
-   
-   
+
+
 class AccountDetails(models.Model):
    user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
    account_name = models.CharField(max_length=300)

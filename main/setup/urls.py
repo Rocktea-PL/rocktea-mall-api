@@ -18,7 +18,7 @@ Including another URLconf
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, SizeViewSet, PriceViewSet 
+from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, SizeViewSet, PriceViewSet, UploadProductImage
 from tenants.views import TenantSignUp
 
 router = routers.DefaultRouter()
@@ -29,6 +29,7 @@ router.register('signup/user', TenantSignUp, basename="signup-tenant")
 router.register('products', ProductViewSet, basename='products')
 router.register('sizes', SizeViewSet, basename='product-size')
 router.register(r'prices', PriceViewSet, basename='product-size')
+# router.register('upload-image', UploadProductImage, basename="product-image")
 
 
 urlpatterns = [
