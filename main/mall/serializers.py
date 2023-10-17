@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage
+from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage, MarketPlace
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from PIL import Image
@@ -186,7 +186,7 @@ class ProductSerializer(serializers.ModelSerializer):
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 'color', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images']
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images', ]
       read_only_fields = ('id', "sku",)
    
    def to_representation(self, instance):
@@ -219,6 +219,74 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['images'] = [{"url": prod.image.url} 
                                  for prod in instance.images.all()]
+      
+      # representation['listed'] = [instance.list_product]
 
-      cache.set(cache_key, representation, timeout=60 * 10) #Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout= 60 * 10) #Cache product data for 10 mins
       return representation
+   
+   
+   
+   # serializers.py
+class MarketPlaceSerializer(serializers.ModelSerializer):
+   store = serializers.UUIDField(source='store_id', read_only=True)  # Add this line
+
+   class Meta:
+      model = MarketPlace
+      fields = ("id", "store", "product")
+      
+      
+   def create(self, validated_data):
+      product_id = validated_data["product"]
+      product = get_object_or_404(Product, id=product_id)
+      # product.list_product = True
+      product.save()
+
+      store_id = self.context['request'].query_params.get('store')
+      try:
+         store = Store.objects.get(id=store_id)
+      except Store.DoesNotExist:
+         raise ValidationError(f'Store {store_id} does not exist.')
+
+      validated_data['store'] = store  # Set the store field in validated_data
+
+      # Create the MarketPlace instance
+      instance = MarketPlace.objects.create(**validated_data, list_product=True)
+      return instance
+
+   def to_representation(self, instance):
+      representation = super(MarketPlaceSerializer, self).to_representation(instance)
+      representation['store'] = instance.store.name
+      representation['product'] = instance.product.name
+      representation['listed'] = instance.list_product
+      return representation
+   
+   
+# class MarketPlaceSerializer(serializers.ModelSerializer):
+#    class Meta:
+#       model = MarketPlace
+#       fields = ("id", "store", "product")
+
+#    def create(self, validated_data):
+#       # Retrieve the product instance and modify it
+#       product_id = validated_data["product"]
+#       product = get_object_or_404(Product, id=product_id)
+#       product.list_product = True  # Assuming 'list_product' is a boolean field
+#       product.save()
+
+#       store_id = self.context['request'].query_params.get('store')
+#       try:
+#          store = Store.objects.get(id=store_id)
+#       except Store.DoesNotExist:
+#          raise ValidationError(f'Store {store_id} does not exist.')
+
+#       # Create the MarketPlace instance
+#       instance = MarketPlace.objects.create(list_product=True, store=store, **validated_data)
+#       return instance
+   
+#    def to_representation(self, instance):
+#       representation = super(MarketPlaceSerializer, self).to_representation(instance)
+#       representation['store'] = instance.store.name
+#       representation['product'] = instance.product.name
+#       representation['listed'] = instance.list_product
+#       return representation

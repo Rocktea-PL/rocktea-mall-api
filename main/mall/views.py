@@ -2,9 +2,9 @@ from rest_framework import viewsets
 
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           PriceSerializer, SizeSerializer, ProductImageSerializer)
+                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer)
 
-from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage
+from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage, MarketPlace
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
@@ -19,6 +19,7 @@ from django.db import transaction
 from rest_framework.generics import ListCreateAPIView
 from .task import upload_image
 from rest_framework.parsers import MultiPartParser
+from django.shortcuts import get_object_or_404
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -104,3 +105,57 @@ class UploadProductImage(ListCreateAPIView):
                return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
 
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
+   
+   
+class MarketPlaceView(viewsets.ModelViewSet):
+   serializer_class = MarketPlaceSerializer
+
+   def get_queryset(self):
+      store_id = self.request.query_params.get("store")
+
+      try:
+         store = get_object_or_404(Store, id=store_id)
+         # Filter the queryset based on the specified store and list_product=True
+         queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product')
+
+         return queryset
+      except Store.DoesNotExist:
+         return MarketPlace.objects.none()
+
+   def list(self, request, *args, **kwargs):
+      queryset = self.get_queryset()
+      serializer = MarketPlaceSerializer(queryset, many=True, context={'request': request})
+
+      related_products = []
+
+      for item in serializer.data:
+         product_name = item['product']
+         product_data = self.get_product_data(product_name)
+
+         # Construct the related_products list
+         related_products.append({
+               'id': item['id'],
+               'store': item['store'],
+               'product': product_name,
+               'listed': item['listed'],
+               'color': product_data.get('color'),
+               'description': product_data.get('description'),
+               'id': product_data.get('id')
+               # Add more fields as needed
+         })
+
+      return Response(related_products, status=status.HTTP_200_OK)
+
+   def get_product_data(self, product_name):
+      # Filter the queryset based on the product name
+      product_queryset = Product.objects.filter(name=product_name)
+
+      # Retrieve the first product (if exists) and get the required fields
+      product_data = product_queryset.first()
+      color = product_data.color if product_data else None
+      description = product_data.description if product_data else None
+      id = product_data.id if product_data else None
+
+      return {'color': color, 'description': description, 'id': id}
+
+      

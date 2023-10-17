@@ -78,7 +78,7 @@ class Store(models.Model):
    owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
    name = models.CharField(max_length=150, unique=True)
    email = models.EmailField(unique=True)
-   TIN_number = models.IntegerField()
+   TIN_number = models.BigIntegerField()
    logo = models.FileField(storage=RawMediaCloudinaryStorage)
    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator])
@@ -181,6 +181,8 @@ class Product(models.Model):
    upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True, default="Pending")
    sizes = models.ManyToManyField('Size', through='Price')
    images = models.ManyToManyField('ProductImage')
+   store = models.ManyToManyField('Store')
+   # list_product = models.BooleanField(default=False)
    
    class Meta:
       # Add an index for the 'uid' field
@@ -204,7 +206,7 @@ class Product(models.Model):
       return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
       
    def __str__(self):
-      return self.sn
+      return self.id
 
 
 class ProductImage(models.Model):
@@ -326,3 +328,24 @@ class Wallet(models.Model):
    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
    pending_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
    paid = models.BooleanField(default=False)
+
+
+# TODO Implement Cart and WishList Feature After MarketPlace
+class Cart(models.Model):
+   user = models.ForeignKey(CustomUser, limit_choices_to={"is_consumer":True}, on_delete=models.CASCADE)
+   product = models.ForeignKey(Product, on_delete=models.CASCADE)
+   quantity = models.PositiveIntegerField(default=1)
+
+
+class Wishlist(models.Model):
+   user = models.ForeignKey(CustomUser, limit_choices_to={"is_consumer":True}, on_delete=models.CASCADE)
+   product = models.ForeignKey(Product, on_delete=models.CASCADE)
+
+
+class MarketPlace(models.Model):
+   store=models.ForeignKey(Store, on_delete=models.CASCADE)
+   product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True)
+   list_product = models.BooleanField(default=True)
+   
+   def __str__(self):
+      return self.store.name
