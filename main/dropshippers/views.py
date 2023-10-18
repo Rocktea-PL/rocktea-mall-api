@@ -15,10 +15,6 @@ class MyProducts(ListAPIView):
       # Verify category using get_list_or_404
       verified_category = get_list_or_404(Category, id=category)
       
+      # Filter Product By Catgery
       queryset = Product.objects.filter(category__in=verified_category)
       return queryset
-   
-   
-   #verify category
-      # verified_category = get_object_or_404(Category, id=category)
-      # print("verified category" + verified_category)

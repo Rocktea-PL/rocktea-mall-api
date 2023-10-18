@@ -190,7 +190,7 @@ class ProductSerializer(serializers.ModelSerializer):
       read_only_fields = ('id', "sku")
    
    def to_representation(self, instance):
-      cache_key = f"product_data_{instance.sku}"
+      cache_key = f"product_data_{instance.name}"
       cached_data = cache.get(cache_key)
       
       if cached_data is not None:

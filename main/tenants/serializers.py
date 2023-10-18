@@ -73,7 +73,7 @@ class UserLogin(TokenObtainPairSerializer):
                'store_data': {
                   "store": store.name,
                   "id": store.id,
-                  "category": store.category.id
+                  # "category": store.category.id
                },
          }
 
