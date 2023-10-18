@@ -95,8 +95,6 @@ class Store(models.Model):
       return self.name
 
 
-
-
 class StoreActivationInfo(models.Model):
    PAYMENT_STATUS = (
       ('PD', 'Paid'),
