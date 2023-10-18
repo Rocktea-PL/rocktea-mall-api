@@ -72,7 +72,8 @@ class UserLogin(TokenObtainPairSerializer):
                "is_store_owner": self.user.is_store_owner,
                'store_data': {
                   "store": store.name,
-                  "id": store.id
+                  "id": store.id,
+                  "category": store.category.id
                },
          }
 

@@ -187,7 +187,7 @@ class ProductSerializer(serializers.ModelSerializer):
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 'color', 
                'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images', ]
-      read_only_fields = ('id', "sku",)
+      read_only_fields = ('id', "sku")
    
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.sku}"

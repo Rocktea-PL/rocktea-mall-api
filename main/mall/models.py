@@ -170,7 +170,7 @@ class Product(models.Model):
    description = models.TextField(null=True)
    quantity = models.IntegerField()
    color = models.CharField(choices=COLORS, max_length=9, null=True, blank=True)
-   category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
+   category = models.ForeignKey('Category', related_name="category", on_delete=models.CASCADE, null=True)
    subcategory = models.ForeignKey('SubCategories', on_delete=models.CASCADE, null=True)
    brand = models.ForeignKey('Brand', on_delete=models.CASCADE, null=True)
    created_at=models.DateTimeField(auto_now_add=True, null=True)
