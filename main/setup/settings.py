@@ -113,6 +113,7 @@ DATABASES = {
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "http://localhost:5173",
+    "http://localhost:5174",
     "https://rocktea-mall.vercel.app",
     "https://rocktea-mall-api-test.up.railway.app",
     "https://rocktea-mall-git-test-rockteamall.vercel.app"
