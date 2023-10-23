@@ -8,15 +8,19 @@ from django.shortcuts import get_object_or_404
 
 class OrderSerializer(serializers.ModelSerializer):
    class Meta:
-      models = Order
-      fields = ['buyer', 'store', 'total_price']
+      model = Order
+      fields = ['buyer', 'store', 'shipping_address']
       read_only_fields = ['id', 'created_at']
       
-   def validate_store(self, value):
-      if store:
-         store = get_object_or_404(Store, id=value)
-         return store
+   # def validate_store(self, value):
+   #    if store:
+   #       store = get_object_or_404(Store, id=value)
+   #       return store
    
-   def validate_buyer(self, value):
-      return get_object_or_404(CustomUser, id=value)
+   # def validate_buyer(self, value):
+   #    return get_object_or_404(CustomUser, id=value)
       
+class OrderItemSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = OrderItems
+      fields = "__all__"

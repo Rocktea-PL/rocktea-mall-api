@@ -230,7 +230,6 @@ class ProductSerializer(serializers.ModelSerializer):
    # serializers.py
 class MarketPlaceSerializer(serializers.ModelSerializer):
    store = serializers.UUIDField(source='store_id', read_only=True)  # Add this line
-
    class Meta:
       model = MarketPlace
       fields = ("id", "store", "product")
@@ -256,37 +255,24 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
    def to_representation(self, instance):
       representation = super(MarketPlaceSerializer, self).to_representation(instance)
-      representation['store'] = instance.store.name
-      representation['product'] = instance.product.name
+      representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      representation['product'] = {
+         "id": instance.product.id,
+         "name": instance.product.name,
+         "color": instance.product.color,
+         "size": self.serialize_product_sizes(instance.product.sizes.all()),
+         "images": self.serialize_product_images(instance.product.images.all()),
+         "category": instance.product.category.name,
+         "subcategory": instance.product.subcategory.name,
+         "product_type": instance.product.producttype,
+         "upload_status": instance.product.upload_status
+      }
       representation['listed'] = instance.list_product
       return representation
-   
-   
-# class MarketPlaceSerializer(serializers.ModelSerializer):
-#    class Meta:
-#       model = MarketPlace
-#       fields = ("id", "store", "product")
 
-#    def create(self, validated_data):
-#       # Retrieve the product instance and modify it
-#       product_id = validated_data["product"]
-#       product = get_object_or_404(Product, id=product_id)
-#       product.list_product = True  # Assuming 'list_product' is a boolean field
-#       product.save()
-
-#       store_id = self.context['request'].query_params.get('store')
-#       try:
-#          store = Store.objects.get(id=store_id)
-#       except Store.DoesNotExist:
-#          raise ValidationError(f'Store {store_id} does not exist.')
-
-#       # Create the MarketPlace instance
-#       instance = MarketPlace.objects.create(list_product=True, store=store, **validated_data)
-#       return instance
+   def serialize_product_images(self, images):
+      # Serialize each ProductImage instance to a format that can be JSON serialized
+      return [{"id": image.id, "url": image.image.url} for image in images]
    
-#    def to_representation(self, instance):
-#       representation = super(MarketPlaceSerializer, self).to_representation(instance)
-#       representation['store'] = instance.store.name
-#       representation['product'] = instance.product.name
-#       representation['listed'] = instance.list_product
-#       return representation
+   def serialize_product_sizes(self, sizes):
+      return [{"id": size.id, "name": size.name} for size in sizes]

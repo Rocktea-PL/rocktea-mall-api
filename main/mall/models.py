@@ -172,6 +172,7 @@ class Product(models.Model):
    color = models.CharField(choices=COLORS, max_length=9, null=True, blank=True)
    category = models.ForeignKey('Category', related_name="category", on_delete=models.CASCADE, null=True)
    subcategory = models.ForeignKey('SubCategories', on_delete=models.CASCADE, null=True)
+   producttype = models.ForeignKey('ProductTypes', on_delete=models.CASCADE, null=True)
    brand = models.ForeignKey('Brand', on_delete=models.CASCADE, null=True)
    created_at=models.DateTimeField(auto_now_add=True, null=True)
    on_promo = models.BooleanField(default=False)
@@ -309,7 +310,7 @@ class Price(models.Model):
       ]
 
    def __str__(self):
-      return f"{self.product.name} {self.size.name} - {self.price}"
+      return f"{self.product} {self.size} - {self.price}"
 
 
 class AccountDetails(models.Model):

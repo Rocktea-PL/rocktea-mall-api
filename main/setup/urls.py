@@ -38,5 +38,6 @@ urlpatterns = [
     path('rocktea/', include(router.urls)),
     path('mall/', include("mall.urls")),
     path('store/', include("tenants.urls")),
-    path('dropshippers/', include('dropshippers.urls'))
+    path('dropshippers/', include('dropshippers.urls')),
+    path('order/', include('order.urls'))
 ]
