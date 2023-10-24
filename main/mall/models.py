@@ -310,7 +310,7 @@ class Price(models.Model):
       ]
 
    def __str__(self):
-      return f"{self.product} {self.size} - {self.price}"
+      return f"{self.price}"
 
 
 class AccountDetails(models.Model):
@@ -345,6 +345,7 @@ class MarketPlace(models.Model):
    store=models.ForeignKey(Store, on_delete=models.CASCADE)
    product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True)
    list_product = models.BooleanField(default=True)
-   
+   price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10)
+
    def __str__(self):
       return self.store.name

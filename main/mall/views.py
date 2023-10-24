@@ -50,10 +50,10 @@ class CreateStore(viewsets.ModelViewSet):
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
    serializer_class = MyTokenObtainPairSerializer
-   
+
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.all()
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('sizes', 'images', 'store')
    serializer_class = ProductSerializer
 
 
