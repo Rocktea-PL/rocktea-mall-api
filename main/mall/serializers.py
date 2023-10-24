@@ -238,7 +238,7 @@ class ProductSerializer(serializers.ModelSerializer):
       representation['images'] = [{"url": prod.image.url} 
                                  for prod in instance.images.all()]
 
-      cache.set(cache_key, representation, timeout=60) #Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout=60 * 5) #Cache product data for 10 mins
       return representation
    
 
