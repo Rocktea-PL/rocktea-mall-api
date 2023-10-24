@@ -182,12 +182,29 @@ class ProductSerializer(serializers.ModelSerializer):
    sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
+   # price = P
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 'color', 
                'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images', ]
       read_only_fields = ('id', "sku")
+      
+   def get_product_price(self, product, size_ids):
+      product_prices = {}
+      # Ensure size_ids is iterable
+      if not isinstance(size_ids, (list, tuple)):
+         size_ids = [size_ids]
+
+      for size_id in size_ids:
+         try:
+               price = Price.objects.get(product=product, size=size_id).price
+               product_prices[size_id] = price
+         except Price.DoesNotExist:
+               logging.error("An Error Unexpectedly Occurred")
+
+      return product_prices
+   
    
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -205,7 +222,8 @@ class ProductSerializer(serializers.ModelSerializer):
       if representation['images'] is None:
          del representation['images']
       
-      representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available":sizes.available} 
+      representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available": sizes.available, 
+                                 "prices": self.get_product_price(instance.id, sizes.id)} 
                                  for sizes in instance.sizes.all()]
       
       representation['brand'] = {"id": instance.brand.id,
@@ -219,15 +237,12 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['images'] = [{"url": prod.image.url} 
                                  for prod in instance.images.all()]
-      
-      # representation['listed'] = [instance.list_product]
 
-      cache.set(cache_key, representation, timeout= 60 * 10) #Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout=60) #Cache product data for 10 mins
       return representation
    
-   
-   
-   # serializers.py
+
+# serializers.py
 class MarketPlaceSerializer(serializers.ModelSerializer):
    store = serializers.UUIDField(source='store_id', read_only=True)
    # size = PriceSerializer(many=True, read_only=True)
