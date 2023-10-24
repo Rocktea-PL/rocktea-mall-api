@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage, MarketPlace
+from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage, MarketPlace, StoreProfit
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -144,7 +144,15 @@ class SizeSerializer(serializers.ModelSerializer):
 class PriceSerializer(serializers.ModelSerializer):
    class Meta:
       model = Price
-      fields = ['size', 'price']
+      fields = ['id', 'size', 'price']
+      # read_only_fields = ['updated_at', ]
+      
+
+class StoreProfitSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = StoreProfit
+      fields = ['id', 'store', 'profit_price', 'product', 'created_at', 'updated_at']
+      read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -205,7 +213,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
       return product_prices
    
-   
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
       cached_data = cache.get(cache_key)
@@ -251,32 +258,16 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       model = MarketPlace
       fields = ("id", "store", "product")
 
-   def validate(self, attrs):
-      profit_price = attrs.get("price")
-      store = attrs.get("store")
-      product = attrs.get("product")
-
-      initial_price = self.get_initial_price(product, store)
-      self.price_control(initial_price, profit_price)
-      return attrs
-
-   def get_initial_price(self, product, size_ids):
-      initial_prices = {}
+   def get_product_price(self, product, size_ids):
+      product_prices = {}
       for size_id in size_ids:
          try:
             price = Price.objects.get(product=product, size=size_id).price
-            initial_prices[size_id] = price
+            product_prices[size_id] = price
          except Price.DoesNotExist:
             logging.error("An Error Unexpectedly Occurred")
-      return initial_prices
-
-   def price_control(self, initial_price, profit_price):
-      if profit_price is not None:
-         allowed_percentage = 40
-         maximum_profit_price = initial_price + (initial_price * allowed_percentage / 100)
-
-         if profit_price > maximum_profit_price:
-               raise serializers.ValidationError({"message": "Price Control: Cannot add more than 40% profit price on this product"})
+      return product_prices
+            
             
    def create(self, validated_data):
       product_id = validated_data["product"]
@@ -305,7 +296,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          "color": instance.product.color,
          "size": self.serialize_product_sizes(instance.product.sizes.all()),
          "images": self.serialize_product_images(instance.product.images.all()),
-         "price": self.get_initial_price(instance.product.id, [size.id for size in instance.product.sizes.all()]),
+         "price": self.get_product_price(instance.product.id, [size.id for size in instance.product.sizes.all()]),
          "category": instance.product.category.name,
          "subcategory": instance.product.subcategory.name,
          "product_type": instance.product.producttype,
@@ -323,3 +314,14 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    
    # def serialize_product_price(self, sizes, product):
    #    pass
+   
+   
+   
+   
+   # # def price_control(self, initial_price, profit_price):
+   #    if profit_price is not None:
+   #       allowed_percentage = 40
+   #       maximum_profit_price = initial_price + (initial_price * allowed_percentage / 100)
+
+   #       if profit_price > maximum_profit_price:
+   #             raise serializers.ValidationError({"message": "Price Control: Cannot add more than 40% profit price on this product"})

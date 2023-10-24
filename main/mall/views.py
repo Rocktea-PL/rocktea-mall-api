@@ -2,9 +2,9 @@ from rest_framework import viewsets
 
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer)
+                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer, StoreProfitSerializer)
 
-from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage, MarketPlace
+from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage, MarketPlace, StoreProfit
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
@@ -121,3 +121,8 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return queryset
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
+      
+      
+class AddStoreProductProfit(viewsets.ModelViewSet):
+   queryset = StoreProfit.objects.select_related('store', 'product')
+   serializer_class = StoreProfitSerializer

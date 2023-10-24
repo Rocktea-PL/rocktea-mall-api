@@ -14,6 +14,9 @@ environ.Env.read_env()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY')
 
+# Static Files
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -35,6 +38,7 @@ INSTALLED_APPS = [
     "cloudinary_storage",
     'multiselectfield',
     'rest_framework_simplejwt',
+    'rest_framework',
     
     # Caution
     'django_extensions',

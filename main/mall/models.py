@@ -303,14 +303,28 @@ class Price(models.Model):
    product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
    size = models.ForeignKey('Size', on_delete=models.CASCADE, null=True)
    price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
+   # price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10)
+
 
    class Meta:
       indexes = [
-         models.Index(fields=['price'], name='price_price_pricex')
+         models.Index(fields=['price'], name='price_price_pricex'),
+         models.Index(fields=['size'], name='size_size_sizex')
       ]
 
    def __str__(self):
       return f"{self.price}"
+
+
+class StoreProfit(models.Model):
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True, blank=True)
+   profit_price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10, blank=True, null=True)
+   product = models.OneToOneField(Product, on_delete=models.CASCADE, null=True)
+   created_at = models.DateTimeField(auto_now_add=True, null=True)
+   updated_at = models.DateTimeField(auto_now=True)
+   
+   def __str__(self):
+      return self.profit_price
 
 
 class AccountDetails(models.Model):
@@ -345,7 +359,6 @@ class MarketPlace(models.Model):
    store=models.ForeignKey(Store, on_delete=models.CASCADE)
    product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True)
    list_product = models.BooleanField(default=True)
-   price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10)
-
+   
    def __str__(self):
       return self.store.name
