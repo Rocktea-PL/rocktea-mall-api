@@ -65,7 +65,14 @@ jobs:
         echo "REDISPORT=${{ secrets.REDISPORT }}" >> $GITHUB_ENV
         echo "REDISPASSWORD=${{ secrets.REDISPASSWORD }}" >> $GITHUB_ENV
         echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> $GITHUB_ENV
-        
+    - name: Loud Mouth Covered Railway 
+      run: |
+          echo "PGUSER=${{ secrets.PGUSER }}" >> $GITHUB_ENV
+          echo "PGHOST=${{ secrets.PGHOST }}" >> $GITHUB_ENV
+          echo "PGDATABASE=${{ secrets.PGDATABASE }}" >> $GITHUB_ENV
+          echo "PGPORT=${{ secrets.PGPORT }}" >> $GITHUB_ENV
+          echo "PGPASSWORD=${{ secrets.PGPASSWORD }}" >> $GITHUB_ENV
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
     - name: Run Tests
       run: |
         python manage.py test
