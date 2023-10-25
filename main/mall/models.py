@@ -49,7 +49,8 @@ class CustomUser(AbstractUser):
    password = models.CharField(max_length=200)
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
-
+   shipping_address = models.CharField(max_length=500, null=True)
+   
    USERNAME_FIELD = 'email'
    REQUIRED_FIELDS = []
 
@@ -300,11 +301,11 @@ class Size(models.Model):
 
 
 class Price(models.Model):
-   product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
-   size = models.ForeignKey('Size', on_delete=models.CASCADE, null=True)
+   store = models.ForeignKey(Store, related_name="store_prices", on_delete=models.CASCADE, null=True)
+   product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_price", null=True)
+   size = models.ForeignKey('Size', on_delete=models.CASCADE, related_name='product_size',null=True)
    price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
-   # price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10)
-
+   profit_price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10)
 
    class Meta:
       indexes = [
@@ -320,6 +321,7 @@ class StoreProfit(models.Model):
    store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True, blank=True)
    profit_price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10, blank=True, null=True)
    product = models.OneToOneField(Product, on_delete=models.CASCADE, null=True)
+   size = models.ForeignKey('Size', on_delete=models.CASCADE, related_name='size',null=True)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
    updated_at = models.DateTimeField(auto_now=True)
    

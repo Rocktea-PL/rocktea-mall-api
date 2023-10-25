@@ -1,7 +1,7 @@
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, SizeViewSet, PriceViewSet, UploadProductImage, MarketPlaceView, AddStoreProductProfit
+from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, SizeViewSet, PriceViewSet, UploadProductImage, MarketPlaceView
 from tenants.views import TenantSignUp
 
 router = routers.DefaultRouter()
@@ -13,7 +13,7 @@ router.register('products', ProductViewSet, basename='products')
 router.register('sizes', SizeViewSet, basename='product-size')
 router.register(r'prices', PriceViewSet, basename='product-size')
 router.register('marketplace', MarketPlaceView, basename='marketplace')
-router.register('add/profit', AddStoreProductProfit, basename='profit')
+# router.register('add/profit', AddStoreProductProfit, basename='profit')
 # router.register('upload-image', UploadProductImage, basename="product-image")
 
 

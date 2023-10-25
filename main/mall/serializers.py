@@ -76,10 +76,14 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 
 class CreateStoreSerializer(ModelSerializer):
+   shipping_address = serializers.CharField(required=False, max_length=500)
+   
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "shipping_address")
       read_only_fields = ("owner",)
+      
+   
 
    def validate_TIN_number(self, value):
       if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
@@ -148,11 +152,11 @@ class PriceSerializer(serializers.ModelSerializer):
       # read_only_fields = ['updated_at', ]
       
 
-class StoreProfitSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = StoreProfit
-      fields = ['id', 'store', 'profit_price', 'product', 'created_at', 'updated_at']
-      read_only_fields = ['id', 'created_at', 'updated_at']
+# class StoreProfitSerializer(serializers.ModelSerializer):
+#    class Meta:
+#       model = StoreProfit
+#       fields = ['id', 'store', 'profit_price', 'product', 'created_at', 'updated_at']
+#       read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class BrandSerializer(serializers.ModelSerializer):

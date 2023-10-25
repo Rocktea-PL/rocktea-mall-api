@@ -2,7 +2,7 @@ from rest_framework import viewsets
 
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer, StoreProfitSerializer)
+                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer)
 
 from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage, MarketPlace, StoreProfit
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -20,6 +20,7 @@ from rest_framework.generics import ListCreateAPIView
 from .task import upload_image
 from rest_framework.parsers import MultiPartParser
 from django.shortcuts import get_object_or_404
+import logging
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -123,6 +124,91 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return MarketPlace.objects.none()
       
       
-class AddStoreProductProfit(viewsets.ModelViewSet):
-   queryset = StoreProfit.objects.select_related('store', 'product')
-   serializer_class = StoreProfitSerializer
+# class AddStoreProductProfit(viewsets.ModelViewSet):
+#    queryset = StoreProfit.objects.select_related('store', 'product')
+#    serializer_class = StoreProfitSerializer
+
+
+class ProductPrice(APIView):
+   def post(self, request, *args, **kwargs):
+      # Add Profit Price
+      data = request.data
+      
+      store = data.get('store')
+      verified_store = self.get_store(store)
+      
+      product = data.get('product')
+      verified_product = self.get_product(product)
+      
+      product_size = data.get('size')
+      verified_size = self.get_size(product_size)
+
+      # Convert product_size to integer if it's a string
+      product_size = int(verified_size.id) if isinstance(verified_size.id, str) else verified_size.id
+
+      if product_size not in self.get_product_sizes(verified_product):
+         return Response({"error": f"This Product does not have the size {product_size}", "ids": self.get_product_sizes(verified_product)}, status=status.HTTP_404_NOT_FOUND)
+
+      profit = data.get('profit_price')
+
+      # Create Profit
+      try:
+         storeprofit = StoreProfit.objects.create(store=verified_store, product=verified_product, size=verified_size, profit_price=profit)
+         return Response({"message": "Profit created successfully"}, status=status.HTTP_201_CREATED)
+      except Exception as e:
+         logging.exception("An Error Unexpectedly Occurred")
+         return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+      
+      profit = data.get('profit_price')
+      
+      # Create Profit
+      try:
+         storeprofit = StoreProfit.objects.create(store=verified_store, product=verified_product, size=product_size, profit_price=profit)
+         return Response({"message": "Profit created successfully"}, status=status.HTTP_201_CREATED)
+      except Exception as e:
+         logging.exception("An Error Unexpectedly Occurred")
+         return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+   def get(self, request, *args, **kwargs):
+      # Collect Data
+      data = request.data
+      
+      # Verify Product
+      product_id = data.get('product')
+      verified_product = self.get_product(product_id)
+      
+      # Get Product Size
+      psize = self.get_product_sizes(verified_product)
+      
+      # Product Price
+      product_prices = self.get_product_prices(verified_product)
+
+      return Response({"Prices": product_prices}, status=status.HTTP_200_OK)
+
+   def get_product(self, product_id):
+      return get_object_or_404(Product, id=product_id)
+   
+   def get_store(self, store_id):
+      return get_object_or_404(Store, id=store_id)
+   
+   def get_size(self, size_id):
+      return get_object_or_404(Size, id=size_id)
+
+   def get_product_prices(self, product):
+      prices = Price.objects.filter(product=product)
+
+      if prices.exists():
+         # Serialize the prices if needed
+         serialized_prices = [{f"{price.id}": price.price} for price in prices]
+         return serialized_prices
+      else:
+         return None
+   
+   def get_product_sizes(self, product):
+      try:
+         product = Product.objects.get(id=product).product_price.all()
+      except Product.DoesNotExist:
+         return Response({"message": f"Product ID {product} not found"}, status=status.HTTP_400_BAD_REQUEST)
+      
+      # print([price.size.id for price in product])
+      return [price.size.id for price in product]
