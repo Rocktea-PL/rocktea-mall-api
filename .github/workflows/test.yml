@@ -52,6 +52,15 @@ jobs:
           echo "T_DB_PORT=${{ secrets.T_DB_PORT }}" >> $GITHUB_ENV
           echo "T_DB_URL=${{ secrets.T_DB_URL }}" >> $GITHUB_ENV
 
+    - name: Loud Mouth Covered Railway 
+      run: |
+          echo "PGUSER=${{ secrets.PGUSER }}" >> $GITHUB_ENV
+          echo "PGHOST=${{ secrets.PGHOST }}" >> $GITHUB_ENV
+          echo "PGDATABASE=${{ secrets.PGDATABASE }}" >> $GITHUB_ENV
+          echo "PGPORT=${{ secrets.PGPORT }}" >> $GITHUB_ENV
+          echo "PGPASSWORD=${{ secrets.PGPASSWORD }}" >> $GITHUB_ENV
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+
     - name: Cloudinary
       run: echo "CLOUDINARY_URL=${{ secrets.CLOUDINARY_URL }}" >> $GITHUB_ENV
 
@@ -59,7 +68,13 @@ jobs:
       run: |
           echo "TEST_PUBLIC_KEY=${{ secrets.TEST_PUBLIC_KEY }}" >> $GITHUB_ENV
           echo "TEST_SECRET_KEY=${{ secrets.TEST_SECRET_KEY }}" >> $GITHUB_ENV
-      
+    
+    - name:  Redis Config
+      run: |
+        echo "REDISHOST=${{ secrets.REDISHOST }}" >> $GITHUB_ENV
+        echo "REDISPORT=${{ secrets.REDISPORT }}" >> $GITHUB_ENV
+        echo "REDISPASSWORD=${{ secrets.REDISPASSWORD }}" >> $GITHUB_ENV
+        echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> $GITHUB_ENV
         
     - name: Run Tests
       run: |

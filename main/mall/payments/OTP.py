@@ -1,4 +1,4 @@
-from mall.models import CustomUser, StoreDomainPaymentInfo
+from mall.models import CustomUser
 from django.http import HttpRequest
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -11,6 +11,15 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
 
+def get_user_or_none(user_id):
+   try:
+      user = get_user_model().objects.get(id=user_id, is_store_owner=True, is_consumer=False)
+      return user
+   except ObjectDoesNotExist:
+      return None
+   except IntegrityError as e:
+      raise ValueError(f"Database error: {e}")
+
 class StoreOTPPayment(APIView):
    @csrf_exempt
    @transaction.atomic
@@ -18,7 +27,8 @@ class StoreOTPPayment(APIView):
       user_id = request.POST.get("store_owner")
       
       # VERIFY USER EXISTENCE
-      user_exists = get_user_model().objects.filter(id=user_id, is_store_owner=True, is_consumer=False).first()
+      user_exists = get_user_or_none(user_id)
+      
       if user_exists:
          # Process your payment logic here
          payment_response = self.process_payment(request)
@@ -33,13 +43,14 @@ class StoreOTPPayment(APIView):
          'Content-Type': 'application/json',
          'Authorization': f'Bearer {settings.TEST_SECRET_KEY}'
       }
-      print(settings.TEST_SECRET_KEY)
       # Get User Data
       user = self.collect_user(request)
+      amount = 500000
 
       payload = {
          "email": user.email,
-         "amount": 50000,
+         "amount": amount,
+         "channels": ["card"]
       }
 
       response = requests.post(url, headers=headers, json=payload)
@@ -47,35 +58,25 @@ class StoreOTPPayment(APIView):
          data = response.json()
          return Response(data, status=status.HTTP_200_OK)
       else:
-         return Response({"message": f"{response.text}"}, status=status.HTTP_400_BAD_REQUEST)
+         return Response({"message": f"{response.text}"}, status=response.status_code)
 
    def collect_user(self, request: HttpRequest):
       user_id = request.data.get("store_owner")
-      
-      # VERIFY USER EXISTENCE
-      user_exists = get_user_model().objects.filter(id=user_id, is_store_owner=True, is_consumer=False).first()
-      try:
-         # VERIFY USER EXISTENCE
-         user_exists = get_user_model().objects.filter(id=user_id, is_store_owner=True, is_consumer=False).first()
-         if user_exists:
-               return user_exists
-         else:
-               raise ValueError("Invalid store owner user ID.")
-      except IntegrityError as e:
-         raise ValueError(f"Database error: {e}")
-      
+      user_exists = get_user_or_none(user_id)
+      if user_exists:
+         return user_exists
+      else:
+         raise ValueError("Invalid store owner user ID.")
 
 
-
-# ...
 class VerifyPayment(APIView):
    def get(self, request):
       # Use QueryDict to get query parameters
       reference = self.request.query_params.get("reference")
 
       headers = {
-      'Content-Type': 'application/json',
-      'Authorization': f'Bearer {settings.TEST_SECRET_KEY}'
+         'Content-Type': 'application/json',
+         'Authorization': f'Bearer {settings.TEST_SECRET_KEY}'
       }
 
       url = f"https://api.paystack.co/transaction/verify/{reference}"
@@ -87,13 +88,21 @@ class VerifyPayment(APIView):
          return Response(response_data, status=status.HTTP_200_OK)
       else:
          response_data = response.text
-         return Response({"message": f'{response_data}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+         return Response({"message": f'{response_data}'}, status=response.status_code)
       
-   # def collect_user(self, request):
-      
-   #    store_owner = request.data.get('id')
-   #    store_owner_exists = CustomUser.objects.filter(id=store_owner, is_store_owner=True, is_consumer=False).first()
-   #    # if store_owner_exists:
-   #    #    print(store_owner_exists)
-   #    # else:
-   #    #    print("Doesn't Exist")
+   # def update_payment_info(self, user_id, nested_status):
+   #    user_id = request.data["user"]
+   #    user = get_user_model().objects.filter(id=user_id, is_store_owner=True, is_consumer=False).first()
+
+   #    if user:
+   #       if nested_status == "success":
+   #             # Assuming that StoreDomainPaymentInfo has a foreign key to CustomUser with name 'user'
+   #             domain_info = StoreDomainPaymentInfo.objects.get(user=user)
+   #             domain_info.one_time_payment_status = True
+   #             domain_info.save()
+   #             print("Paumen")
+   #             return Response({"message": "Payment Successful"}, status=status.HTTP_200_OK)
+   #       elif nested_status == "abandoned":
+   #             return Response({"message": "Payment Not Completed"}, status=status.HTTP_200_OK)
+   #    else:
+   #       return Response({"message": "Invalid user ID"}, status=status.HTTP_400_BAD_REQUEST)

@@ -14,11 +14,13 @@ environ.Env.read_env()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY')
 
+# Static Files
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
-
 
 # Application definition
 
@@ -36,6 +38,7 @@ INSTALLED_APPS = [
     "cloudinary_storage",
     'multiselectfield',
     'rest_framework_simplejwt',
+    'rest_framework',
     
     # Caution
     'django_extensions',
@@ -89,6 +92,7 @@ DATABASES = {
         'PASSWORD': env('T_DB_PASSWORD'), 
         'HOST': env('T_DB_HOST'),
         'PORT': env('T_DB_PORT'),
+        
     },
     
     'production': {
@@ -98,11 +102,22 @@ DATABASES = {
         'PASSWORD': env('DB_PASSWORD'),
         'HOST': env('DB_HOST'),
         'PORT': env('DB_PORT'),
-    },  
+    },
+    
+    'test': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'PGUSER': env('PGUSER'),
+        'PGHOST': env('PGHOST'),
+        'NAME': env('PGDATABASE'),
+        'PGPORT': env('PGPORT'),
+        'PGPASSWORD': env('PGPASSWORD'),
+    },
 }
 
 CORS_ALLOWED_ORIGINS = [
+    "http://127.0.0.1:8000",
     "http://localhost:5173",
+    "http://localhost:5174",
     "https://rocktea-mall.vercel.app",
     "https://rocktea-mall-api-test.up.railway.app",
     "https://rocktea-mall-git-test-rockteamall.vercel.app"
@@ -152,15 +167,32 @@ SIMPLE_JWT = {
 
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ],
+'DEFAULT_AUTHENTICATION_CLASSES': [
+    'rest_framework_simplejwt.authentication.JWTAuthentication',
+    'rest_framework.authentication.BasicAuthentication',
+    'rest_framework.authentication.SessionAuthentication',
+],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
         'rest_framework.renderers.BrowsableAPIRenderer',
     ]
+}
+
+REDIS_HOST=env("REDISHOST")
+REDIS_PORT=env("REDISPORT")
+REDIS_PASSWORD=env("REDISPASSWORD")
+REDIS_URL=env("REDIS_URL")
+
+# settings.py
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
+        "OPTIONS": {
+            "PASSWORD": REDIS_PASSWORD,
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
 }
 
 
@@ -212,3 +244,7 @@ AUTH_USER_MODEL="mall.CustomUser"
 # Paystack
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
+
+# Celery settings
+
+
