@@ -12,9 +12,11 @@ from setup.celery import app
 
 
 class StoreOwnerSerializer(ModelSerializer):
+   shipping_address = serializers.CharField(required=False, max_length=500)
+   
    class Meta:
       model=CustomUser
-      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password")
+      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password", "shipping_address")
       read_only_fields = ("username", "is_store_owner")
       
    def create(self, validated_data):
@@ -75,15 +77,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       return data
 
 
-class CreateStoreSerializer(ModelSerializer):
-   shipping_address = serializers.CharField(required=False, max_length=500)
-   
+class CreateStoreSerializer(serializers.ModelSerializer):
+   TIN_number = serializers.IntegerField(required=False)
+   logo = serializers.FileField(required=False)
+   year_of_establishment = serializers.DateField(required=False)
+
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "shipping_address")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain")
       read_only_fields = ("owner",)
-      
-   
 
    def validate_TIN_number(self, value):
       if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
