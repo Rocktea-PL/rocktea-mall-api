@@ -1,5 +1,4 @@
 from rest_framework import viewsets
-
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
                            PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer)
@@ -122,11 +121,6 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return queryset
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
-      
-      
-# class AddStoreProductProfit(viewsets.ModelViewSet):
-#    queryset = StoreProfit.objects.select_related('store', 'product')
-#    serializer_class = StoreProfitSerializer
 
 
 class ProductPrice(APIView):
@@ -151,7 +145,7 @@ class ProductPrice(APIView):
 
       profit = data.get('profit_price')
 
-      # Create Profit
+      # Create StoreProfit
       try:
          storeprofit = StoreProfit.objects.create(store=verified_store, product=verified_product, size=verified_size, profit_price=profit)
          return Response({"message": "Profit created successfully"}, status=status.HTTP_201_CREATED)
@@ -203,7 +197,7 @@ class ProductPrice(APIView):
          return serialized_prices
       else:
          return None
-   
+
    def get_product_sizes(self, product):
       try:
          product = Product.objects.get(id=product).product_price.all()

@@ -103,10 +103,10 @@ class StoreActivationInfo(models.Model):
    )
    
    DOMAIN_ACTIVATION_STATUS = (
-      ('ACTIVATED', 'ACTIVATED'),
-      ('DISACTIVATED', 'DISACTIVATED'),
-      ('UNPROCESSED', 'UNPROCESSED'),
-      ('UNDER-REVIEW', 'UNDER-REVIEW')
+   ('ACTIVATED', 'ACTIVATED'),
+   ('DISACTIVATED', 'DISACTIVATED'),
+   ('UNPROCESSED', 'UNPROCESSED'),
+   ('UNDER-REVIEW', 'UNDER-REVIEW')
    )
    user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
    store = models.OneToOneField(Store, on_delete=models.CASCADE)
@@ -115,7 +115,7 @@ class StoreActivationInfo(models.Model):
    status = models.CharField(max_length=12, choices=DOMAIN_ACTIVATION_STATUS, default='UNPROCESSED')
    payment_status = models.CharField(max_length=6, choices=PAYMENT_STATUS, default='UP')
    payment_reference = models.CharField(max_length=30, unique=True)
-   
+
    def __str__(self):
       return f'{self.store.name} {self.domain_activation}'
 
@@ -295,7 +295,7 @@ class Size(models.Model):
       indexes = [
          models.Index(fields=['name'], name='size_name_namex')
       ]
-   
+
    def __str__(self):
       return self.name
 

@@ -318,16 +318,9 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    def serialize_product_sizes(self, sizes):
       return [{"id": size.id, "name": size.name} for size in sizes]
    
-   # def serialize_product_price(self, sizes, product):
-   #    pass
-   
-   
-   
-   
-   # # def price_control(self, initial_price, profit_price):
-   #    if profit_price is not None:
-   #       allowed_percentage = 40
-   #       maximum_profit_price = initial_price + (initial_price * allowed_percentage / 100)
-
-   #       if profit_price > maximum_profit_price:
-   #             raise serializers.ValidationError({"message": "Price Control: Cannot add more than 40% profit price on this product"})
+   def get_profit_price(self, product, store, size):
+      try:
+         storeprofit = StoreProfit.objects.get(product=product, store=store, size=size)
+      except StoreProfit.DoesNotExist:
+         return None
+      return storeprofit
