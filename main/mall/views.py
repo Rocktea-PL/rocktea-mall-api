@@ -58,17 +58,20 @@ class ProductViewSet(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
    
-   # def get_queryset(self):
-   #    category_id = self.request.query_params.get('category')
+   def get_queryset(self):
+      category_id = self.request.query_params.get('category')
       
-   #    if category_id is not None:
-   #       category = get_object_or_404(Category, id=category_id)
-   #    else:
-   #       return []
+      if category_id is not None:
+         category = get_object_or_404(Category, id=category_id)
+      else:
+         return []
       
       # Get Product
-      # product = Product.objects.filter()
-
+      try:
+         product = Product.objects.filter(category=category)
+      except Product.DoesNotExist:
+         return []
+      return product
 
 class ProductVariantView(viewsets.ModelViewSet):
    queryset = ProductVariant.objects.all().prefetch_related('product')
