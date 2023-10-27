@@ -140,7 +140,18 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       if Store.objects.filter(owner=owner).exists:
          raise serializers.ValidationError("Sorry you have a store already")
       return serializers.ValidationError("Provide User")
-   
+
+
+class ProductVariantSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductVariant
+      fields = '__all__'
+
+class StoreProductVariantSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = StoreProductVariant
+      fields = '__all__'
+
 
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
@@ -172,27 +183,20 @@ class ProductImageSerializer(serializers.ModelSerializer):
       fields = '__all__'
 
 
-class ProductVariantSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = ProductVariant
-      fields = '__all__'
-      
-      
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
    # sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-   images = ProductImageSerializer(many=True, read_only=True)
-   variants = ProductVariantSerializer(many=True, read_only=True)
+   # price = P
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', 'images', 'variants']
-      read_only_fields = ('id', "sku", 'variants')
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', 'images', ]
+      read_only_fields = ('id', "sku")
 
-
+   
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
       cached_data = cache.get(cache_key)
@@ -209,6 +213,10 @@ class ProductSerializer(serializers.ModelSerializer):
       if representation['images'] is None:
          del representation['images']
       
+      # representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available": sizes.available, 
+      #                            "prices": self.get_product_price(instance.id, sizes.id)} 
+      #                            for sizes in instance.sizes.all()]
+      
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
       
@@ -218,17 +226,11 @@ class ProductSerializer(serializers.ModelSerializer):
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
       
-      representation['images'] = [{"url": prod.image.url} 
+      representation['images'] = [{"url": prod.images.url} 
                                  for prod in instance.images.all()]
 
       cache.set(cache_key, representation, timeout=60 * 5) #Cache product data for 10 mins
       return representation
-
-
-class StoreProductVariantSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = StoreProductVariant
-      fields = '__all__'
    
 
 # serializers.py

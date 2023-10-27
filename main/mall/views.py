@@ -55,7 +55,7 @@ class SignInUserView(TokenObtainPairView):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('images', 'store')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images')
    serializer_class = ProductSerializer
    
 

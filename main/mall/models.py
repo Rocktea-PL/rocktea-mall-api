@@ -171,11 +171,11 @@ class Product(models.Model):
 
 
 class ProductImage(models.Model):
-   image = models.FileField(storage=RawMediaCloudinaryStorage)
+   images = models.FileField(storage=RawMediaCloudinaryStorage)
    
    class Meta:
       indexes = [
-         models.Index(fields=['image'], name='product_images_imagesx')
+         models.Index(fields=['images'], name='product_images_imagesx')
       ]
 
 # class MarketPlace(models.Model):
