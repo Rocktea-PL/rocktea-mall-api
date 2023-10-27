@@ -6,8 +6,8 @@ from django.conf import settings
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'setup.settings')
 
 app = Celery('setup',
-            broker=settings.REDIS_URL,
-            backend=settings.REDIS_URL)
+   broker=settings.REDIS_URL,
+   backend=settings.REDIS_URL)
 
 app.config_from_object('django.conf:settings', namespace='CELERY')
 

@@ -1,5 +1,6 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage, MarketPlace, StoreProfit
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, 
+                     ProductImage, MarketPlace, ProductVariant, StoreProductVariant)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -139,27 +140,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       if Store.objects.filter(owner=owner).exists:
          raise serializers.ValidationError("Sorry you have a store already")
       return serializers.ValidationError("Provide User")
-
-
-class SizeSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = Size
-      fields = '__all__'
-
-
-class PriceSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = Price
-      fields = ['id', 'size', 'price']
-      # read_only_fields = ['updated_at', ]
-      
-
-# class StoreProfitSerializer(serializers.ModelSerializer):
-#    class Meta:
-#       model = StoreProfit
-#       fields = ['id', 'store', 'profit_price', 'product', 'created_at', 'updated_at']
-#       read_only_fields = ['id', 'created_at', 'updated_at']
-
+   
 
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
@@ -191,34 +172,27 @@ class ProductImageSerializer(serializers.ModelSerializer):
       fields = '__all__'
 
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductVariant
+      fields = '__all__'
+      
+      
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-   sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
+   # sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-   # price = P
+   images = ProductImageSerializer(many=True, read_only=True)
+   variants = ProductVariantSerializer(many=True, read_only=True)
    
    class Meta:
       model = Product
-      fields = ['id', 'sku', 'name', 'description', 'quantity', 'color', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images', ]
-      read_only_fields = ('id', "sku")
-      
-   def get_product_price(self, product, size_ids):
-      product_prices = {}
-      # Ensure size_ids is iterable
-      if not isinstance(size_ids, (list, tuple)):
-         size_ids = [size_ids]
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', 'images', 'variants']
+      read_only_fields = ('id', "sku", 'variants')
 
-      for size_id in size_ids:
-         try:
-               price = Price.objects.get(product=product, size=size_id).price
-               product_prices[size_id] = price
-         except Price.DoesNotExist:
-               logging.error("An Error Unexpectedly Occurred")
 
-      return product_prices
-   
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
       cached_data = cache.get(cache_key)
@@ -235,10 +209,6 @@ class ProductSerializer(serializers.ModelSerializer):
       if representation['images'] is None:
          del representation['images']
       
-      representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available": sizes.available, 
-                                 "prices": self.get_product_price(instance.id, sizes.id)} 
-                                 for sizes in instance.sizes.all()]
-      
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
       
@@ -253,6 +223,12 @@ class ProductSerializer(serializers.ModelSerializer):
 
       cache.set(cache_key, representation, timeout=60 * 5) #Cache product data for 10 mins
       return representation
+
+
+class StoreProductVariantSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = StoreProductVariant
+      fields = '__all__'
    
 
 # serializers.py

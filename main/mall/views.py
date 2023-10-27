@@ -1,9 +1,11 @@
 from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer)
+                           ProductImageSerializer, MarketPlaceSerializer,
+                           ProductVariantSerializer, StoreProductVariantSerializer)
 
-from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage, MarketPlace, StoreProfit
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
+
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
@@ -53,25 +55,18 @@ class SignInUserView(TokenObtainPairView):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('sizes', 'images', 'store')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('images', 'store')
    serializer_class = ProductSerializer
-
-
-class SizeViewSet(viewsets.ModelViewSet):
-   queryset = Size.objects.all()
-   serializer_class = SizeSerializer
-
-
-class PriceViewSet(viewsets.ModelViewSet):
-   # queryset = Price.objects.all()
-   serializer_class = PriceSerializer
    
-   def get_queryset(self):
-      product_id = self.kwargs.get('sn')
-      if product_id:
-         return Price.objects.filter(product__sn=product_id)
-      else:
-         return Price.objects.all()
+
+class ProductVariantView(viewsets.ModelViewSet):
+   queryset = ProductVariant.objects.all().prefetch_related('product')
+   serializer_class = ProductVariantSerializer
+   
+
+class StoreProductVariantView(viewsets.ModelViewSet):
+   queryset = StoreProductVariant.objects.all().select_related('store', 'product_variant')
+   serializer_class = StoreProductVariantSerializer
 
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):

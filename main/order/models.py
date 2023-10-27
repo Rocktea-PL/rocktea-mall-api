@@ -10,7 +10,7 @@ class OrderItems(models.Model):
    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
 
    def __str__(self):
-      return order.id
+      return self.order.id
 
 
 class Order(models.Model):

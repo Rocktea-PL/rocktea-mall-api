@@ -2,7 +2,7 @@ from django.http import Http404
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from .models import Order, OrderItems, Store, CustomUser
-from mall.models import Price, Product
+from mall.models import Product
 from .serializers import OrderSerializer, OrderItemSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
