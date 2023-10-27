@@ -142,14 +142,6 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return serializers.ValidationError("Provide User")
 
 
-
-
-class StoreProductVariantSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = StoreProductVariant
-      fields = '__all__'
-
-
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
       model = Brand
@@ -182,6 +174,14 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductVariantSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductVariant
+      fields = '__all__'
+      
+
+class StoreProductVariantSerializer(serializers.ModelSerializer):
+   productvariant = ProductVariantSerializer(many=True, read_only=True)
+   
+   class Meta:
+      model = StoreProductVariant
       fields = '__all__'
 
 class ProductSerializer(serializers.ModelSerializer):

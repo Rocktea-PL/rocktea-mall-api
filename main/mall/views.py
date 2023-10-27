@@ -97,7 +97,57 @@ class ProductVariantView(viewsets.ModelViewSet):
 class StoreProductVariantView(viewsets.ModelViewSet):
    queryset = StoreProductVariant.objects.all().select_related('store', 'product_variant')
    serializer_class = StoreProductVariantSerializer
+   
+   def get_queryset(self):
+      store = self.request.query_params.get('store')
+      product_id = self.request.query_params.get('product')
+      size = self.request.query_params.get('size')
 
+      if product_id is not None:
+         product = self.get_product(product_id)
+         # Get Product Variants
+         product_variants = ProductVariant.objects.filter(product=product, size=size)
+      else:
+         # If product is not provided, return all product variants
+         product_variants = ProductVariant.objects.all()
+
+      if store is not None:
+         variants = StoreProductVariant.objects.filter(product_variant__in=product_variants, store=store)
+         return product_variants, variants
+
+      # If store is not provided, return all variants
+      return product_variants, None
+
+   def list(self, request, *args, **kwargs):
+      product_variants, store_variants = self.get_queryset()
+
+      # Handle the case where no product variants are found
+      if not product_variants.exists():
+         return Response({"message": "No product variants found."})
+
+      # Serialize data using your serializer
+      product_variants_serializer = ProductVariantSerializer(product_variants, many=True)
+      serialized_product_variants = product_variants_serializer.data
+
+      # Serialize store_variants using a custom serialization method
+      serialized_store_variants = self.serialize_store_product_variants(store_variants)
+
+      response_data = {
+         "product_variant": serialized_product_variants,
+         "store_variant": serialized_store_variants
+      }
+
+      return Response(response_data)
+
+   def serialize_store_product_variants(self, store_variants):
+      serialized_data = []
+      for variant in store_variants:
+         serializer = StoreProductVariantSerializer(variant)
+         serialized_data.append(serializer.data)
+      return serialized_data
+
+   def get_product(self, product_id):
+      return get_object_or_404(Product, id=product_id)
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()

@@ -12,6 +12,7 @@ router.register('signup/user', TenantSignUp, basename="signup-tenant")
 router.register('products', ProductViewSet, basename='products')
 router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
+router.register('store-variant', StoreProductVariantView, basename='store-variant')
 # router.register('upload-image', UploadProductImage, basename="product-image")
 
 
