@@ -58,6 +58,17 @@ class ProductViewSet(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
    
+   # def get_queryset(self):
+   #    category_id = self.request.query_params.get('category')
+      
+   #    if category_id is not None:
+   #       category = get_object_or_404(Category, id=category_id)
+   #    else:
+   #       return []
+      
+      # Get Product
+      # product = Product.objects.filter()
+
 
 class ProductVariantView(viewsets.ModelViewSet):
    queryset = ProductVariant.objects.all().prefetch_related('product')
@@ -65,7 +76,7 @@ class ProductVariantView(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Assuming you're getting the product ID from the request data
-      product_id = self.request.data.get('product')
+      product_id = self.request.query_params.get('product')
 
       # Check if the product_id is provided
       if product_id is not None:

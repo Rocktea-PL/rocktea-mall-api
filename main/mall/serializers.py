@@ -190,12 +190,11 @@ class ProductSerializer(serializers.ModelSerializer):
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-   productvariant = ProductVariantSerializer(read_only=True, many=True, source='product_variants')
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', 'productvariant']
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images']
       read_only_fields = ('id', "sku")
 
    
@@ -214,8 +213,6 @@ class ProductSerializer(serializers.ModelSerializer):
          
       if representation['images'] is None:
          del representation['images']
-         
-      product = self.get_product(instance.id)
       
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
@@ -225,21 +222,11 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
-      representation['variations'] = self.get_product_variations(instance)
 
       representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
 
       cache.set(cache_key, representation, timeout=60)  # Cache product data for 10 mins
       return representation
-
-   def get_product_variations(self, product):
-      try:
-         variations = ProductVariant.objects.filter(product=product).values("size", "wholesale_price")
-         return list(variations)
-      except ProductVariant.DoesNotExist:
-         logging.error("ProductVariant does not exist for product %s", product)
-         return []
-      # logging.info(variation)
 
 
 # serializers.py
