@@ -188,12 +188,12 @@ class ProductSerializer(serializers.ModelSerializer):
    # sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-   # price = P
+   producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', 'images', ]
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images']
       read_only_fields = ('id', "sku")
 
    
@@ -212,6 +212,9 @@ class ProductSerializer(serializers.ModelSerializer):
          
       if representation['images'] is None:
          del representation['images']
+         
+      # if representation['producttype'] is None:
+      #    del representation['producttype']
       
       # representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available": sizes.available, 
       #                            "prices": self.get_product_price(instance.id, sizes.id)} 
@@ -225,6 +228,8 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
+      
+      # representation['producttype'] = {"id": instance.producttype.id, "name": instance.producttype.name}
       
       representation['images'] = [{"url": prod.images.url} 
                                  for prod in instance.images.all()]
