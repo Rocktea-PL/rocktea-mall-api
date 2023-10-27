@@ -55,15 +55,31 @@ class SignInUserView(TokenObtainPairView):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
    
 
 class ProductVariantView(viewsets.ModelViewSet):
    queryset = ProductVariant.objects.all().prefetch_related('product')
    serializer_class = ProductVariantSerializer
-   
 
+   def get_queryset(self):
+      # Assuming you're getting the product ID from the request data
+      product_id = self.request.data.get('product')
+
+      # Check if the product_id is provided
+      if product_id is not None:
+         try:
+               product_variants = ProductVariant.objects.filter(product=product_id)
+               return product_variants
+         except ProductVariant.DoesNotExist:
+               # Handle the case where no variants are found for the given product
+               return ProductVariant.objects.none()
+      else:
+         # Handle the case where product_id is not provided
+         return ProductVariant.objects.none()
+      
+      
 class StoreProductVariantView(viewsets.ModelViewSet):
    queryset = StoreProductVariant.objects.all().select_related('store', 'product_variant')
    serializer_class = StoreProductVariantSerializer
@@ -76,7 +92,6 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
 
 class UploadProductImage(ListCreateAPIView):
    # PENDING ERROR (BKLOG-#001): PERMISSIONS NOT WORKING and FILE SIZE VALIDATION NOT INCLUDED
-   
    queryset = ProductImage.objects.all()
    serializer_class = ProductImageSerializer
    parser_classes = (MultiPartParser,)
