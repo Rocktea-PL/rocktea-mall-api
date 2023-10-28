@@ -272,25 +272,30 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       instance = MarketPlace.objects.create(**validated_data, list_product=True)
       return instance
       
-
+      # Assuming `product` is a related field
    def to_representation(self, instance):
       representation = super().to_representation(instance)
 
-      # Assuming `store` and `product` are related fields
+   # Assuming `store` is a related field
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
-      
+
       # Assuming `product` is a related field
-      representation['product'] = {
-         "id": instance.product.id,
-         "name": instance.product.name,
-         "images": self.serialize_product_images(instance.product.images.all()),
-         "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
-         "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
-         "category": instance.product.category.name,
-         "subcategory": instance.product.subcategory.name,
-         "product_type": instance.product.producttype,
-         "upload_status": instance.product.upload_status
-      }
+      if instance.product:
+         representation['product'] = {
+               "id": instance.product.id,
+               "name": instance.product.name,
+               "images": self.serialize_product_images(instance.product.images.all()),
+               "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
+               "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
+               "category": instance.product.category.name,
+               "subcategory": instance.product.subcategory.name,
+               "product_type": instance.product.producttype,
+               "upload_status": instance.product.upload_status
+         }
+      else:
+         # Handle the case where product is None
+         representation['product'] = None
+
       representation['listed'] = instance.list_product
       return representation
 
