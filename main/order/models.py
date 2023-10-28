@@ -7,10 +7,18 @@ class OrderItems(models.Model):
    order = models.ForeignKey('Order', related_name='order_items', on_delete=models.CASCADE)
    product = models.ForeignKey(Product, related_name='product_orders', on_delete=models.CASCADE, null=True)
    quantity = models.PositiveIntegerField()
+   price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
 
    def __str__(self):
       return self.order.id
+   
+   def calculate_item_total_price(self):
+      if self.price is not None:
+         return self.price * self.quantity
+      else:
+         # Handle the case where price is None (e.g., raise an error or return a default value)
+         return 0
 
 
 class Order(models.Model):
@@ -31,7 +39,7 @@ class Order(models.Model):
 
    @property
    def calculate_total_price(self):
-      total_price = sum(item.product.price * item.quantity for item in self.order_items.all())
+      total_price = sum(item.calculate_item_total_price() for item in self.order_items.all())
       return total_price
 
    def save(self, *args, **kwargs):

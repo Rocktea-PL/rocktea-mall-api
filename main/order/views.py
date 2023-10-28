@@ -5,180 +5,118 @@ from .models import Order, OrderItems, Store, CustomUser
 from mall.models import Product
 from .serializers import OrderSerializer, OrderItemSerializer
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
-from rest_framework import serializers
+from rest_framework import serializers, status
 import logging
 from decimal import Decimal
+from django.core.exceptions import ObjectDoesNotExist
+
+
+
+class MakeOrder(ModelViewSet):
+   queryset = Order.objects.select_related('buyer', 'store')
+   serializer_class = OrderSerializer
+
+class OrderItemsView(ModelViewSet):
+   queryset = OrderItems.objects.select_related('order', 'product')
+   serializer_class = OrderItemSerializer
+
+
 
 class CreateOrder(APIView):
-   def post(self, request, *args, **kwargs):
+   def post(self, request):
+      # Extract data from request
+      collect = request.data
+      customer_id = request.user.id
+
+      # Verify Customer Exists
+      customer = self.get_customer_or_raise(customer_id)
+
+      # Collect Products
+      products = collect["products"]
+      total_price = Decimal('0.00')
+
+      # Get the affiliate based on the referral code
+      # affiliate_referral_code = collect.get("affiliate_referral_code")
+      # affiliate = self.get_affiliate(affiliate_referral_code)
+
+      # Create Order
+      order = self.create_order(customer, collect)
+
+      # Create Order Items
+      total_price = self.create_order_items(order, products)
+
+      # Set total price of the order
+      order.instance.total_price = total_price
+      order.instance.save()
+
+      # Deduct 3% for affiliates and add it to their earnings
+      # self.process_affiliate(affiliate, total_price)
+
+      return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
+
+   def get_customer_or_raise(self, customer_id):
       try:
-         # request reusability
-         collect=request.data
-         
-         # Collect buyer info from server
-         buyer = request.user.id
-         verified_buyer = self.get_buyer(buyer)
-         
-         # Collect Store ID
-         store = collect.get('store')
-         verified_store = self.get_store(store)
-         
-         # Process Order
-         order = self.make_order(verified_buyer, verified_store, collect)
-         
-         # Process Order Items
-         product = collect.get('product', [])
-         order_items = self.process_order_items(order, product)
-         return Response({"order": OrderSerializer(order).data, "orderitems": OrderItemSerializer(order_items, many=True).data})
-      
-      except Exception as e:
-         logging.exception("An unexpected error occured")
-         return Response({"message": "An Unexpected Error Occured"}, status=500)
-   
-   def get_store(self, store_id):
-      return get_object_or_404(Store, id=store_id)
-   
-   def get_buyer(self, buyer_id):
-      return get_object_or_404(CustomUser, id=buyer_id)
-   
-   def get_product(self, product_id):
-      # for pids in product_id:
-      return get_object_or_404(Product, id=pids)
-   
-   def get_product_price(self, product_id, size_id):
-      try:
-         price = Price.objects.get(product=product_id, size=size_id)
-      except Price.DoesNotExist:
-         raise serializers.ValidationError({"message": "Price Does Not Exist"})
-      return price.price
-   
-   def process_order_items(self, order, products):
-      for product_data in products:
-         product_id = product_data.get('product')
-         quantity = product_data.get('quantity')
+         return CustomUser.objects.get(id=customer_id, is_consumer=True)
+      except CustomUser.DoesNotExist:
+         raise ObjectDoesNotExist("User does not exist")
 
-         # You may need to adjust this depending on your data structure
-         product = get_object_or_404(Product, id=product_id)
-
-         # Get the corresponding Price for the Product and Size (if applicable)
-         price = self.get_product_price(product, product_data.get('size'))
-
-         # Calculate the total price for the OrderItems
-         total_price = price * quantity
-
-         OrderItems.objects.create(order=order, product=product, quantity=quantity, total_price=total_price)
-
-      # return order_items
-
-   def make_order(self, buyer, store, collect):
+   def create_order(self, customer, collect,):
       order_data = {
-         "buyer": buyer.id,
-         "store": store.id,
-         "shipping_address": collect["shipping_address"]
+         'buyer': customer.id,
+         'status': "Pending",
+         'shipping_address': collect["shipping_address"],
+         'store': collect['store'],
       }
-      with transaction.atomic():
-         order = OrderSerializer(data=order_data)
-         if order.is_valid():
-               order.save()
-               return order.instance
-         else:
-               logging.error("Order validation failed. Errors: %s", order.errors)
-               raise serializers.ValidationError(order.errors)
+      # print(store)
+      order = OrderSerializer(data=order_data)
+      if order.is_valid():
+         order.save()
+         return order
+      else:
+         print(order.errors)
+         raise serializers.ValidationError("Invalid order data")
 
+   def create_order_items(self, order, products):
+      total_price = Decimal('0.00')
+      for product_data in products:
+         product = self._get_product(product_data["product"])
+         price = Decimal(str(product_data['price']))  # Convert to Decimal
+         item_total_price = price * Decimal(str(product_data["quantity"]))  # Convert to Decimal
+         total_price += item_total_price
+
+         OrderItems.objects.create(
+               order=order.instance,
+               product=product,  # Use the product instance
+               quantity=product_data["quantity"],
+         )
+      return total_price
+   
+   def _get_product(self, product_id):
+      try:
+         product = Product.objects.get(id=product_id)
+         return product  # Return the entire Product instance
+      except Product.DoesNotExist:
+         logging.error(f"Product with ID '{product_id}' does not exist.")
+         raise ObjectDoesNotExist("Product does not exist")
+         
+         
+         
+   # def process_affiliate(self, affiliate, total_price):
+   #    if affiliate:
+   #       affiliate_percentage = Decimal('0.03')
+   #       earnings_to_add = total_price * affiliate_percentage
+   #       affiliate.earnings += earnings_to_add
+   #       affiliate.save()
+
+   # def get_affiliate(self, affiliate_referral_code):
+   #    if affiliate_referral_code:
+   #       try:
+   #             return Affiliate.objects.get(referral_code=affiliate_referral_code)
+   #       except Affiliate.DoesNotExist:
+   #             pass
+   #    return None
 
    
-   #  def create_order_items(self, order, products):
-   #       for product_data in products:
-#          product_id = product_data.get('product')
-#          quantity = product_data.get('quantity')
 
-#          # You may need to adjust this depending on your data structure
-#          product = get_object_or_404(Product, id=product_id)
-
-#          # Get the corresponding Price for the Product and Size (if applicable)
-#          price = self.get_product_price(product, product_data.get('size'))
-
-#          # Calculate the total price for the OrderItems
-#          total_price = price * quantity
-
-#          OrderItems.objects.create(order=order, product=product, quantity=quantity, total_price=total_price)
-         
-      
-
-# class CreateOrder(APIView):
-#    def post(self, request, *args, **kwargs):
-#       try:
-#             # Make request.data reusable
-#             collect = request.data
-#             buyer = request.user.id
-
-#             # collect store & buyer id
-#             store = self.get_store(collect.get('store'))
-#             buyer = self.get_buyer(buyer)
-#             # Create Order and OrderItems
-#             order = self.create_order(buyer, store, collect)
-#             products = collect.get('products', [])
-#             self.create_order_items(order, products)
-#             return Response(OrderSerializer(order).data)
-
-#       except Http404 as e:
-#             return Response({"detail": str(e)}, status=404)
-
-#       except Exception as e:
-#             # Log the exception for further investigation
-#             logging.exception("An unexpected error occurred.")
-#             return Response({"detail": "An unexpected error occurred."}, status=500)
-
-#    def get_store(self, store):
-#       return get_object_or_404(Store, id=store)
-
-#    def get_buyer(self, buyer):
-#       return get_object_or_404(CustomUser, is_consumer=True, id=buyer)
-
-#    def create_order(self, buyer, store, collect):
-#       order_data = {
-#          'buyer': buyer.id,
-#          'store': store.id,
-#          'shipping_address': collect.get('shipping_address'),
-#       }
-
-#       with transaction.atomic():
-#          order_serializer = OrderSerializer(data=order_data)
-#          if order_serializer.is_valid(raise_exception=True):
-#             order_serializer.save()
-#             return order_serializer.instance
-#          else:
-#             order_serializer.errors
-#             print(order_serializer)
-
-#    def create_order_items(self, order, products):
-#       for product_data in products:
-#          product_id = product_data.get('product')
-#          quantity = product_data.get('quantity')
-
-#          # You may need to adjust this depending on your data structure
-#          product = get_object_or_404(Product, id=product_id)
-
-#          # Get the corresponding Price for the Product and Size (if applicable)
-#          price = self.get_product_price(product, product_data.get('size'))
-
-#          # Calculate the total price for the OrderItems
-#          total_price = price * quantity
-
-#          OrderItems.objects.create(order=order, product=product, quantity=quantity, total_price=total_price)
-
-#    def get_product_price(self, product, size):
-#       try:
-#          # Assuming you have a Size model and a ForeignKey in the Price model
-#          if size:
-#                price = Price.objects.get(product=product, size=size).price
-#          else:
-#                # If there is no size specified, get the default price
-#                price = Price.objects.get(product=product, size=None).price
-
-#          return price if price is not None else Decimal('0.0')  # Default to 0 if price is None
-
-#       except Price.DoesNotExist:
-#          # Handle the case where the price is not found
-#          raise serializers.ValidationError(f"Price not found for product {product.name} and size {size}")
