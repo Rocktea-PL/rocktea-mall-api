@@ -300,9 +300,8 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       return representation
 
    def serialize_product_images(self, images):
-      # Serialize each ProductImage instance to a format that can be JSON serialized
-      return [{"id": image.id, "url": image.image.url} for image in images]
-
+      return [{"id": image.id, "url": image.images.url if image.images else None} for image in images]
+   
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
       return [{"id": variant.id, "name": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
