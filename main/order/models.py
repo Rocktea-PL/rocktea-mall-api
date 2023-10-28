@@ -46,13 +46,3 @@ class Order(models.Model):
       self.total_price = self.calculate_total_price
       super().save(*args, **kwargs)
       
-
-# class CartItem(models.Model):
-#    product = models.ForeignKey(Product, related_name="cart_products", on_delete=models.CASCADE)
-#    quantity = models.PositiveIntegerField()
-   
-   
-#    @property
-#    def calculate_total_price(self):
-#       total_price = P
-

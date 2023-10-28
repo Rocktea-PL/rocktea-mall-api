@@ -73,6 +73,7 @@ class ProductViewSet(viewsets.ModelViewSet):
          return []
       return product
 
+
 class ProductVariantView(viewsets.ModelViewSet):
    queryset = ProductVariant.objects.all().prefetch_related('product')
    serializer_class = ProductVariantSerializer
@@ -191,7 +192,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
          store = get_object_or_404(Store, id=store_id)
          # Filter the queryset based on the specified store and list_product=True
          queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product')
-
          return queryset
+      
       except Store.DoesNotExist:
          return MarketPlace.objects.none()

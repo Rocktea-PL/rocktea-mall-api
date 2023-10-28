@@ -100,23 +100,3 @@ class CreateOrder(APIView):
       except Product.DoesNotExist:
          logging.error(f"Product with ID '{product_id}' does not exist.")
          raise ObjectDoesNotExist("Product does not exist")
-         
-         
-         
-   # def process_affiliate(self, affiliate, total_price):
-   #    if affiliate:
-   #       affiliate_percentage = Decimal('0.03')
-   #       earnings_to_add = total_price * affiliate_percentage
-   #       affiliate.earnings += earnings_to_add
-   #       affiliate.save()
-
-   # def get_affiliate(self, affiliate_referral_code):
-   #    if affiliate_referral_code:
-   #       try:
-   #             return Affiliate.objects.get(referral_code=affiliate_referral_code)
-   #       except Affiliate.DoesNotExist:
-   #             pass
-   #    return None
-
-   
-

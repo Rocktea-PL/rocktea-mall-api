@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
 from setup.celery import app
+from django.http import Http404
 
 
 class StoreOwnerSerializer(ModelSerializer):
@@ -190,13 +191,13 @@ class ProductSerializer(serializers.ModelSerializer):
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
+   storevariant = StoreProductVariantSerializer(read_only=True)
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images']
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', 'storevariant']
       read_only_fields = ('id', "sku")
-
    
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -216,6 +217,8 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
+      
+      # representation['producttype'] = {"name": instance.}
       
       representation['category'] = {"id": instance.category.id,
                                  "name": instance.category.name}
@@ -251,9 +254,12 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
             
    def create(self, validated_data):
       product_id = validated_data["product"]
-      product = get_object_or_404(Product, id=product_id)
-      # product.list_product = True
-      product.save()
+      
+      try:
+         product = get_object_or_404(Product, id=product_id)
+         product.save()
+      except Http404:
+         logging.error("Error")
 
       store_id = self.context['request'].query_params.get('store')
       try:
@@ -273,10 +279,10 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       representation['product'] = {
          "id": instance.product.id,
          "name": instance.product.name,
-         "color": instance.product.color,
-         "size": self.serialize_product_sizes(instance.product.sizes.all()),
+         # "color": instance.product.product_variants.colors.all(),
+         # "size": self.serialize_product_sizes(instance.product.sizes.all()),
          "images": self.serialize_product_images(instance.product.images.all()),
-         "price": self.get_product_price(instance.product.id, [size.id for size in instance.product.sizes.all()]),
+         # "price": self.get_product_price(instance.product.id, [size.id for size in instance.product.sizes.all()]),
          "category": instance.product.category.name,
          "subcategory": instance.product.subcategory.name,
          "product_type": instance.product.producttype,
