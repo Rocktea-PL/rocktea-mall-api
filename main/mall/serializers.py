@@ -251,15 +251,14 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
             logging.error("An Error Unexpectedly Occurred")
       return product_prices
             
-            
    def create(self, validated_data):
-      product_id = validated_data["product"]
-      
+      product_id = self.context['request'].query_params.get('product')
       try:
          product = get_object_or_404(Product, id=product_id)
-         product.save()
+         # Assign the product to the instance
+         validated_data['product'] = product
       except Http404:
-         logging.error("Error")
+         raise ValidationError("Product not found.")
 
       store_id = self.context['request'].query_params.get('store')
       try:
@@ -272,6 +271,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       # Create the MarketPlace instance
       instance = MarketPlace.objects.create(**validated_data, list_product=True)
       return instance
+      
 
    def to_representation(self, instance):
       representation = super().to_representation(instance)
