@@ -274,15 +274,18 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       return instance
 
    def to_representation(self, instance):
-      representation = super(MarketPlaceSerializer, self).to_representation(instance)
+      representation = super().to_representation(instance)
+
+      # Assuming `store` and `product` are related fields
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      
+      # Assuming `product` is a related field
       representation['product'] = {
          "id": instance.product.id,
          "name": instance.product.name,
-         # "color": instance.product.product_variants.colors.all(),
-         # "size": self.serialize_product_sizes(instance.product.sizes.all()),
          "images": self.serialize_product_images(instance.product.images.all()),
-         # "price": self.get_product_price(instance.product.id, [size.id for size in instance.product.sizes.all()]),
+         "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
+         "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
          "category": instance.product.category.name,
          "subcategory": instance.product.subcategory.name,
          "product_type": instance.product.producttype,
@@ -294,13 +297,16 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    def serialize_product_images(self, images):
       # Serialize each ProductImage instance to a format that can be JSON serialized
       return [{"id": image.id, "url": image.image.url} for image in images]
-   
-   def serialize_product_sizes(self, sizes):
-      return [{"id": size.id, "name": size.name} for size in sizes]
-   
-   def get_profit_price(self, product, store, size):
-      try:
-         storeprofit = StoreProfit.objects.get(product=product, store=store, size=size)
-      except StoreProfit.DoesNotExist:
-         return None
-      return storeprofit
+
+   # Add this method to serialize product variants
+   def serialize_product_variants(self, variants):
+      return [{"id": variant.id, "name": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
+
+   def get_store_variant(self, product_variants, store_id):
+      store_variants_details = []
+      for variant in product_variants:
+         store_variant_queryset = StoreProductVariant.objects.filter(store=store_id, product_variant=variant)
+         for store_variant_detail in store_variant_queryset:
+               store_variants_details.append({"id": store_variant_detail.id, "product_variant_id": store_variant_detail.product_variant.id,"retail_price": store_variant_detail.retail_price})
+      return store_variants_details
+      
