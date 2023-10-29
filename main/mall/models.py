@@ -142,7 +142,7 @@ class Product(models.Model):
    is_available = models.BooleanField(default=True)
    upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True, default="Pending")
    images = models.ManyToManyField('ProductImage')
-   store = models.ManyToManyField('Store', blank=True)
+   store = models.ManyToManyField('Store', related_name="store_products", blank=True)
 
    
    class Meta:

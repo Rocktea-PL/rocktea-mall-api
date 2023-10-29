@@ -22,6 +22,7 @@ from .task import upload_image
 from rest_framework.parsers import MultiPartParser
 from django.shortcuts import get_object_or_404
 import logging
+from django.db.models import Count
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -196,3 +197,29 @@ class MarketPlaceView(viewsets.ModelViewSet):
       
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
+      
+      
+# Counts
+# TODO 1. Product Count Per Store
+
+class DropshipperDashboardCounts(APIView):
+   def get(self, request):
+      # Get Store
+      store_id = request.query_params.get('store')
+      store = self.get_store(store_id)
+      
+      # Get Number of Listed Products
+      try:
+         product_count = MarketPlace.objects.filter(store=store, list_product=True).aggregate(product_count=Count('id'))['product_count']
+      except MarketPlace.DoesNotExist:
+         return MarketPlace.objects.none
+      
+      data = {
+         "No. of Listed Products": product_count
+      }
+      
+      return Response(data, status=status.HTTP_200_OK)
+
+   
+   def get_store(self, store_id):
+      return get_object_or_404(Store, id=store_id)
