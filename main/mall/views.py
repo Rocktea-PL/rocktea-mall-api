@@ -23,6 +23,8 @@ from rest_framework.parsers import MultiPartParser
 from django.shortcuts import get_object_or_404
 import logging
 from django.db.models import Count
+from django.core.cache import cache
+from rest_framework.pagination import PageNumberPagination
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -182,25 +184,26 @@ class UploadProductImage(ListCreateAPIView):
 
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
    
-   
+class MarketPlacePagination(PageNumberPagination):
+   page_size = 5
+
+
 class MarketPlaceView(viewsets.ModelViewSet):
    serializer_class = MarketPlaceSerializer
+   pagination_class = MarketPlacePagination
 
    def get_queryset(self):
       store_id = self.request.query_params.get("store")
-
+      
       try:
          store = get_object_or_404(Store, id=store_id)
          # Filter the queryset based on the specified store and list_product=True
-         queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product')
+         queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product').order_by("-id")
+         # cache.set(cache_key, queryset, timeout=100)
          return queryset
-      
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
       
-      
-# Counts
-# TODO 1. Product Count Per Store
 
 class DropshipperDashboardCounts(APIView):
    def get(self, request):

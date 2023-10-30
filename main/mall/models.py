@@ -317,9 +317,9 @@ class Wishlist(models.Model):
 
 
 class MarketPlace(models.Model):
-   store=models.ForeignKey(Store, on_delete=models.CASCADE)
-   product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True)
-   list_product = models.BooleanField(default=True)
+   store=models.ForeignKey(Store, on_delete=models.CASCADE, db_index=True)
+   product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True, db_index=True)
+   list_product = models.BooleanField(default=True, db_index=True)
    
-   def __str__(self):
-      return self.store.name
+   def __repr__(self):
+      return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"
