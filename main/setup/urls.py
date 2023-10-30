@@ -4,6 +4,11 @@ from rest_framework import routers
 from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, UploadProductImage, MarketPlaceView, ProductVariantView, StoreProductVariantView
 from order.views import MakeOrder, OrderItemsView
 from tenants.views import TenantSignUp
+from django.urls import path
+
+# def trigger_error(request):
+#     division_by_zero = 1 / 0
+    
 
 router = routers.DefaultRouter()
 router.register('storeowner', CreateStoreOwner, basename="user")
@@ -25,5 +30,6 @@ urlpatterns = [
     path('mall/', include("mall.urls")),
     path('store/', include("tenants.urls")),
     path('dropshippers/', include('dropshippers.urls')),
-    path('order/', include('order.urls'))
+    path('order/', include('order.urls')),
+    # path('sentry-debug/', trigger_error),
 ]

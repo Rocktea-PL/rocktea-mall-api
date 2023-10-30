@@ -75,6 +75,9 @@ jobs:
         echo "REDISPORT=${{ secrets.REDISPORT }}" >> $GITHUB_ENV
         echo "REDISPASSWORD=${{ secrets.REDISPASSWORD }}" >> $GITHUB_ENV
         echo "REDIS_URL=${{ secrets.REDIS_URL }}" >> $GITHUB_ENV
+
+    - name: Sentry
+      run:  echo "DSN=${{ secrets.DSN }}" >> $GITHUB_ENV
         
     - name: Run Tests
       run: |

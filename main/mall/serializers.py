@@ -274,6 +274,12 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       
       # Assuming `product` is a related field
    def to_representation(self, instance):
+      cache_key = f"Listed Product_{instance.id}"
+      cached_data = cache.get(cache_key)
+      
+      if cached_data is not None:
+         return cached_data
+      
       representation = super().to_representation(instance)
 
    # Assuming `store` is a related field
@@ -281,7 +287,11 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
       # Assuming `product` is a related field
       if instance.product:
-         representation['product'] = {
+            product = Product.objects.select_related("category", "subcategory").prefetch_related(
+               "images", "product_variants"
+            ).get(id=instance.product.id)
+            instance.product = product
+            representation['product'] = {
                "id": instance.product.id,
                "name": instance.product.name,
                "images": self.serialize_product_images(instance.product.images.all()),
@@ -297,6 +307,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          representation['product'] = None
 
       representation['listed'] = instance.list_product
+      cache.set(cache_key, representation, timeout=200)
       return representation
 
    def serialize_product_images(self, images):
@@ -304,13 +315,34 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
-      return [{"id": variant.id, "name": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
+      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
+
 
    def get_store_variant(self, product_variants, store_id):
+      product_variant_ids = [variant.id for variant in product_variants]
+      store_variant_queryset = StoreProductVariant.objects.filter(
+         store=store_id, product_variant__in=product_variant_ids
+      ).select_related("product_variant")
+
       store_variants_details = []
-      for variant in product_variants:
-         store_variant_queryset = StoreProductVariant.objects.filter(store=store_id, product_variant=variant)
-         for store_variant_detail in store_variant_queryset:
-               store_variants_details.append({"id": store_variant_detail.id, "product_variant_id": store_variant_detail.product_variant.id,"retail_price": store_variant_detail.retail_price})
+      for store_variant_detail in store_variant_queryset:
+         store_variants_details.append(
+               {
+                  "id": store_variant_detail.id,
+                  "product_variant_id": store_variant_detail.product_variant.id,
+                  "product_variant_size": store_variant_detail.product_variant.size,
+                  "retail_price": store_variant_detail.retail_price,
+               }
+         )
       return store_variants_details
+   
+   
+   
+   # def get_store_variant(self, product_variants, store_id):
+   #    store_variants_details = []
+   #    for variant in product_variants:
+   #       store_variant_queryset = StoreProductVariant.objects.filter(store=store_id, product_variant=variant)
+   #       for store_variant_detail in store_variant_queryset:
+   #             store_variants_details.append({"id": store_variant_detail.id, "product_variant_id": store_variant_detail.product_variant.id, "product_variant_size": store_variant_detail.product_variant.size, "retail_price": store_variant_detail.retail_price})
+   #    return store_variants_details
       

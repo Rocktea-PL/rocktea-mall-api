@@ -73,6 +73,10 @@ jobs:
           echo "PGPORT=${{ secrets.PGPORT }}" >> $GITHUB_ENV
           echo "PGPASSWORD=${{ secrets.PGPASSWORD }}" >> $GITHUB_ENV
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+
+
+    - name: Sentry
+      run:  echo "DSN=${{ secrets.DSN }}" >> $GITHUB_ENV
     - name: Run Tests
       run: |
         python manage.py test
