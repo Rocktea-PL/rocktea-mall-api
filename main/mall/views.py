@@ -145,9 +145,15 @@ class StoreProductVariantView(viewsets.ModelViewSet):
 
    def serialize_store_product_variants(self, store_variants):
       serialized_data = []
-      for variant in store_variants:
-         serializer = StoreProductVariantSerializer(variant)
-         serialized_data.append(serializer.data)
+      for store_variant in store_variants:
+         serialized_store_variant = {
+               "id": store_variant.id,
+               "retail_price": store_variant.retail_price,
+               "store": str(store_variant.store.id),  # Convert UUID to string if needed
+               "product_variant": store_variant.product_variant.id,
+               "size": store_variant.product_variant.size if store_variant.product_variant.size else None,
+         }
+         serialized_data.append(serialized_store_variant)
       return serialized_data
 
    def get_product(self, product_id):

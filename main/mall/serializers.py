@@ -173,6 +173,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
       fields = '__all__'
 
 class ProductVariantSerializer(serializers.ModelSerializer):
+   # size_name = serializers.SerializerMethodField()
    class Meta:
       model = ProductVariant
       fields = '__all__'
@@ -184,6 +185,7 @@ class StoreProductVariantSerializer(serializers.ModelSerializer):
    class Meta:
       model = StoreProductVariant
       fields = '__all__'
+      
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
