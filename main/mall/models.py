@@ -7,7 +7,7 @@ from phonenumber_field.modelfields import PhoneNumberField
 from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
-
+from django.contrib.postgres.fields import ArrayField
 
 def generate_unique_code():
    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -103,10 +103,10 @@ class StoreActivationInfo(models.Model):
    )
    
    DOMAIN_ACTIVATION_STATUS = (
-      ('ACTIVATED', 'ACTIVATED'),
-      ('DISACTIVATED', 'DISACTIVATED'),
-      ('UNPROCESSED', 'UNPROCESSED'),
-      ('UNDER-REVIEW', 'UNDER-REVIEW')
+   ('ACTIVATED', 'ACTIVATED'),
+   ('DISACTIVATED', 'DISACTIVATED'),
+   ('UNPROCESSED', 'UNPROCESSED'),
+   ('UNDER-REVIEW', 'UNDER-REVIEW')
    )
    user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
    store = models.OneToOneField(Store, on_delete=models.CASCADE)
@@ -115,49 +115,12 @@ class StoreActivationInfo(models.Model):
    status = models.CharField(max_length=12, choices=DOMAIN_ACTIVATION_STATUS, default='UNPROCESSED')
    payment_status = models.CharField(max_length=6, choices=PAYMENT_STATUS, default='UP')
    payment_reference = models.CharField(max_length=30, unique=True)
-   
+
    def __str__(self):
       return f'{self.store.name} {self.domain_activation}'
 
 
 class Product(models.Model):
-   COLORS = (
-      ('Red', 'Red'),
-      ('Yellow', 'Yellow'),
-      ('Blue', 'Blue'),
-      ('Green', 'Green'),
-      ('Orange', 'Orange'),
-      ('Purple', 'Purple'),
-      ('Pink', 'Pink'),
-      ('Brown', 'Brown'),
-      ('Gray', 'Gray'),
-      ('Black', 'Black'),
-      ('White', 'White'),
-      ('Beige', 'Beige'),
-      ('Cyan', 'Cyan'),
-      ('Magenta', 'Magenta'),
-      ('Lavender', 'Lavender'),
-      ('Teal', 'Teal'),
-      ('Navy', 'Navy'),
-      ('Olive', 'Olive'),
-      ('Maroon', 'Maroon'),
-      ('Turquoise', 'Turquoise'),
-      ('Indigo', 'Indigo'),
-      ('Violet', 'Violet'),
-      ('Gold', 'Gold'),
-      ('Silver', 'Silver'),
-      ('Bronze', 'Bronze'),
-      ('Nude', 'Nude'),
-      ('Neutral', 'Neutral'),
-      ('Berge', 'Berge'),
-      ('Ivory', 'Ivory'),
-      ('Metallic', 'Metallic'),
-      ('Grow', 'Grow'),
-      ('Multi', 'Multi'),
-      ('Clear', 'Clear'),
-      ('Burgundy', 'Burgundy'),
-      ('Rose Gold', 'Rose Gold'),
-   )
    
    UPLOAD_STATUS = (
       ("Approved", "Approved"),
@@ -170,7 +133,6 @@ class Product(models.Model):
    name = models.CharField(max_length=50)
    description = models.TextField(null=True)
    quantity = models.IntegerField()
-   color = models.CharField(choices=COLORS, max_length=9, null=True, blank=True)
    category = models.ForeignKey('Category', related_name="category", on_delete=models.CASCADE, null=True)
    subcategory = models.ForeignKey('SubCategories', on_delete=models.CASCADE, null=True)
    producttype = models.ForeignKey('ProductTypes', on_delete=models.CASCADE, null=True)
@@ -179,10 +141,9 @@ class Product(models.Model):
    on_promo = models.BooleanField(default=False)
    is_available = models.BooleanField(default=True)
    upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True, default="Pending")
-   sizes = models.ManyToManyField('Size', through='Price')
    images = models.ManyToManyField('ProductImage')
-   store = models.ManyToManyField('Store')
-   # list_product = models.BooleanField(default=False)
+   store = models.ManyToManyField('Store', related_name="store_products", blank=True)
+
    
    class Meta:
       # Add an index for the 'uid' field
@@ -206,19 +167,58 @@ class Product(models.Model):
       return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
       
    def __str__(self):
-      return self.id
+      return self.name
 
 
 class ProductImage(models.Model):
-   image = models.FileField(storage=RawMediaCloudinaryStorage)
+   images = models.FileField(storage=RawMediaCloudinaryStorage)
    
    class Meta:
       indexes = [
-         models.Index(fields=['image'], name='product_images_imagesx')
+         models.Index(fields=['images'], name='product_images_imagesx')
       ]
 
 # class MarketPlace(models.Model):
 #    store = models.
+
+class ProductVariant(models.Model):
+   COLOR_CHOICES = [
+   ('Red', 'Red'),
+   ('Orange', 'Orange'),
+   ('Yellow', 'Yellow'),
+   ('Green', 'Green'),
+   ('Blue', 'Blue'),
+   ('Purple', 'Purple'),
+   ('Pink', 'Pink'),
+   ('Brown', 'Brown'),
+   ('Gray', 'Gray'),
+   ('Black', 'Black'),
+   ('White', 'White'),
+   ('Cyan', 'Cyan'),
+   ('Magenta', 'Magenta'),
+   ('Lime', 'Lime'),
+   ('Teal', 'Teal'),
+   ('Indigo', 'Indigo'),
+   ('Maroon', 'Maroon'),
+   ('Olive', 'Olive'),
+   ('Navy', 'Navy'),
+   ('Silver', 'Silver'),
+   ]
+   
+   product = models.ManyToManyField(Product, related_name='product_variants')
+   size = models.CharField(max_length=50, null=True)
+   colors = ArrayField(models.CharField(max_length=20, choices=COLOR_CHOICES))
+   wholesale_price = models.DecimalField(max_digits=11, decimal_places=2)
+   
+   def __str__(self):
+      return self.size
+
+
+class StoreProductVariant(models.Model):
+   store = models.ForeignKey(Store, on_delete=models.CASCADE)
+   product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='store_variants')
+   retail_price = models.DecimalField(max_digits=11, decimal_places=2)
+
 
 class Category(models.Model):
    CHOICES = (
@@ -286,49 +286,7 @@ class Brand(models.Model):
    def __str__(self):
       return self.name
    
-
-class Size(models.Model):
-   name = models.CharField(max_length=10, null=True, blank=True)
-   available = models.BooleanField(default=False)
    
-   class Meta:
-      indexes = [
-         models.Index(fields=['name'], name='size_name_namex')
-      ]
-   
-   def __str__(self):
-      return self.name
-
-
-class Price(models.Model):
-   store = models.ForeignKey(Store, related_name="store_prices", on_delete=models.CASCADE, null=True)
-   product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="product_price", null=True)
-   size = models.ForeignKey('Size', on_delete=models.CASCADE, related_name='product_size',null=True)
-   price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
-   profit_price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10)
-
-   class Meta:
-      indexes = [
-         models.Index(fields=['price'], name='price_price_pricex'),
-         models.Index(fields=['size'], name='size_size_sizex')
-      ]
-
-   def __str__(self):
-      return f"{self.price}"
-
-
-class StoreProfit(models.Model):
-   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True, blank=True)
-   profit_price = models.DecimalField(default=0.00, decimal_places=2, max_digits=10, blank=True, null=True)
-   product = models.OneToOneField(Product, on_delete=models.CASCADE, null=True)
-   size = models.ForeignKey('Size', on_delete=models.CASCADE, related_name='size',null=True)
-   created_at = models.DateTimeField(auto_now_add=True, null=True)
-   updated_at = models.DateTimeField(auto_now=True)
-   
-   def __str__(self):
-      return self.profit_price
-
-
 class AccountDetails(models.Model):
    user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
    account_name = models.CharField(max_length=300)
@@ -348,6 +306,7 @@ class Wallet(models.Model):
 # TODO Implement Cart and WishList Feature After MarketPlace
 class Cart(models.Model):
    user = models.ForeignKey(CustomUser, limit_choices_to={"is_consumer":True}, on_delete=models.CASCADE)
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)
    product = models.ForeignKey(Product, on_delete=models.CASCADE)
    quantity = models.PositiveIntegerField(default=1)
 
@@ -358,9 +317,9 @@ class Wishlist(models.Model):
 
 
 class MarketPlace(models.Model):
-   store=models.ForeignKey(Store, on_delete=models.CASCADE)
-   product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True)
-   list_product = models.BooleanField(default=True)
+   store=models.ForeignKey(Store, on_delete=models.CASCADE, db_index=True)
+   product = models.ForeignKey(Product, related_name="products",on_delete=models.CASCADE, null=True, db_index=True)
+   list_product = models.BooleanField(default=True, db_index=True)
    
-   def __str__(self):
-      return self.store.name
+   def __repr__(self):
+      return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"

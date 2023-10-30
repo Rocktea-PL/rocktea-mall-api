@@ -1,5 +1,6 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import CustomUser, Store, Category, SubCategories, Size, Price, Product, Brand, ProductTypes, ProductImage, MarketPlace, StoreProfit
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, 
+                     ProductImage, MarketPlace, ProductVariant, StoreProductVariant)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -9,6 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
 from setup.celery import app
+from django.http import Http404
 
 
 class StoreOwnerSerializer(ModelSerializer):
@@ -141,26 +143,6 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return serializers.ValidationError("Provide User")
 
 
-class SizeSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = Size
-      fields = '__all__'
-
-
-class PriceSerializer(serializers.ModelSerializer):
-   class Meta:
-      model = Price
-      fields = ['id', 'size', 'price']
-      # read_only_fields = ['updated_at', ]
-      
-
-# class StoreProfitSerializer(serializers.ModelSerializer):
-#    class Meta:
-#       model = StoreProfit
-#       fields = ['id', 'store', 'profit_price', 'product', 'created_at', 'updated_at']
-#       read_only_fields = ['id', 'created_at', 'updated_at']
-
-
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
       model = Brand
@@ -190,34 +172,34 @@ class ProductImageSerializer(serializers.ModelSerializer):
       model = ProductImage
       fields = '__all__'
 
+class ProductVariantSerializer(serializers.ModelSerializer):
+   # size_name = serializers.SerializerMethodField()
+   class Meta:
+      model = ProductVariant
+      fields = '__all__'
+      
+
+class StoreProductVariantSerializer(serializers.ModelSerializer):
+   productvariant = ProductVariantSerializer(many=True, read_only=True)
+   
+   class Meta:
+      model = StoreProductVariant
+      fields = '__all__'
+      
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-   sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
+   # sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-   # price = P
+   producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
+   storevariant = StoreProductVariantSerializer(read_only=True)
    
    class Meta:
       model = Product
-      fields = ['id', 'sku', 'name', 'description', 'quantity', 'color', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'sizes',  'category', 'subcategory', 'brand', 'images', ]
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', 'storevariant']
       read_only_fields = ('id', "sku")
-      
-   def get_product_price(self, product, size_ids):
-      product_prices = {}
-      # Ensure size_ids is iterable
-      if not isinstance(size_ids, (list, tuple)):
-         size_ids = [size_ids]
-
-      for size_id in size_ids:
-         try:
-               price = Price.objects.get(product=product, size=size_id).price
-               product_prices[size_id] = price
-         except Price.DoesNotExist:
-               logging.error("An Error Unexpectedly Occurred")
-
-      return product_prices
    
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -235,25 +217,22 @@ class ProductSerializer(serializers.ModelSerializer):
       if representation['images'] is None:
          del representation['images']
       
-      representation['sizes'] = [{"id": sizes.id, "name": sizes.name, "available": sizes.available, 
-                                 "prices": self.get_product_price(instance.id, sizes.id)} 
-                                 for sizes in instance.sizes.all()]
-      
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
+      
+      # representation['producttype'] = {"name": instance.}
       
       representation['category'] = {"id": instance.category.id,
                                  "name": instance.category.name}
       
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
-      
-      representation['images'] = [{"url": prod.image.url} 
-                                 for prod in instance.images.all()]
 
-      cache.set(cache_key, representation, timeout=60 * 5) #Cache product data for 10 mins
+      representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
+
+      cache.set(cache_key, representation, timeout=60)  # Cache product data for 10 mins
       return representation
-   
+
 
 # serializers.py
 class MarketPlaceSerializer(serializers.ModelSerializer):
@@ -274,12 +253,14 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
             logging.error("An Error Unexpectedly Occurred")
       return product_prices
             
-            
    def create(self, validated_data):
-      product_id = validated_data["product"]
-      product = get_object_or_404(Product, id=product_id)
-      # product.list_product = True
-      product.save()
+      product_id = self.context['request'].query_params.get('product')
+      try:
+         product = get_object_or_404(Product, id=product_id)
+         # Assign the product to the instance
+         validated_data['product'] = product
+      except Http404:
+         raise ValidationError("Product not found.")
 
       store_id = self.context['request'].query_params.get('store')
       try:
@@ -292,42 +273,78 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       # Create the MarketPlace instance
       instance = MarketPlace.objects.create(**validated_data, list_product=True)
       return instance
-
+      
+      # Assuming `product` is a related field
    def to_representation(self, instance):
-      representation = super(MarketPlaceSerializer, self).to_representation(instance)
+      cache_key = f"Listed Product_{instance.id}"
+      cached_data = cache.get(cache_key)
+      
+      if cached_data is not None:
+         return cached_data
+      
+      representation = super().to_representation(instance)
+
+   # Assuming `store` is a related field
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
-      representation['product'] = {
-         "id": instance.product.id,
-         "name": instance.product.name,
-         "color": instance.product.color,
-         "size": self.serialize_product_sizes(instance.product.sizes.all()),
-         "images": self.serialize_product_images(instance.product.images.all()),
-         "price": self.get_product_price(instance.product.id, [size.id for size in instance.product.sizes.all()]),
-         "category": instance.product.category.name,
-         "subcategory": instance.product.subcategory.name,
-         "product_type": instance.product.producttype,
-         "upload_status": instance.product.upload_status
-      }
+
+      # Assuming `product` is a related field
+      if instance.product:
+            product = Product.objects.select_related("category", "subcategory").prefetch_related(
+               "images", "product_variants"
+            ).get(id=instance.product.id)
+            instance.product = product
+            representation['product'] = {
+               "id": instance.product.id,
+               "name": instance.product.name,
+               "images": self.serialize_product_images(instance.product.images.all()),
+               "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
+               "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
+               "category": instance.product.category.name,
+               "subcategory": instance.product.subcategory.name,
+               "product_type": instance.product.producttype,
+               "upload_status": instance.product.upload_status
+         }
+      else:
+         # Handle the case where product is None
+         representation['product'] = None
+
       representation['listed'] = instance.list_product
+      cache.set(cache_key, representation, timeout=200)
       return representation
 
    def serialize_product_images(self, images):
-      # Serialize each ProductImage instance to a format that can be JSON serialized
-      return [{"id": image.id, "url": image.image.url} for image in images]
+      return [{"id": image.id, "url": image.images.url if image.images else None} for image in images]
    
-   def serialize_product_sizes(self, sizes):
-      return [{"id": size.id, "name": size.name} for size in sizes]
-   
-   # def serialize_product_price(self, sizes, product):
-   #    pass
-   
-   
-   
-   
-   # # def price_control(self, initial_price, profit_price):
-   #    if profit_price is not None:
-   #       allowed_percentage = 40
-   #       maximum_profit_price = initial_price + (initial_price * allowed_percentage / 100)
+   # Add this method to serialize product variants
+   def serialize_product_variants(self, variants):
+      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
-   #       if profit_price > maximum_profit_price:
-   #             raise serializers.ValidationError({"message": "Price Control: Cannot add more than 40% profit price on this product"})
+
+   def get_store_variant(self, product_variants, store_id):
+      product_variant_ids = [variant.id for variant in product_variants]
+      store_variant_queryset = StoreProductVariant.objects.filter(
+         store=store_id, product_variant__in=product_variant_ids
+      ).select_related("product_variant")
+
+      store_variants_details = []
+      for store_variant_detail in store_variant_queryset:
+         store_variants_details.append(
+               {
+                  "id": store_variant_detail.id,
+                  "product_variant_id": store_variant_detail.product_variant.id,
+                  "product_variant_size": store_variant_detail.product_variant.size,
+                  "retail_price": store_variant_detail.retail_price,
+               }
+         )
+      return store_variants_details
+   
+   
+   
+   # def get_store_variant(self, product_variants, store_id):
+   #    store_variants_details = []
+   #    for variant in product_variants:
+   #       store_variant_queryset = StoreProductVariant.objects.filter(store=store_id, product_variant=variant)
+   #       for store_variant_detail in store_variant_queryset:
+   #             store_variants_details.append({"id": store_variant_detail.id, "product_variant_id": store_variant_detail.product_variant.id, "product_variant_size": store_variant_detail.product_variant.size, "retail_price": store_variant_detail.retail_price})
+   #    return store_variants_details
+      

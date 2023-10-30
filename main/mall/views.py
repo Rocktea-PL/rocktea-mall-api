@@ -1,10 +1,11 @@
 from rest_framework import viewsets
-
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           PriceSerializer, SizeSerializer, ProductImageSerializer, MarketPlaceSerializer)
+                           ProductImageSerializer, MarketPlaceSerializer,
+                           ProductVariantSerializer, StoreProductVariantSerializer)
 
-from .models import CustomUser, Category, Store, Product, Size, Price, ProductImage, MarketPlace, StoreProfit
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
+
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
@@ -21,6 +22,9 @@ from .task import upload_image
 from rest_framework.parsers import MultiPartParser
 from django.shortcuts import get_object_or_404
 import logging
+from django.db.models import Count
+from django.core.cache import cache
+from rest_framework.pagination import PageNumberPagination
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -54,26 +58,106 @@ class SignInUserView(TokenObtainPairView):
 
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('sizes', 'images', 'store')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
-
-
-class SizeViewSet(viewsets.ModelViewSet):
-   queryset = Size.objects.all()
-   serializer_class = SizeSerializer
-
-
-class PriceViewSet(viewsets.ModelViewSet):
-   # queryset = Price.objects.all()
-   serializer_class = PriceSerializer
    
    def get_queryset(self):
-      product_id = self.kwargs.get('sn')
-      if product_id:
-         return Price.objects.filter(product__sn=product_id)
+      category_id = self.request.query_params.get('category')
+      
+      if category_id is not None:
+         category = get_object_or_404(Category, id=category_id)
       else:
-         return Price.objects.all()
+         return []
+      
+      # Get Product
+      try:
+         product = Product.objects.filter(category=category)
+      except Product.DoesNotExist:
+         return []
+      return product
 
+
+class ProductVariantView(viewsets.ModelViewSet):
+   queryset = ProductVariant.objects.all().prefetch_related('product')
+   serializer_class = ProductVariantSerializer
+
+   def get_queryset(self):
+      # Assuming you're getting the product ID from the request data
+      product_id = self.request.query_params.get('product')
+
+      # Check if the product_id is provided
+      if product_id is not None:
+         try:
+               product_variants = ProductVariant.objects.filter(product=product_id)
+               return product_variants
+         except ProductVariant.DoesNotExist:
+               # Handle the case where no variants are found for the given product
+               return ProductVariant.objects.none()
+      else:
+         # Handle the case where product_id is not provided
+         return ProductVariant.objects.none()
+      
+      
+class StoreProductVariantView(viewsets.ModelViewSet):
+   queryset = StoreProductVariant.objects.all().select_related('store', 'product_variant')
+   serializer_class = StoreProductVariantSerializer
+   
+   def get_queryset(self):
+      store = self.request.query_params.get('store')
+      product_id = self.request.query_params.get('product')
+      size = self.request.query_params.get('size')
+
+      if product_id is not None:
+         product = self.get_product(product_id)
+         # Get Product Variants
+         product_variants = ProductVariant.objects.filter(product=product, size=size)
+      else:
+         # If product is not provided, return all product variants
+         product_variants = ProductVariant.objects.all()
+
+      if store is not None:
+         variants = StoreProductVariant.objects.filter(product_variant__in=product_variants, store=store)
+         return product_variants, variants
+
+      # If store is not provided, return all variants
+      return product_variants, None
+
+   def list(self, request, *args, **kwargs):
+      product_variants, store_variants = self.get_queryset()
+
+      # Handle the case where no product variants are found
+      if not product_variants.exists():
+         return Response({"message": "No product variants found."})
+
+      # Serialize data using your serializer
+      product_variants_serializer = ProductVariantSerializer(product_variants, many=True)
+      serialized_product_variants = product_variants_serializer.data
+
+      # Serialize store_variants using a custom serialization method
+      serialized_store_variants = self.serialize_store_product_variants(store_variants)
+
+      response_data = {
+         "product_variant": serialized_product_variants,
+         "store_variant": serialized_store_variants
+      }
+
+      return Response(response_data)
+
+   def serialize_store_product_variants(self, store_variants):
+      serialized_data = []
+      for store_variant in store_variants:
+         serialized_store_variant = {
+               "id": store_variant.id,
+               "retail_price": store_variant.retail_price,
+               "store": str(store_variant.store.id),  # Convert UUID to string if needed
+               "product_variant": store_variant.product_variant.id,
+               "size": store_variant.product_variant.size if store_variant.product_variant.size else None,
+         }
+         serialized_data.append(serialized_store_variant)
+      return serialized_data
+
+   def get_product(self, product_id):
+      return get_object_or_404(Product, id=product_id)
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
@@ -82,7 +166,6 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
 
 class UploadProductImage(ListCreateAPIView):
    # PENDING ERROR (BKLOG-#001): PERMISSIONS NOT WORKING and FILE SIZE VALIDATION NOT INCLUDED
-   
    queryset = ProductImage.objects.all()
    serializer_class = ProductImageSerializer
    parser_classes = (MultiPartParser,)
@@ -107,108 +190,45 @@ class UploadProductImage(ListCreateAPIView):
 
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
    
-   
+class MarketPlacePagination(PageNumberPagination):
+   page_size = 5
+
+
 class MarketPlaceView(viewsets.ModelViewSet):
    serializer_class = MarketPlaceSerializer
+   pagination_class = MarketPlacePagination
 
    def get_queryset(self):
       store_id = self.request.query_params.get("store")
-
+      
       try:
          store = get_object_or_404(Store, id=store_id)
          # Filter the queryset based on the specified store and list_product=True
-         queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product')
-
+         queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product').order_by("-id")
+         # cache.set(cache_key, queryset, timeout=100)
          return queryset
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
       
+
+class DropshipperDashboardCounts(APIView):
+   def get(self, request):
+      # Get Store
+      store_id = request.query_params.get('store')
+      store = self.get_store(store_id)
       
-# class AddStoreProductProfit(viewsets.ModelViewSet):
-#    queryset = StoreProfit.objects.select_related('store', 'product')
-#    serializer_class = StoreProfitSerializer
-
-
-class ProductPrice(APIView):
-   def post(self, request, *args, **kwargs):
-      # Add Profit Price
-      data = request.data
-      
-      store = data.get('store')
-      verified_store = self.get_store(store)
-      
-      product = data.get('product')
-      verified_product = self.get_product(product)
-      
-      product_size = data.get('size')
-      verified_size = self.get_size(product_size)
-
-      # Convert product_size to integer if it's a string
-      product_size = int(verified_size.id) if isinstance(verified_size.id, str) else verified_size.id
-
-      if product_size not in self.get_product_sizes(verified_product):
-         return Response({"error": f"This Product does not have the size {product_size}", "ids": self.get_product_sizes(verified_product)}, status=status.HTTP_404_NOT_FOUND)
-
-      profit = data.get('profit_price')
-
-      # Create Profit
+      # Get Number of Listed Products
       try:
-         storeprofit = StoreProfit.objects.create(store=verified_store, product=verified_product, size=verified_size, profit_price=profit)
-         return Response({"message": "Profit created successfully"}, status=status.HTTP_201_CREATED)
-      except Exception as e:
-         logging.exception("An Error Unexpectedly Occurred")
-         return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+         product_count = MarketPlace.objects.filter(store=store, list_product=True).aggregate(product_count=Count('id'))['product_count']
+      except MarketPlace.DoesNotExist:
+         return MarketPlace.objects.none
       
-      profit = data.get('profit_price')
+      data = {
+         "No. of Listed Products": product_count
+      }
       
-      # Create Profit
-      try:
-         storeprofit = StoreProfit.objects.create(store=verified_store, product=verified_product, size=product_size, profit_price=profit)
-         return Response({"message": "Profit created successfully"}, status=status.HTTP_201_CREATED)
-      except Exception as e:
-         logging.exception("An Error Unexpectedly Occurred")
-         return Response({"message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+      return Response(data, status=status.HTTP_200_OK)
 
-   def get(self, request, *args, **kwargs):
-      # Collect Data
-      data = request.data
-      
-      # Verify Product
-      product_id = data.get('product')
-      verified_product = self.get_product(product_id)
-      
-      # Get Product Size
-      psize = self.get_product_sizes(verified_product)
-      
-      # Product Price
-      product_prices = self.get_product_prices(verified_product)
-
-      return Response({"Prices": product_prices}, status=status.HTTP_200_OK)
-
-   def get_product(self, product_id):
-      return get_object_or_404(Product, id=product_id)
    
    def get_store(self, store_id):
       return get_object_or_404(Store, id=store_id)
-   
-   def get_size(self, size_id):
-      return get_object_or_404(Size, id=size_id)
-
-   def get_product_prices(self, product):
-      prices = Price.objects.filter(product=product)
-
-      if prices.exists():
-         # Serialize the prices if needed
-         serialized_prices = [{f"{price.id}": price.price} for price in prices]
-         return serialized_prices
-      else:
-         return None
-   
-   def get_product_sizes(self, product):
-      try:
-         product = Product.objects.get(id=product).product_price.all()
-      except Product.DoesNotExist:
-         return Response({"message": f"Product ID {product} not found"}, status=status.HTTP_400_BAD_REQUEST)
-      
-      # print([price.size.id for price in product])
-      return [price.size.id for price in product]
