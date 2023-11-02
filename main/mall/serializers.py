@@ -337,14 +337,3 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                }
          )
       return store_variants_details
-   
-   
-   
-   # def get_store_variant(self, product_variants, store_id):
-   #    store_variants_details = []
-   #    for variant in product_variants:
-   #       store_variant_queryset = StoreProductVariant.objects.filter(store=store_id, product_variant=variant)
-   #       for store_variant_detail in store_variant_queryset:
-   #             store_variants_details.append({"id": store_variant_detail.id, "product_variant_id": store_variant_detail.product_variant.id, "product_variant_size": store_variant_detail.product_variant.size, "retail_price": store_variant_detail.retail_price})
-   #    return store_variants_details
-      

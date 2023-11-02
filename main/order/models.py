@@ -5,20 +5,13 @@ from uuid import uuid4
 
 class OrderItems(models.Model):
    order = models.ForeignKey('Order', related_name='order_items', on_delete=models.CASCADE)
-   product = models.ForeignKey(Product, related_name='product_orders', on_delete=models.CASCADE, null=True)
+   product = models.ManyToManyField(Product, related_name='order_products')
    quantity = models.PositiveIntegerField()
    price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
    total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
 
    def __str__(self):
       return self.order.id
-   
-   def calculate_item_total_price(self):
-      if self.price is not None:
-         return self.price * self.quantity
-      else:
-         # Handle the case where price is None (e.g., raise an error or return a default value)
-         return 0
 
 
 class Order(models.Model):
