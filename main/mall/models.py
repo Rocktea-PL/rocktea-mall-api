@@ -148,8 +148,10 @@ class Product(models.Model):
    class Meta:
       # Add an index for the 'uid' field
       indexes = [
-         # models.Index(fields=[''], name='serial_number_serial_numberx'),
+         models.Index(fields=['id'], name='product_id_idx'),
          models.Index(fields=['sku'], name='product_sku_skux'),
+         models.Index(fields=['name'], name='product_name_namex'),
+         models.Index(fields=['category'], name= 'product_category_categoryx')
       ]
       
    def formatted_created_at(self):

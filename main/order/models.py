@@ -22,13 +22,21 @@ class Order(models.Model):
       ("Delivered", "Delivered")
    )
    id = models.CharField(primary_key=True, default=uuid4, max_length=36)
-   buyer = models.ForeignKey(CustomUser, related_name="orders", limit_choices_to={"is_consumer":True}, on_delete=models.CASCADE)
+   buyer = models.ForeignKey(CustomUser, related_name="orders", on_delete=models.CASCADE)
    store = models.ForeignKey(Store, related_name="stores", null=True, on_delete=models.CASCADE)
    status = models.CharField(max_length=12, choices=ORDER_STATUS, default="Pending")
-   # total_price = models.DecimalField(max_digits=10, decimal_places=2, null=True)
    shipping_address = models.CharField(max_length=400, null=True)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
    updated_at = models.DateTimeField(auto_now=True, null=True)
+   
+   class Meta:
+      # Add an index for the 'uid' field
+      indexes = [
+         # models.Index(fields=[''], name='serial_number_serial_numberx'),
+         models.Index(fields=['id'], name='order_id_idx'),
+         models.Index(fields=['buyer'], name='order_buyer_buyerx'),
+         models.Index(fields=['store'], name='order_store_storex')
+      ]
 
    @property
    def calculate_total_price(self):

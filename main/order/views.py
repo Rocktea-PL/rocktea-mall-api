@@ -17,6 +17,16 @@ class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
 
+
 class OrderViewSet(ModelViewSet):
-   queryset = Order.objects.all()
+   queryset = Order.objects.all().select_related('buyer', 'store')
    serializer_class = OrderSerializer
+   
+   def get_queryset(self):
+      store = self.request.query_params.get("store")
+      if store:
+         return Order.objects.filter(store=store).select_related('buyer', 'store')
+      return Order.objects.all().select_related('buyer', 'store')
+      
+      
+   

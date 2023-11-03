@@ -20,7 +20,7 @@ router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
 router.register('store-variant', StoreProductVariantView, basename='store-variant')
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
-router.register(r'orders', OrderViewSet, basename='orders')
+router.register('orders', OrderViewSet, basename='orders')
 # router.register('upload-image', UploadProductImage, basename="product-image")
 
 
