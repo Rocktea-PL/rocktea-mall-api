@@ -19,7 +19,15 @@ class OrderItemsSerializer(serializers.ModelSerializer):
       representation['order'] = {"id": instance.order.id, "buyer":f"{ instance.order.buyer.first_name} { instance.order.buyer.last_name}"}
       representation['product']=[{"id": product.id, "name":product.name, "SKU": product.sku} for product in instance.product.all()]
       return representation
+   
+   def create(self, validated_data):
+      order_items = super().create(validated_data)
 
+      # Deduct the quantity bought from the quantity available for each product
+      for product in order_items.product.all():
+         product.quantity -= order_items.quantity
+         product.save()
+      return order_items
 
 class OrderSerializer(serializers.ModelSerializer):
    order_items = OrderItemsSerializer(many=True, read_only=True)

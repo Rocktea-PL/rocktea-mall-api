@@ -238,5 +238,3 @@ class DropshipperDashboardCounts(APIView):
 class ProductDetails(viewsets.ModelViewSet):
    queryset=Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
-
-      
