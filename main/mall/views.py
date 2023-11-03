@@ -236,5 +236,14 @@ class DropshipperDashboardCounts(APIView):
 
 
 class ProductDetails(viewsets.ModelViewSet):
-   queryset=Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
+
+   def get_queryset(self):
+      # Get the product ID from the request parameters
+      product_id = self.request.query_params.get('id')
+
+      # Filter the queryset to include only the specified product ID
+      filtered_queryset = self.queryset.filter(id=product_id)
+
+      return filtered_queryset
