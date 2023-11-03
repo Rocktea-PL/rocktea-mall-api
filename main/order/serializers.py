@@ -28,23 +28,5 @@ class OrderSerializer(serializers.ModelSerializer):
       model = Order
       fields = ('id', 'buyer', 'store', 'status', 'shipping_address', 'created_at', 'updated_at', 'order_items')
       
-   # def validate_buyer(self, value):
-   #    if value:
-   #       return get_object_or_404(CustomUser, id=value)
-      
    def get_buyer(self, obj):
       return f"{obj.buyer.first_name} {obj.buyer.last_name}"
-   
-   # def create(self, validated_data):
-   #    # Try to get the "buyer" from the validated_data
-   #    buyer = validated_data.get("buyer")
-   #    verified_buyer = self.get_buyer(buyer)
-      
-   #    order = Order.objects.create(buyer=verified_buyer, **validated_data)
-   #    return order
-   
-   # def get_buyer(self, buyer_id):
-   #    try:
-   #       return get_object_or_404(CustomUser, id=buyer_id)
-   #    except Exception as e:
-   #       logging.exception("Error")

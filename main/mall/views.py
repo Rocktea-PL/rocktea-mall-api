@@ -25,6 +25,7 @@ import logging
 from django.db.models import Count
 from django.core.cache import cache
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.generics import ListAPIView
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -232,3 +233,10 @@ class DropshipperDashboardCounts(APIView):
    
    def get_store(self, store_id):
       return get_object_or_404(Store, id=store_id)
+
+
+class ProductDetails(viewsets.ModelViewSet):
+   queryset=Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
+   serializer_class = ProductSerializer
+
+      
