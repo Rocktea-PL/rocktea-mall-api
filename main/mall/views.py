@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
                            ProductImageSerializer, MarketPlaceSerializer,
-                           ProductVariantSerializer, StoreProductVariantSerializer)
+                           ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer)
 
 from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
 
@@ -237,7 +237,7 @@ class DropshipperDashboardCounts(APIView):
 
 class ProductDetails(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
-   serializer_class = ProductSerializer
+   serializer_class = ProductDetailSerializer
 
    def get_queryset(self):
       # Get the product ID from the request parameters
@@ -247,3 +247,33 @@ class ProductDetails(viewsets.ModelViewSet):
       filtered_queryset = self.queryset.filter(id=product_id)
 
       return filtered_queryset
+
+   # def retrieve(self, request, *args, **kwargs):
+   #    store_id = self.request.query_params.get('store')
+   #    product_variant_id = self.request.query_params.get('variant')
+
+   #    verified_store = self.get_store(store_id)
+   #    verified_product_variant = self.get_product_variant(product_variant_id)
+
+   #    try:
+   #       store_variant = StoreProductVariant.objects.get(store=verified_store, product_variant=verified_product_variant)
+   #       print(store_variant)
+   #       logging.info(store_variant)
+   #    except StoreProductVariant.DoesNotExist:
+   #       store_variant = None
+
+   #    instance = self.get_object()
+   #    serializer = self.get_serializer(instance)
+
+   #    response_data = {
+   #       "product_data": serializer.data,
+   #       "store_variant": store_variant_serializer.data if store_variant else None
+   #    }
+
+   #    return Response(response_data, status=status.HTTP_200_OK)
+
+   # def get_store(self, store_id):
+   #    return get_object_or_404(Store, id=store_id)
+
+   # def get_product_variant(self, product_variant_id):
+   #    return get_object_or_404(ProductVariant, id=product_variant_id)

@@ -338,3 +338,84 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                }
          )
       return store_variants_details
+   
+   
+class ProductDetailSerializer(serializers.ModelSerializer):
+   category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
+   subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
+   brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
+   producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
+   storevariant = StoreProductVariantSerializer(read_only=True)
+   product_variants = ProductVariantSerializer(read_only=True, many=True)
+
+   class Meta:
+      model = Product
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 'is_available', 'created_at', 'on_promo',
+               'upload_status', 'category', 'subcategory', 'brand', 'producttype', 'images', 'storevariant',
+               'product_variants']
+      read_only_fields = ('id', 'sku')
+
+   def to_representation(self, instance):
+      cache_key = f"product_data_{instance.name}"
+      cached_data = cache.get(cache_key)
+
+      if cached_data is not None:
+         return cached_data
+
+      representation = super(ProductDetailSerializer, self).to_representation(instance)
+      representation['created_at'] = instance.formatted_created_at()
+
+      if representation['description'] is None:
+         del representation['description']
+
+      if representation['images'] is None:
+         del representation['images']
+
+      representation['brand'] = {"id": instance.brand.id, "name": instance.brand.name}
+      representation['category'] = {"id": instance.category.id, "name": instance.category.name}
+      representation['subcategory'] = {"id": instance.subcategory.id, "name": instance.subcategory.name}
+
+      # Add logic to fetch additional data related to product
+      # if instance.id:
+      #    product = Product.objects.select_related("category", "subcategory").prefetch_related(
+      #          "images", "product_variants"
+      #    ).get(id=instance.id)
+
+      representation['product'] = {
+            "id": instance.id,
+            "name": instance.name,
+            "images": [{"url": prod.images.url} for prod in instance.images.all()],
+            "product_variant": self.serialize_product_variants(instance.product_variants.all()),
+            # "store_variant": self.get_store_variant(instance.product_variants.all()),
+            "category": instance.category.name,
+            "subcategory": instance.subcategory.name,
+            "product_type": instance.producttype,
+            "upload_status": instance.upload_status
+         }
+      # else:
+      #    representation['product'] = None
+
+      # representation['listed'] = instance.list_product
+      cache.set(cache_key, representation, timeout=20)
+      return representation
+
+   def serialize_product_variants(self, variants):
+      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
+
+   def get_store_variant(self, product_variants, store_id):
+      product_variant_ids = [variant.id for variant in product_variants]
+      store_variant_queryset = StoreProductVariant.objects.filter(
+         store=store_id, product_variant__in=product_variant_ids
+      ).select_related("product_variant")
+
+      store_variants_details = []
+      for store_variant_detail in store_variant_queryset:
+         store_variants_details.append(
+               {
+                  "id": store_variant_detail.id,
+                  "product_variant_id": store_variant_detail.product_variant.id,
+                  "product_variant_size": store_variant_detail.product_variant.size,
+                  "retail_price": store_variant_detail.retail_price,
+               }
+         )
+      return store_variants_details

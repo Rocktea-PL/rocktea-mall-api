@@ -13,6 +13,82 @@ from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 
 
+class CreateOrder(APIView):
+   def post(self, request):
+      # Extract data from request
+      collect = request.data
+      customer_id = request.user.id
+      
+      # Verify Customer Exists
+      customer = self.get_customer_or_raise(customer_id)
+
+      # Collect Products
+      products = collect["products"]
+      total_price = Decimal('0.00')
+
+      # Get the affiliate based on the referral code
+      store_id = collect.get("store")
+      store = self.get_store(store_id)
+
+      # Create Order
+      order = self.create_order(customer, collect, store)
+
+      # Create Order Items
+      total_price = self.create_order_items(order, products)
+      order.instance.save()
+
+      return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
+
+   def get_store(self, store_id):
+      return get_object_or_404(Store, id=store_id)
+   
+   def get_customer_or_raise(self, customer_id):
+      try:
+         return CustomUser.objects.get(id=customer_id)
+      except CustomUser.DoesNotExist:
+         raise ObjectDoesNotExist("User does not exist")
+
+   def create_order(self, customer, collect, store):
+      order_data = {
+         'buyer': customer.id,  # Set the buyer to the customer
+         'status': "Pending",
+         'shipping_address': collect["shipping_address"],
+         'store': store.id,
+      }
+      print(customer.id)
+      order = OrderSerializer(data=order_data)
+      if order.is_valid():
+         order.save()
+         return order
+      else:
+         logging.error("An Error Occured")
+         print(order.errors)
+         raise serializers.ValidationError("Invalid order data")
+
+
+   def create_order_items(self, order, products):
+      total_price = Decimal('0.00')
+      for product_data in products:
+         product = self._get_product(product_data["product"])
+         item_total_price = Decimal(product_data["price"]) * Decimal(product_data["quantity"])
+         total_price += item_total_price
+
+         OrderItems.objects.create(
+               order=order.instance,
+               product=product,
+               quantity=product_data["quantity"],
+         )
+      return total_price
+
+
+   def _get_product(self, product_sn):
+      try:
+         product = Product.objects.get(id=product_sn)
+         return product
+      except Product.DoesNotExist:
+         raise ObjectDoesNotExist("Product does not exist")
+
+
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
