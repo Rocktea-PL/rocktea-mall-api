@@ -1,9 +1,9 @@
 from django.http import Http404
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import Order, OrderItems, Store, CustomUser
+from .models import Order, OrderItems, Store, CustomUser, Cart, CartItem
 from mall.models import Product
-from .serializers import OrderSerializer, OrderItemsSerializer
+from .serializers import OrderSerializer, OrderItemsSerializer, CartSerializer, CartItemSerializer
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
@@ -11,7 +11,7 @@ from rest_framework import serializers, status
 import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
-
+from rest_framework import viewsets
 
 class CreateOrder(APIView):
    def post(self, request):
@@ -106,3 +106,24 @@ class OrderViewSet(ModelViewSet):
       
       
    
+class CartViewSet(viewsets.ViewSet):
+   def create(self, request):
+      user = request.user
+      products = request.data.get('products', [])
+      
+      # Check if the user already has a cart
+      cart = Cart.objects.filter(user=user).first()
+      
+      if not cart:
+         # Create a new cart if the user doesn't have one
+         cart = Cart.objects.create(user=user)
+      
+      for product in products:
+         product_id = product.get('id')
+         quantity = product.get('quantity', 1)
+         
+         # Create a CartItem for each product and associate it with the cart
+         cart_item = CartItem.objects.create(cart=cart, product_id=product_id, quantity=quantity)
+      
+      serializer = CartSerializer(cart)
+      return Response(serializer.data)

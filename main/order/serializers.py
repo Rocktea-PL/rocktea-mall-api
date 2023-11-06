@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItems
+from .models import Order, OrderItems, Cart, CartItem
 from mall.models import CustomUser, Store, Product
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -31,37 +31,26 @@ class OrderSerializer(serializers.ModelSerializer):
    
    def get_buyer(self, obj):
       return f"{obj.buyer.first_name} {obj.buyer.last_name}"
+
+
+class CartItemSerializer(serializers.ModelSerializer):
+   product = serializers.SerializerMethodField()
    
-
-
-
-# # WORKING VERSION (ONLY ONE ORDER ITEM)
-# class OrderItemsSerializer(serializers.ModelSerializer):
-#    class Meta:
-#       model = OrderItems
-#       fields = ('id', 'order', 'product', 'quantity', 'price', 'total_price')
+   class Meta:
+      model = CartItem
+      fields = ['id', 'product', 'quantity']
       
-#    def to_representation(self, instance):
-#       representation = super(OrderItemsSerializer, self).to_representation(instance)
-#       representation['order'] = {"id": instance.order.id, "buyer":f"{ instance.order.buyer.first_name} { instance.order.buyer.last_name}"}
-#       representation['product']=[{"id": product.id, "name":product.name, "SKU": product.sku} for product in instance.product.all()]
-#       return representation
+   def get_product(self, obj):
+      return f"{obj.product.name}"
+
+class CartSerializer(serializers.ModelSerializer):
+   items = CartItemSerializer(many=True, read_only=True)
+   user = serializers.SerializerMethodField()
+
+   class Meta:
+      model = Cart
+      fields = ['id', 'user', 'created_at', 'items']
+
+   def get_user(self, obj):
+      return f"{obj.first_name} {obj.last_name}"
    
-#    def create(self, validated_data):
-#       order_items = super().create(validated_data)
-
-#       # Deduct the quantity bought from the quantity available for each product
-#       for product in order_items.product.all():
-#          product.quantity -= order_items.quantity
-#          product.save()
-#       return order_items
-
-# class OrderSerializer(serializers.ModelSerializer):
-#    order_items = OrderItemsSerializer(many=True, read_only=True)
-
-#    class Meta:
-#       model = Order
-#       fields = ('id', 'buyer', 'store', 'status', 'shipping_address', 'created_at', 'updated_at', 'order_items')
-      
-#    def get_buyer(self, obj):
-#       return f"{obj.buyer.first_name} {obj.buyer.last_name}"
