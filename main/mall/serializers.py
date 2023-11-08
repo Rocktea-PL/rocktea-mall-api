@@ -375,12 +375,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       representation['category'] = {"id": instance.category.id, "name": instance.category.name}
       representation['subcategory'] = {"id": instance.subcategory.id, "name": instance.subcategory.name}
 
-      # Add logic to fetch additional data related to product
-      # if instance.id:
-      #    product = Product.objects.select_related("category", "subcategory").prefetch_related(
-      #          "images", "product_variants"
-      #    ).get(id=instance.id)
-
       representation['product'] = {
             "id": instance.id,
             "name": instance.name,

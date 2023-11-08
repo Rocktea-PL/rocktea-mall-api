@@ -224,9 +224,9 @@ class DropshipperDashboardCounts(APIView):
       except MarketPlace.DoesNotExist:
          return MarketPlace.objects.none
       
-      data = {
+      data= {
          "No. of Listed Products": product_count
-      }
+            }
       
       return Response(data, status=status.HTTP_200_OK)
 

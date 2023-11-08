@@ -2,7 +2,7 @@ from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
 from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, StoreProductVariantView, ProductDetails
-from order.views import OrderItemsViewSet, OrderViewSet, CartViewSet
+from order.views import OrderItemsViewSet, OrderViewSet, CartViewSet, ViewOrders
 from tenants.views import TenantSignUp
 from django.urls import path
 
@@ -23,6 +23,7 @@ router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('orders', OrderViewSet, basename='orders')
 router.register('product-details', ProductDetails, basename='product-details')
 router.register('cart', CartViewSet, basename="add-to-cart")
+router.register('my-orders', ViewOrders, basename="view-orders")
 
 
 urlpatterns = [

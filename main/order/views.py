@@ -5,7 +5,7 @@ from .models import Order, OrderItems, Store, CustomUser, Cart, CartItem
 from mall.models import Product
 from .serializers import OrderSerializer, OrderItemsSerializer, CartSerializer, CartItemSerializer
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from rest_framework import serializers, status
 import logging
@@ -105,7 +105,6 @@ class OrderViewSet(ModelViewSet):
       return Order.objects.all().select_related('buyer', 'store')
       
       
-   
 class CartViewSet(viewsets.ViewSet):
    def create(self, request):
       user = request.user
@@ -126,4 +125,12 @@ class CartViewSet(viewsets.ViewSet):
          cart_item = CartItem.objects.create(cart=cart, product_id=product_id, quantity=quantity)
       
       serializer = CartSerializer(cart)
+      return Response(serializer.data)
+   
+   
+class ViewOrders(ViewSet):
+   def list(self, request):
+      user = self.request.user.id
+      queryset = Order.objects.filter(buyer=user).select_related("buyer", "store")
+      serializer = OrderSerializer(queryset, many=True)
       return Response(serializer.data)
