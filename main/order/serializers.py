@@ -25,6 +25,7 @@ class OrderItemsSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
    buyer = serializers.SerializerMethodField()
    order_items = OrderItemsSerializer(many=True, read_only=True)
+   created_at = serializers.SerializerMethodField()
 
    class Meta:
       model = Order
@@ -35,7 +36,7 @@ class OrderSerializer(serializers.ModelSerializer):
       return f"{obj.buyer.first_name} {obj.buyer.last_name}"
    
    def get_created_at(self, obj):
-      return datetime.strftime(obj.create_at, "%H%M")
+      return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
 
 
 class CartItemSerializer(serializers.ModelSerializer):
