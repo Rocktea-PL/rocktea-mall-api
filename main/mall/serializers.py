@@ -63,17 +63,19 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          has_store = False
       
       data['user_data'] = {
-            "id": self.user.id,
-            "first_name": self.user.first_name,
-            "last_name": self.user.last_name,
-            "email": self.user.email,
-            "username":self.user.username,
-            "contact": f"{self.user.contact}",
-            "is_storeowner": self.user.is_store_owner,
-            "has_store": has_store,
-            "store_id": self.user.owners.id
-            }
-      
+      "id": self.user.id,
+      "first_name": self.user.first_name,
+      "last_name": self.user.last_name,
+      "email": self.user.email,
+      "username": self.user.username,
+      "contact": f"{self.user.contact}",
+      "is_storeowner": self.user.is_store_owner,
+      "has_store": has_store,
+   }
+
+      if has_store:
+         data['user_data']["store_id"] = self.user.owners.id
+
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
