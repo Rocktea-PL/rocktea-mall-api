@@ -70,7 +70,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             "username":self.user.username,
             "contact": f"{self.user.contact}",
             "is_storeowner": self.user.is_store_owner,
-            "has_store": has_store
+            "has_store": has_store,
+            "store_id": self.user.owners.id
             }
       
       refresh = self.get_token(self.user)

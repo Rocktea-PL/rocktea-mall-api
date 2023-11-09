@@ -23,7 +23,7 @@ class OrderItemsSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
-   buyer = serializers.SerializerMethodField()
+   buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    order_items = OrderItemsSerializer(many=True, read_only=True)
    created_at = serializers.SerializerMethodField()
 
@@ -31,9 +31,8 @@ class OrderSerializer(serializers.ModelSerializer):
       model = Order
       fields = ('id', 'buyer', 'status', 'total_price', 'shipping_address', 'order_items', 'created_at','store')
       
-   
-   def get_buyer(self, obj):
-      return f"{obj.buyer.first_name} {obj.buyer.last_name}"
+   # def get_buyer(self, obj):
+   #    return f"{obj.buyer.first_name} {obj.buyer.last_name}"
    
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")

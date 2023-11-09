@@ -190,7 +190,8 @@ class UploadProductImage(ListCreateAPIView):
                return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
 
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
-   
+
+
 class MarketPlacePagination(PageNumberPagination):
    page_size = 5
 
