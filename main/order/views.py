@@ -70,11 +70,11 @@ class CreateOrder(APIView):
          print(order_serializer.errors)
          raise serializers.ValidationError("Invalid order data")
 
-   def create_order_items(self, order, products):
+   def create_order_items(self, request, order, products):
       total_price = Decimal('0.00')
       for product_data in products:
          product = self.get_product(product_data["product"])
-         price = self.get_product_price(product.id)
+         price = self.get_product_price(product.id, size)
 
          if price is not None:
             item_total_price = Decimal(
@@ -98,7 +98,7 @@ class CreateOrder(APIView):
 
    def get_product_price(self, product_id, size):
       try:
-         variant = ProductVariant.objects.get(product=product_id)
+         variant = ProductVariant.objects.get(product=product_id, size=size)
          return variant.wholesale_price
       except ProductVariant.DoesNotExist:
          logging.error("An Unexpected Error Occurred")
