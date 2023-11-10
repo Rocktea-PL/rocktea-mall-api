@@ -237,44 +237,30 @@ class DropshipperDashboardCounts(APIView):
 
 
 class ProductDetails(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants', 'store_variants__store')
    serializer_class = ProductDetailSerializer
 
-   def get_queryset(self):
-      # Get the product ID from the request parameters
-      product_id = self.request.query_params.get('id')
+   def retrieve(self, request, *args, **kwargs):
+         # Get the product ID from the URL parameters
+         product_id = kwargs.get('pk')
 
-      # Filter the queryset to include only the specified product ID
-      filtered_queryset = self.queryset.filter(id=product_id)
+         # Filter the queryset to include only the specified product ID
+         product_instance = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants').get(pk=product_id)
 
-      return filtered_queryset
+         # Get the product variant ID from the request parameters
+         product_variant_id = self.request.query_params.get('variant')
+         store_id = self.request.query_params.get('store')
 
-   # def retrieve(self, request, *args, **kwargs):
-   #    store_id = self.request.query_params.get('store')
-   #    product_variant_id = self.request.query_params.get('variant')
+         # Filter the related store product variants based on the product variant ID
+         store_product_variants = StoreProductVariant.objects.filter(product_variant=product_variant_id, store=store_id)
 
-   #    verified_store = self.get_store(store_id)
-   #    verified_product_variant = self.get_product_variant(product_variant_id)
+         # Serialize the product and store product variants
+         product_serializer = ProductDetailSerializer(product_instance)
+         store_product_variants_serializer = StoreProductVariantSerializer(store_product_variants, many=True)
 
-   #    try:
-   #       store_variant = StoreProductVariant.objects.get(store=verified_store, product_variant=verified_product_variant)
-   #       print(store_variant)
-   #       logging.info(store_variant)
-   #    except StoreProductVariant.DoesNotExist:
-   #       store_variant = None
-
-   #    instance = self.get_object()
-   #    serializer = self.get_serializer(instance)
-
-   #    response_data = {
-   #       "product_data": serializer.data,
-   #       "store_variant": store_variant_serializer.data if store_variant else None
-   #    }
-
-   #    return Response(response_data, status=status.HTTP_200_OK)
-
-   # def get_store(self, store_id):
-   #    return get_object_or_404(Store, id=store_id)
-
-   # def get_product_variant(self, product_variant_id):
-   #    return get_object_or_404(ProductVariant, id=product_variant_id)
+         # You can attach the related store product variants to the product instance
+         data = {
+            "product_data": product_serializer.data,
+            "store_variants": store_product_variants_serializer.data
+         }
+         return Response(data)
