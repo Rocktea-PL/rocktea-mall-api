@@ -1,11 +1,12 @@
 from django.db import models
-from mall.models import Product, CustomUser, Store, ProductVariant
+from mall.models import Product, CustomUser, Store, ProductVariant, StoreProductVariant
 from uuid import uuid4
 
 
 class OrderItems(models.Model):
    order = models.ForeignKey('Order', related_name='order_items', on_delete=models.CASCADE, null=True)
    product = models.ForeignKey(Product, related_name='product_orders', on_delete=models.CASCADE, null=True)
+   store_variant = models.ForeignKey(StoreProductVariant, related_name='store_orders', on_delete=models.CASCADE, null=True)
    product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, null=True)
    quantity = models.PositiveIntegerField()
 

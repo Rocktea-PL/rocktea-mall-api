@@ -37,7 +37,7 @@ class CreateOrder(APIView):
       order = self.create_order(customer_id, collect, store)
 
       # Create Order Items
-      total_price = self.create_order_items(order, products)
+      total_price = self.create_order_items(order, products, store)
       order.save()
 
       return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
@@ -70,39 +70,59 @@ class CreateOrder(APIView):
          print(order_serializer.errors)
          raise serializers.ValidationError("Invalid order data")
 
-   def create_order_items(self, request, order, products):
+   def create_order_items(self, order, products, store):
       total_price = Decimal('0.00')
       for product_data in products:
          product = self.get_product(product_data["product"])
-         price = self.get_product_price(product.id, size)
+         wholesale_price = self.get_wholesale_price(product_data["product"], product_data["variant"])
+         retail_price = self.get_retail_price(store, product_data["variant"])
+
+         price = None  # Initialize price outside the if block
+
+         if retail_price:
+               price = wholesale_price + retail_price
 
          if price is not None:
-            item_total_price = Decimal(
-                price) * Decimal(product_data["quantity"])
-            total_price += item_total_price
+               item_total_price = Decimal(price) * Decimal(product_data["quantity"])
+               total_price += item_total_price
 
-            OrderItems.objects.create(
-               order=order,
-               product=product,
-               quantity=product_data["quantity"],
-            )
+               OrderItems.objects.create(
+                  order=order,
+                  product=product,
+                  quantity=product_data["quantity"],
+               )
          else:
-            # Handle the case where the price is not available for the product
-            logging.error(
-               "Price not available for product with id: {}".format(product.id))
-         return total_price
+               # Handle the case where the price is not available for the product
+               logging.error("Price not available for product with id: {}".format(product.id))
+
+      # Set the total_price attribute of the order before saving
+      order.total_price = total_price
+      order.save()
+
+      return total_price
 
    def get_product(self, product_sn):
       return get_object_or_404(Product, id=product_sn)
    
 
-   def get_product_price(self, product_id, size):
+   def get_wholesale_price(self, product_id, variant_id):
       try:
-         variant = ProductVariant.objects.get(product=product_id, size=size)
+         variant = ProductVariant.objects.get(product=product_id, id=variant_id)
+         logging.info(variant.wholesale_price)
          return variant.wholesale_price
       except ProductVariant.DoesNotExist:
-         logging.error("An Unexpected Error Occurred")
+         logging.error("An Unexpected Error Occured")
          return None
+   
+   
+   def get_retail_price(self, store, variant_id):
+      try:
+         store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
+         return store_variant.retail_price
+      except StoreProductVariant.DoesNotExist:
+         logging.error("An Unexpected Error Occured")
+         return None
+         
 
 
 class OrderItemsViewSet(ModelViewSet):
