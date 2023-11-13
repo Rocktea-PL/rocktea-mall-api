@@ -183,7 +183,11 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       fields = '__all__'
       
    def to_representation(self, instance):
-      locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
+      try:
+         locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
+      except locale.Error:
+         # Fallback to a default locale if the specified one is not supported
+         locale.setlocale(locale.LC_NUMERIC, 'C')
       # Call the parent class's to_representation method
       representation = super(ProductVariantSerializer, self).to_representation(instance)
 
@@ -343,7 +347,11 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
-      locale.setlocale(locale.LC_ALL, '')
+      try:
+         locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
+      except locale.Error:
+         # Fallback to a default locale if the specified one is not supported
+         locale.setlocale(locale.LC_NUMERIC, 'C')
       
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": locale.format('%.2f', variant.wholesale_price, grouping=True),} for variant in variants]
 
