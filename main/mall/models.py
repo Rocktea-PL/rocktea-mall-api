@@ -300,9 +300,10 @@ class AccountDetails(models.Model):
    
    
 class Wallet(models.Model):
+   store = models.OneToOneField(CustomUser, on_delete=models.CASCADE, null=True)
    balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
    pending_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-   paid = models.BooleanField(default=False)
+   
 
 
 # TODO Implement Cart and WishList Feature After MarketPlace

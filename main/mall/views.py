@@ -5,6 +5,7 @@ from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategoryS
                            ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer)
 
 from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
+from order.models import Order
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
@@ -213,6 +214,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return MarketPlace.objects.none()
       
 
+# Get Dropshipper Store Counts
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
@@ -225,8 +227,16 @@ class DropshipperDashboardCounts(APIView):
       except MarketPlace.DoesNotExist:
          return MarketPlace.objects.none
       
+      try:
+         order_count = Order.objects.filter(store=store).count()
+      except Order.DoesNotExist:
+         return Order.objects.none
+
+      
+      
       data= {
-         "No. of Listed Products": product_count
+         "No. of Listed Products": product_count,
+         "No. of Orders": order_count
             }
       
       return Response(data, status=status.HTTP_200_OK)

@@ -10,7 +10,7 @@ class MyOrders(generics.ListAPIView):
    def get_queryset(self):
       user = self.request.user
       try:
-         order = Order.objects.filter(buyer=user)
+         order = Order.objects.filter(buyer=user).count()
       except Order.DoesNotExist:
          return None
       return order
