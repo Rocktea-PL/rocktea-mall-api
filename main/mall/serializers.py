@@ -176,18 +176,38 @@ class ProductImageSerializer(serializers.ModelSerializer):
       fields = '__all__'
 
 class ProductVariantSerializer(serializers.ModelSerializer):
-   # size_name = serializers.SerializerMethodField()
+   wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
+   
    class Meta:
       model = ProductVariant
       fields = '__all__'
       
+   def to_representation(self, instance):
+      # Call the parent class's to_representation method
+      representation = super(ProductVariantSerializer, self).to_representation(instance)
+
+      # Format the 'total_price' field with commas as thousands separator
+      representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
+
+      return representation
+      
 
 class StoreProductVariantSerializer(serializers.ModelSerializer):
    productvariant = ProductVariantSerializer(many=True, read_only=True)
+   retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
       model = StoreProductVariant
       fields = '__all__'
+      
+   def to_representation(self, instance):
+      # Call the parent class's to_representation method
+      representation = super(StoreProductVariantSerializer, self).to_representation(instance)
+
+      # Format the 'total_price' field with commas as thousands separator
+      representation['retail_price'] = '{:,.2f}'.format(instance.retail_price)
+
+      return representation
       
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -234,7 +254,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
       representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
 
-      cache.set(cache_key, representation, timeout=60)  # Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
       return representation
 
 
@@ -313,7 +333,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          representation['product'] = None
 
       representation['listed'] = instance.list_product
-      cache.set(cache_key, representation, timeout=200)
+      cache.set(cache_key, representation, timeout=5)
       return representation
 
    def serialize_product_images(self, images):

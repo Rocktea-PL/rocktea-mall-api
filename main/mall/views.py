@@ -6,6 +6,7 @@ from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategoryS
 
 from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
 from order.models import Order
+from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
@@ -239,6 +240,31 @@ class DropshipperDashboardCounts(APIView):
       }
 
       return Response(data, status=status.HTTP_200_OK)
+
+
+class StoreOrdersViewSet(ListAPIView):
+   serializer_class = OrderSerializer
+
+   def get_queryset(self):
+      store_id = self.request.query_params.get("store")
+      verified_store = self.get_store(store_id)
+
+      # Use a try-except block to handle the case where no orders are found for the given store
+      try:
+         orders = Order.objects.filter(store=verified_store).select_related('buyer', 'store')
+      except Order.DoesNotExist:
+         return Order.objects.none()
+
+      return orders
+
+   def get_store(self, store_id):
+      try:
+         store = Store.objects.get(id=store_id)
+      except Store.DoesNotExist:
+         # Instead of returning a ValidationError, raise a serializers.ValidationError
+         raise serializers.ValidationError("Store Does Not Exist")
+
+      return store
 
 
 class ProductDetails(viewsets.ModelViewSet):

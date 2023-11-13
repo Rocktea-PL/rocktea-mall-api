@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import SignInUserView, UploadProductImage, DropshipperDashboardCounts
+from .views import SignInUserView, UploadProductImage, DropshipperDashboardCounts, StoreOrdersViewSet
 from .payments import OTP
 
 urlpatterns = [
@@ -7,5 +7,6 @@ urlpatterns = [
     path("otp_payment/", OTP.StoreOTPPayment.as_view(), name="otp_payment"),
     path("verify/", OTP.VerifyPayment.as_view(), name="verify-transaction"),
     path("upload-image/", UploadProductImage.as_view(), name='uploadimage'),
-    path("count/", DropshipperDashboardCounts.as_view(), name='data-counts')
+    path("count/", DropshipperDashboardCounts.as_view(), name='data-counts'),
+    path('store_order', StoreOrdersViewSet.as_view(), name="store")
 ]

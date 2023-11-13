@@ -103,7 +103,7 @@ class CreateOrder(APIView):
 
    def get_product(self, product_sn):
       return get_object_or_404(Product, id=product_sn)
-   
+
 
    def get_wholesale_price(self, product_id, variant_id):
       try:
@@ -113,8 +113,8 @@ class CreateOrder(APIView):
       except ProductVariant.DoesNotExist:
          logging.error("An Unexpected Error Occured")
          return None
-   
-   
+
+
    def get_retail_price(self, store, variant_id):
       try:
          store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
