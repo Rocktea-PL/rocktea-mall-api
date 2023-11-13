@@ -356,7 +356,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                "id": store_variant_detail.id,
                "product_variant_id": store_variant_detail.product_variant.id,
                "product_variant_size": store_variant_detail.product_variant.size,
-               "retail_price":cstore_variant_detail.retail_price
+               "retail_price": store_variant_detail.retail_price
             }
          )
       return store_variants_details
