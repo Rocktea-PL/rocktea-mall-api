@@ -341,7 +341,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
-      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
+      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": '{:,.2f}'.format(variant.wholesale_price)} for variant in variants]
 
 
    def get_store_variant(self, product_variants, store_id):
@@ -357,7 +357,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                   "id": store_variant_detail.id,
                   "product_variant_id": store_variant_detail.product_variant.id,
                   "product_variant_size": store_variant_detail.product_variant.size,
-                  "retail_price": store_variant_detail.retail_price,
+                  "retail_price": '{:,.2f}'.format(store_variant_detail.retail_price),
                }
          )
       return store_variants_details
