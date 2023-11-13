@@ -12,7 +12,6 @@ from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
 
-
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
    
@@ -63,16 +62,19 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          has_store = False
       
       data['user_data'] = {
-            "id": self.user.id,
-            "first_name": self.user.first_name,
-            "last_name": self.user.last_name,
-            "email": self.user.email,
-            "username":self.user.username,
-            "contact": f"{self.user.contact}",
-            "is_storeowner": self.user.is_store_owner,
-            "has_store": has_store
-            }
-      
+      "id": self.user.id,
+      "first_name": self.user.first_name,
+      "last_name": self.user.last_name,
+      "email": self.user.email,
+      "username": self.user.username,
+      "contact": f"{self.user.contact}",
+      "is_storeowner": self.user.is_store_owner,
+      "has_store": has_store,
+   }
+
+      if has_store:
+         data['user_data']["store_id"] = self.user.owners.id
+
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
@@ -173,18 +175,38 @@ class ProductImageSerializer(serializers.ModelSerializer):
       fields = '__all__'
 
 class ProductVariantSerializer(serializers.ModelSerializer):
-   # size_name = serializers.SerializerMethodField()
+   wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
+   
    class Meta:
       model = ProductVariant
       fields = '__all__'
       
+   def to_representation(self, instance):
+      # Call the parent class's to_representation method
+      representation = super(ProductVariantSerializer, self).to_representation(instance)
+
+      # Format the 'total_price' field with commas as thousands separator
+      representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
+
+      return representation
+      
 
 class StoreProductVariantSerializer(serializers.ModelSerializer):
    productvariant = ProductVariantSerializer(many=True, read_only=True)
+   retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
       model = StoreProductVariant
       fields = '__all__'
+      
+   def to_representation(self, instance):
+      # Call the parent class's to_representation method
+      representation = super(StoreProductVariantSerializer, self).to_representation(instance)
+
+      # Format the 'total_price' field with commas as thousands separator
+      representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
+
+      return representation
       
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -194,11 +216,12 @@ class ProductSerializer(serializers.ModelSerializer):
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
    storevariant = StoreProductVariantSerializer(read_only=True)
+   product_variants = ProductVariantSerializer(read_only=True, many=True)
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', 'storevariant']
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', 'storevariant', "product_variants"]
       read_only_fields = ('id', "sku")
    
    def to_representation(self, instance):
@@ -230,7 +253,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
       representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
 
-      cache.set(cache_key, representation, timeout=60)  # Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
       return representation
 
 
@@ -309,7 +332,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          representation['product'] = None
 
       representation['listed'] = instance.list_product
-      cache.set(cache_key, representation, timeout=200)
+      cache.set(cache_key, representation, timeout=5)
       return representation
 
    def serialize_product_images(self, images):
@@ -329,6 +352,81 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       store_variants_details = []
       for store_variant_detail in store_variant_queryset:
          store_variants_details.append(
+            {
+               "id": store_variant_detail.id,
+               "product_variant_id": store_variant_detail.product_variant.id,
+               "product_variant_size": store_variant_detail.product_variant.size,
+               "retail_price": store_variant_detail.retail_price
+            }
+         )
+      return store_variants_details
+   
+   
+class ProductDetailSerializer(serializers.ModelSerializer):
+   category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
+   subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
+   brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
+   producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
+   storevariant = StoreProductVariantSerializer(read_only=True)
+   product_variants = ProductVariantSerializer(read_only=True, many=True)
+
+   class Meta:
+      model = Product
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 'is_available', 'created_at', 'on_promo',
+               'upload_status', 'category', 'subcategory', 'brand', 'producttype', 'images', 'storevariant',
+               'product_variants']
+      read_only_fields = ('id', 'sku')
+
+   def to_representation(self, instance):
+      cache_key = f"product_data_{instance.name}"
+      cached_data = cache.get(cache_key)
+
+      if cached_data is not None:
+         return cached_data
+
+      representation = super(ProductDetailSerializer, self).to_representation(instance)
+      representation['created_at'] = instance.formatted_created_at()
+
+      if representation['description'] is None:
+         del representation['description']
+
+      if representation['images'] is None:
+         del representation['images']
+
+      representation['brand'] = {"id": instance.brand.id, "name": instance.brand.name}
+      representation['category'] = {"id": instance.category.id, "name": instance.category.name}
+      representation['subcategory'] = {"id": instance.subcategory.id, "name": instance.subcategory.name}
+
+      representation['product'] = {
+            "id": instance.id,
+            "name": instance.name,
+            "images": [{"url": prod.images.url} for prod in instance.images.all()],
+            "product_variant": self.serialize_product_variants(instance.product_variants.all()),
+            # "store_variant": self.get_store_variant(instance.product_variants.all()),
+            "category": instance.category.name,
+            "subcategory": instance.subcategory.name,
+            "product_type": instance.producttype,
+            "upload_status": instance.upload_status
+         }
+      # else:
+      #    representation['product'] = None
+
+      # representation['listed'] = instance.list_product
+      cache.set(cache_key, representation, timeout=20)
+      return representation
+
+   def serialize_product_variants(self, variants):
+      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
+
+   def get_store_variant(self, product_variants, store_id):
+      product_variant_ids = [variant.id for variant in product_variants]
+      store_variant_queryset = StoreProductVariant.objects.filter(
+         store=store_id, product_variant__in=product_variant_ids
+      ).select_related("product_variant")
+
+      store_variants_details = []
+      for store_variant_detail in store_variant_queryset:
+         store_variants_details.append(
                {
                   "id": store_variant_detail.id,
                   "product_variant_id": store_variant_detail.product_variant.id,
@@ -337,14 +435,3 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                }
          )
       return store_variants_details
-   
-   
-   
-   # def get_store_variant(self, product_variants, store_id):
-   #    store_variants_details = []
-   #    for variant in product_variants:
-   #       store_variant_queryset = StoreProductVariant.objects.filter(store=store_id, product_variant=variant)
-   #       for store_variant_detail in store_variant_queryset:
-   #             store_variants_details.append({"id": store_variant_detail.id, "product_variant_id": store_variant_detail.product_variant.id, "product_variant_size": store_variant_detail.product_variant.size, "retail_price": store_variant_detail.retail_price})
-   #    return store_variants_details
-      

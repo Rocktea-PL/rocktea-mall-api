@@ -2,9 +2,11 @@ from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
                            MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
                            ProductImageSerializer, MarketPlaceSerializer,
-                           ProductVariantSerializer, StoreProductVariantSerializer)
+                           ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer)
 
 from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
+from order.models import Order
+from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
@@ -25,6 +27,7 @@ import logging
 from django.db.models import Count
 from django.core.cache import cache
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.generics import ListAPIView
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -189,7 +192,8 @@ class UploadProductImage(ListCreateAPIView):
                return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
 
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
-   
+
+
 class MarketPlacePagination(PageNumberPagination):
    page_size = 5
 
@@ -211,24 +215,83 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return MarketPlace.objects.none()
       
 
+# Get Dropshipper Store Counts
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
       store_id = request.query_params.get('store')
-      store = self.get_store(store_id)
-      
+      store = get_object_or_404(Store, id=store_id)
+
       # Get Number of Listed Products
-      try:
-         product_count = MarketPlace.objects.filter(store=store, list_product=True).aggregate(product_count=Count('id'))['product_count']
-      except MarketPlace.DoesNotExist:
-         return MarketPlace.objects.none
-      
+      product_count = MarketPlace.objects.filter(
+         store=store, list_product=True).count()
+
+      # Get Number of all Orders per store
+      order_count = Order.objects.filter(store=store).count()
+
+      # Get Number of Customers
+      customer_count = CustomUser.objects.filter(
+         associated_domain=store).count()
+
       data = {
-         "No. of Listed Products": product_count
+         "Listed_Products": product_count,
+         "Orders": order_count,
+         "Customers": customer_count
       }
-      
+
       return Response(data, status=status.HTTP_200_OK)
 
-   
+
+class StoreOrdersViewSet(ListAPIView):
+   serializer_class = OrderSerializer
+
+   def get_queryset(self):
+      store_id = self.request.query_params.get("store")
+      verified_store = self.get_store(store_id)
+
+      # Use a try-except block to handle the case where no orders are found for the given store
+      try:
+         orders = Order.objects.filter(store=verified_store).select_related('buyer', 'store')
+      except Order.DoesNotExist:
+         return Order.objects.none()
+
+      return orders
+
    def get_store(self, store_id):
-      return get_object_or_404(Store, id=store_id)
+      try:
+         store = Store.objects.get(id=store_id)
+      except Store.DoesNotExist:
+         # Instead of returning a ValidationError, raise a serializers.ValidationError
+         raise serializers.ValidationError("Store Does Not Exist")
+
+      return store
+
+
+class ProductDetails(viewsets.ModelViewSet):
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants', 'store_variants__store')
+   serializer_class = ProductDetailSerializer
+
+   def retrieve(self, request, *args, **kwargs):
+         # Get the product ID from the URL parameters
+         product_id = kwargs.get('pk')
+
+         # Filter the queryset to include only the specified product ID
+         product_instance = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants').get(pk=product_id)
+
+         # Get the product variant ID from the request parameters
+         product_variant_id = self.request.query_params.get('variant')
+         store_id = self.request.query_params.get('store')
+
+         # Filter the related store product variants based on the product variant ID
+         store_product_variants = StoreProductVariant.objects.filter(product_variant=product_variant_id, store=store_id)
+
+         # Serialize the product and store product variants
+         product_serializer = ProductDetailSerializer(product_instance)
+         store_product_variants_serializer = StoreProductVariantSerializer(store_product_variants, many=True)
+
+         # You can attach the related store product variants to the product instance
+         data = {
+            "product_data": product_serializer.data,
+            "store_variants": store_product_variants_serializer.data
+         }
+         return Response(data)
