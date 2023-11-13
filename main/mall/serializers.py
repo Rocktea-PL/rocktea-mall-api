@@ -11,7 +11,6 @@ from django.db import IntegrityError
 from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
-import locale
 
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
@@ -183,16 +182,11 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       fields = '__all__'
       
    def to_representation(self, instance):
-      try:
-         locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
-      except locale.Error:
-         # Fallback to a default locale if the specified one is not supported
-         locale.setlocale(locale.LC_NUMERIC, 'C')
       # Call the parent class's to_representation method
       representation = super(ProductVariantSerializer, self).to_representation(instance)
 
       # Format the 'total_price' field with commas as thousands separator
-      representation['wholesale_price'] = locale.format('%.2f', instance.wholesale_price)
+      representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
 
       return representation
       
@@ -206,12 +200,11 @@ class StoreProductVariantSerializer(serializers.ModelSerializer):
       fields = '__all__'
       
    def to_representation(self, instance):
-      locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
       # Call the parent class's to_representation method
       representation = super(StoreProductVariantSerializer, self).to_representation(instance)
 
       # Format the 'total_price' field with commas as thousands separator
-      representation['retail_price'] = locale.format('%.2f', instance.retail_price)
+      representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
 
       return representation
       
@@ -347,17 +340,10 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
-      try:
-         locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
-      except locale.Error:
-         # Fallback to a default locale if the specified one is not supported
-         locale.setlocale(locale.LC_NUMERIC, 'C')
-      
-      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": locale.format('%.2f', variant.wholesale_price, grouping=True),} for variant in variants]
+      return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": '{:,.2f}'.format( variant.wholesale_price)} for variant in variants]
 
 
    def get_store_variant(self, product_variants, store_id):
-      locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
       product_variant_ids = [variant.id for variant in product_variants]
       store_variant_queryset = StoreProductVariant.objects.filter(
          store=store_id, product_variant__in=product_variant_ids
@@ -370,7 +356,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                "id": store_variant_detail.id,
                "product_variant_id": store_variant_detail.product_variant.id,
                "product_variant_size": store_variant_detail.product_variant.size,
-               "retail_price": locale.format('%.2f', store_variant_detail.retail_price, grouping=True),
+               "retail_price":'{:,.2f}'.format(store_variant_detail.retail_price)
             }
          )
       return store_variants_details
