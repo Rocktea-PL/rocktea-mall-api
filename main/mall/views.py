@@ -219,31 +219,26 @@ class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
       store_id = request.query_params.get('store')
-      store = self.get_store(store_id)
-      
+      store = get_object_or_404(Store, id=store_id)
+
       # Get Number of Listed Products
-      try:
-         product_count = MarketPlace.objects.filter(store=store, list_product=True).aggregate(product_count=Count('id'))['product_count']
-      except MarketPlace.DoesNotExist:
-         return MarketPlace.objects.none
-      
-      try:
-         order_count = Order.objects.filter(store=store).count()
-      except Order.DoesNotExist:
-         return Order.objects.none
+      product_count = MarketPlace.objects.filter(
+         store=store, list_product=True).count()
 
-      
-      
-      data= {
+      # Get Number of all Orders per store
+      order_count = Order.objects.filter(store=store).count()
+
+      # Get Number of Customers
+      customer_count = CustomUser.objects.filter(
+         associated_domain=store).count()
+
+      data = {
          "Listed_Products": product_count,
-         "Orders": order_count
-            }
-      
-      return Response(data, status=status.HTTP_200_OK)
+         "Orders": order_count,
+         "Customers": customer_count
+      }
 
-   
-   def get_store(self, store_id):
-      return get_object_or_404(Store, id=store_id)
+      return Response(data, status=status.HTTP_200_OK)
 
 
 class ProductDetails(viewsets.ModelViewSet):
