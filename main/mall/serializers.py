@@ -183,7 +183,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       fields = '__all__'
       
    def to_representation(self, instance):
-      locale.setlocale(locale.LC_ALL, '')
+      locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
       # Call the parent class's to_representation method
       representation = super(ProductVariantSerializer, self).to_representation(instance)
 
@@ -202,7 +202,7 @@ class StoreProductVariantSerializer(serializers.ModelSerializer):
       fields = '__all__'
       
    def to_representation(self, instance):
-      locale.setlocale(locale.LC_ALL, '')
+      locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
       # Call the parent class's to_representation method
       representation = super(StoreProductVariantSerializer, self).to_representation(instance)
 
@@ -349,7 +349,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
 
    def get_store_variant(self, product_variants, store_id):
-      locale.setlocale(locale.LC_ALL, '')
+      locale.setlocale(locale.LC_NUMERIC, 'en_US.UTF-8')
       product_variant_ids = [variant.id for variant in product_variants]
       store_variant_queryset = StoreProductVariant.objects.filter(
          store=store_id, product_variant__in=product_variant_ids
