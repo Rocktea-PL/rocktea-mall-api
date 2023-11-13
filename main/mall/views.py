@@ -235,8 +235,8 @@ class DropshipperDashboardCounts(APIView):
       
       
       data= {
-         "No. of Listed Products": product_count,
-         "No. of Orders": order_count
+         "Listed_Products": product_count,
+         "Orders": order_count
             }
       
       return Response(data, status=status.HTTP_200_OK)
