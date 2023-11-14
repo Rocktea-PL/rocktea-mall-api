@@ -174,6 +174,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
       model = ProductImage
       fields = '__all__'
 
+
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    

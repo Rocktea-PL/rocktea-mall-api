@@ -1,10 +1,7 @@
 from rest_framework import viewsets
-from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
-                           MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           ProductImageSerializer, MarketPlaceSerializer,
-                           ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer)
+from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer, MarketPlaceSerializer,ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant, Brand, ProductTypes, SubCategories
 from order.models import Order
 from order.serializers import OrderSerializer
 
@@ -44,7 +41,7 @@ class CreateStore(viewsets.ModelViewSet):
    Create Store Feature 
    """
    queryset = Store.objects.all()
-   serializer_class = CreateStoreSerializer         
+   serializer_class = CreateStoreSerializer
    
    def get_serializer_context(self):
       return {'request': self.request}
@@ -162,6 +159,7 @@ class StoreProductVariantView(viewsets.ModelViewSet):
    def get_product(self, product_id):
       return get_object_or_404(Product, id=product_id)
 
+
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
    serializer_class = CategorySerializer #TODO Differ this based on user
@@ -213,7 +211,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return queryset
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
-      
+
 
 # Get Dropshipper Store Counts
 class DropshipperDashboardCounts(APIView):
@@ -265,6 +263,21 @@ class StoreOrdersViewSet(ListAPIView):
          raise serializers.ValidationError("Store Does Not Exist")
 
       return store
+
+
+class BrandView(viewsets.ModelViewSet):
+   queryset = Brand.objects.prefetch_related('producttype')
+   serializer_class = BrandSerializer
+   
+
+class SubCategoryView(viewsets.ModelViewSet):
+   queryset =  SubCategories.objects.select_related('category')
+   serializer_class = SubCategorySerializer
+   
+
+class ProductTypeView(viewsets.ModelViewSet):
+   queryset = ProductTypes.objects.select_related('subcategory')
+   serializer_class = ProductTypesSerializer
 
 
 class ProductDetails(viewsets.ModelViewSet):
