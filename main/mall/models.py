@@ -99,6 +99,7 @@ class Store(models.Model):
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
    associated_domain = models.CharField(max_length=15, null=True)
+   theme = models.CharField(max_length=6, null=True)
    facebook = models.URLField(null=True)
    whatsapp = models.URLField(null=True)
    instagram = models.URLField(null=True)

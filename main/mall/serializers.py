@@ -73,6 +73,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
+         data['user_data']['theme'] = self.user.owners.theme
 
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
@@ -87,7 +88,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "facebook", "whatsapp", "twitter", "instagram")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "theme","facebook", "whatsapp", "twitter", "instagram")
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):
@@ -114,13 +115,13 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "facebook", "whatsapp", "twitter", "instagram"]:
+      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme","facebook", "whatsapp", "twitter", "instagram"]:
          setattr(instance, field, validated_data.get(field, getattr(instance, field)))
          instance.save()
          return instance
       
    def create(self, validated_data):
-      owner =self.context['request'].user
+      owner = self.context['request'].user
       try:
          storeowner = Store.objects.create(owner=owner, **validated_data)
       except IntegrityError as e:
