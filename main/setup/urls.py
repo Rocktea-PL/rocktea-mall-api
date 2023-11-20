@@ -1,7 +1,8 @@
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, StoreProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView
+from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, StoreProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView
+
 from order.views import OrderItemsViewSet, OrderViewSet, CartViewSet, ViewOrders
 from tenants.views import TenantSignUp
 from django.urls import path
@@ -27,6 +28,7 @@ router.register('my-orders', ViewOrders, basename="view-orders")
 router.register('brand', BrandView, basename='brands')
 router.register('subcategory', SubCategoryView, basename='subcategory')
 router.register('product-type', ProductTypeView, basename='product-type')
+router.register('wallet', WalletView, basename='wallets')
 
 
 urlpatterns = [

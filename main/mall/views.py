@@ -1,7 +1,8 @@
 from rest_framework import viewsets
-from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer, MarketPlaceSerializer,ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer)
+from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer, MarketPlaceSerializer,ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant, Brand, ProductTypes, SubCategories
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant, Brand, ProductTypes, SubCategories, Wallet
+
 from order.models import Order
 from order.serializers import OrderSerializer
 
@@ -308,3 +309,8 @@ class ProductDetails(viewsets.ModelViewSet):
             "store_variants": store_product_variants_serializer.data
          }
          return Response(data)
+      
+      
+class WalletView(viewsets.ModelViewSet):
+   queryset = Wallet.objects.select_related('store')
+   serializer_class = WalletSerializer

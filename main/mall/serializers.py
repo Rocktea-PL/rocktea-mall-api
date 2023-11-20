@@ -1,6 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, 
-                     ProductImage, MarketPlace, ProductVariant, StoreProductVariant)
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, StoreProductVariant, Wallet)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -88,7 +87,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "facebook", "whatsapp", "twitter", "instagram")
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):
@@ -115,8 +114,8 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-         for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category"]:
-            setattr(instance, field, validated_data.get(field, getattr(instance, field)))
+      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "facebook", "whatsapp", "twitter", "instagram"]:
+         setattr(instance, field, validated_data.get(field, getattr(instance, field)))
          instance.save()
          return instance
       
@@ -130,7 +129,6 @@ class CreateStoreSerializer(serializers.ModelSerializer):
                raise ValidationError("You already have a store. Only one store per user is allowed.")
          else:
                raise e
-      
       return storeowner
    
    def get_owner(self, value):
@@ -212,7 +210,6 @@ class StoreProductVariantSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-   # sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
@@ -436,3 +433,14 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                }
          )
       return store_variants_details
+
+
+class WalletSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = Wallet
+      fields = ['store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
+      
+   def to_representation(self, instance):
+      representation = super(WalletSerializer, self).to_representation(instance)
+      representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      return representation

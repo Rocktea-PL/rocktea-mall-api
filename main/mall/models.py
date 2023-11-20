@@ -8,12 +8,14 @@ from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 def generate_unique_code():
    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+   def create_user(self, email, password=None, **extra_fields):
       # Create a standard user
       if not email:
          raise ValueError('The Email field must be set')
@@ -23,7 +25,7 @@ class CustomUserManager(BaseUserManager):
       user.save(using=self._db)
       return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+   def create_superuser(self, email, password=None, **extra_fields):
       # Create a superuser
       extra_fields.setdefault('is_staff', True)
       extra_fields.setdefault('is_superuser', True)
@@ -72,7 +74,19 @@ class CustomUser(AbstractUser):
    
    def __str__(self):
       return self.first_name
-   
+
+
+class Wallet(models.Model):
+   store = models.OneToOneField('Store', on_delete=models.CASCADE, null=True)
+   balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+   account_name = models.CharField(max_length=300, null=True)
+   pending_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+   nuban = models.CharField(max_length=10, unique=True, null=True)
+   bank_code = models.IntegerField(null=True)
+
+   def __str__(self):
+      return self.store.name
+
 
 class Store(models.Model):
    id = models.CharField(max_length=36, default=uuid4, unique=True, db_index=True, primary_key=True)
@@ -85,49 +99,36 @@ class Store(models.Model):
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
    associated_domain = models.CharField(max_length=15, null=True)
+   facebook = models.URLField(null=True)
+   whatsapp = models.URLField(null=True)
+   instagram = models.URLField(null=True)
+   twitter = models.URLField(null=True)
    
    class Meta:
       # Add an index for the 'uid' field
       indexes = [
          models.Index(fields=['id'], name='store_id_idx'),
+         models.Index(fields=['owner'], name='store_owner_ownerx'),
+         models.Index(fields=['name'], name='store_name_namex')
       ]
       
    def __str__(self):
       return self.name
 
 
-class StoreActivationInfo(models.Model):
-   PAYMENT_STATUS = (
-      ('PD', 'Paid'),
-      ('UP', 'Unpaid'),
-   )
-   
-   DOMAIN_ACTIVATION_STATUS = (
-   ('ACTIVATED', 'ACTIVATED'),
-   ('DISACTIVATED', 'DISACTIVATED'),
-   ('UNPROCESSED', 'UNPROCESSED'),
-   ('UNDER-REVIEW', 'UNDER-REVIEW')
-   )
-   user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
-   store = models.OneToOneField(Store, on_delete=models.CASCADE)
-   chosen_domain_name = models.CharField(max_length=20, unique=True)
-   amount_paid = models.CharField(max_length=10, editable=False)
-   status = models.CharField(max_length=12, choices=DOMAIN_ACTIVATION_STATUS, default='UNPROCESSED')
-   payment_status = models.CharField(max_length=6, choices=PAYMENT_STATUS, default='UP')
-   payment_reference = models.CharField(max_length=30, unique=True)
-
-   def __str__(self):
-      return f'{self.store.name} {self.domain_activation}'
+@receiver(post_save, sender=Store)
+def create_wallet(sender, instance, created, **kwargs):
+   if created:
+      Wallet.objects.get_or_create(store=instance)
 
 
 class Product(models.Model):
-   
    UPLOAD_STATUS = (
       ("Approved", "Approved"),
       ("Pending", "Pending"),
       ("Rejected", "Rejected")
    )
-   
+
    id = models.CharField(max_length=36, default=uuid4, unique=True, primary_key=True)
    sku = models.CharField(max_length=8, unique=True, blank=True)
    name = models.CharField(max_length=50)
@@ -144,7 +145,7 @@ class Product(models.Model):
    images = models.ManyToManyField('ProductImage')
    store = models.ManyToManyField('Store', related_name="store_products", blank=True)
 
-   
+
    class Meta:
       # Add an index for the 'uid' field
       indexes = [
@@ -180,8 +181,6 @@ class ProductImage(models.Model):
          models.Index(fields=['images'], name='product_images_imagesx')
       ]
 
-# class MarketPlace(models.Model):
-#    store = models.
 
 class ProductVariant(models.Model):
    COLOR_CHOICES = [
@@ -287,23 +286,6 @@ class Brand(models.Model):
    
    def __str__(self):
       return self.name
-   
-   
-class AccountDetails(models.Model):
-   user = models.OneToOneField(CustomUser, limit_choices_to={"is_store_owner":True}, on_delete=models.CASCADE)
-   account_name = models.CharField(max_length=300)
-   nuban = models.CharField(max_length=10, unique=True)
-   bank_code = models.IntegerField()
-   
-   def __str__(self):
-      return f"{user.first_name}"
-   
-   
-class Wallet(models.Model):
-   store = models.OneToOneField(CustomUser, on_delete=models.CASCADE, null=True)
-   balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-   pending_balance = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-   
 
 
 # TODO Implement Cart and WishList Feature After MarketPlace
