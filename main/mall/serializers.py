@@ -189,7 +189,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
 
       return representation
-      
+
 
 class StoreProductVariantSerializer(serializers.ModelSerializer):
    productvariant = ProductVariantSerializer(many=True, read_only=True)
@@ -207,7 +207,7 @@ class StoreProductVariantSerializer(serializers.ModelSerializer):
       representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
 
       return representation
-      
+
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
@@ -359,8 +359,8 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
             }
          )
       return store_variants_details
-   
-   
+
+
 class ProductDetailSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())

@@ -33,11 +33,14 @@ class CreateOrder(APIView):
       store_id = collect.get("store")
       store = self.get_store(store_id)
 
+      # Calculate total price
+      # total_price = self.create_order_items(None, products, store)
+
       # Create Order
-      order = self.create_order(customer_id, collect, store)
+      order = self.create_order(customer_id, collect, store, total_price)
 
       # Create Order Items
-      total_price = self.create_order_items(order, products, store)
+      self.create_order_items(order, products, store)
       order.save()
 
       return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
@@ -52,12 +55,13 @@ class CreateOrder(APIView):
          logging.exception("An Unexpected Error Occurred")
          return None
 
-   def create_order(self, customer_id, collect, store):
+   def create_order(self, customer_id, collect, store, total_price):
       order_data = {
          'buyer': customer_id,
          'status': "Pending",
          'shipping_address': collect["shipping_address"],
          'store': store.id,
+         'total_price': total_price
       }
 
       order_serializer = OrderSerializer(data=order_data)
@@ -66,9 +70,10 @@ class CreateOrder(APIView):
          order = order_serializer.save()
          return order
       else:
-         logging.error("An Error Occurred")
+         logging.error("Order not valid")
          print(order_serializer.errors)
          raise serializers.ValidationError("Invalid order data")
+
 
    def create_order_items(self, order, products, store):
       total_price = Decimal('0.00')
@@ -91,6 +96,9 @@ class CreateOrder(APIView):
                   product=product,
                   quantity=product_data["quantity"],
                )
+               # Increment the sales count of the associated product
+               product.sales_count += product_data['quantity']
+               product.save()
          else:
                # Handle the case where the price is not available for the product
                logging.error("Price not available for product with id: {}".format(product.id))
@@ -111,7 +119,7 @@ class CreateOrder(APIView):
          logging.info(variant.wholesale_price)
          return variant.wholesale_price
       except ProductVariant.DoesNotExist:
-         logging.error("An Unexpected Error Occured")
+         logging.error("No Product Variant")
          return None
 
 
@@ -120,9 +128,8 @@ class CreateOrder(APIView):
          store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
          return store_variant.retail_price
       except StoreProductVariant.DoesNotExist:
-         logging.error("An Unexpected Error Occured")
+         logging.error("No Store Variant")
          return None
-         
 
 
 class OrderItemsViewSet(ModelViewSet):

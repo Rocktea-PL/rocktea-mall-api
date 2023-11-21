@@ -145,6 +145,7 @@ class Product(models.Model):
    upload_status = models.CharField(max_length=8, choices=UPLOAD_STATUS, null=True, default="Pending")
    images = models.ManyToManyField('ProductImage')
    store = models.ManyToManyField('Store', related_name="store_products", blank=True)
+   sales_count = models.IntegerField(default=0)
 
 
    class Meta:

@@ -26,7 +26,6 @@ class Order(models.Model):
    shipping_address = models.CharField(max_length=300, null=True)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
    updated_at = models.DateTimeField(auto_now=True, null=True)
-   # affiliate = models.ForeignKey("rocktea_pl.Affiliate", related_name='affiliates', on_delete=models.CASCADE, null=True)
 
    class Meta:
       # Add an index for the 'uid' field

@@ -17,7 +17,7 @@ from helpers.views import BaseView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from django.db import transaction
-from rest_framework.generics import ListCreateAPIView
+from rest_framework.generics import ListCreateAPIView, ListAPIView
 from .task import upload_image
 from rest_framework.parsers import MultiPartParser
 from django.shortcuts import get_object_or_404
@@ -237,8 +237,15 @@ class DropshipperDashboardCounts(APIView):
          "Orders": order_count,
          "Customers": customer_count
       }
-
       return Response(data, status=status.HTTP_200_OK)
+   
+   
+# Best Selling Product Data
+class BestSellingProductView(ListAPIView):
+   serializer_class = ProductSerializer
+   
+   def get_queryset(self):
+      return Product.objects.all().order_by('-sales_count')[:3]
 
 
 class StoreOrdersViewSet(ListAPIView):
