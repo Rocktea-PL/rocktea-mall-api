@@ -89,6 +89,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
    class Meta:
       model = Store
       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "theme","facebook", "whatsapp", "twitter", "instagram")
+
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):
@@ -115,10 +116,13 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme","facebook", "whatsapp", "twitter", "instagram"]:
-         setattr(instance, field, validated_data.get(field, getattr(instance, field)))
-         instance.save()
-         return instance
+      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "facebook", "whatsapp", "twitter", "instagram"]:
+         setattr(instance, field, validated_data.get(
+            field, getattr(instance, field)))
+
+      instance.save()  # Move this outside the loop to save the instance after updating all fields
+      return instance
+
       
    def create(self, validated_data):
       owner = self.context['request'].user
