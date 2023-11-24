@@ -2,7 +2,7 @@ from django.http import Http404
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from .models import Order, OrderItems, Store, CustomUser, Cart, CartItem
-from mall.models import Product, ProductVariant, StoreProductVariant, CustomUser
+from mall.models import Product, ProductVariant, CustomUser
 from .serializers import OrderSerializer, OrderItemsSerializer, CartSerializer, CartItemSerializer
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
@@ -12,6 +12,8 @@ import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets
+# from rest_framework.authentication import TokenAuthentication
+
 
 
 class CreateOrder(APIView):
@@ -32,9 +34,6 @@ class CreateOrder(APIView):
       # Get the affiliate based on the referral code
       store_id = collect.get("store")
       store = self.get_store(store_id)
-
-      # Calculate total price
-      # total_price = self.create_order_items(None, products, store)
 
       # Create Order
       order = self.create_order(customer_id, collect, store, total_price)
@@ -123,13 +122,13 @@ class CreateOrder(APIView):
          return None
 
 
-   def get_retail_price(self, store, variant_id):
-      try:
-         store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
-         return store_variant.retail_price
-      except StoreProductVariant.DoesNotExist:
-         logging.error("No Store Variant")
-         return None
+   # def get_retail_price(self, store, variant_id):
+   #    try:
+   #       store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
+   #       return store_variant.retail_price
+   #    except StoreProductVariant.DoesNotExist:
+   #       logging.error("No Store Variant")
+   #       return None
 
 
 class OrderItemsViewSet(ModelViewSet):
@@ -149,8 +148,11 @@ class OrderViewSet(ModelViewSet):
       
       
 class CartViewSet(viewsets.ViewSet):
+   # authentication_classes = [TokenAuthentication]
    def create(self, request):
       user = request.user
+      store = self.request.query_params.get("store")
+      print(store)
       products = request.data.get('products', [])
       
       # Check if the user already has a cart

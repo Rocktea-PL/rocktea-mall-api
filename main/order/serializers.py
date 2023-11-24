@@ -63,4 +63,4 @@ class CartSerializer(serializers.ModelSerializer):
       fields = ['id', 'user', 'created_at', 'items']
 
    def get_user(self, obj):
-      return f"{obj.first_name} {obj.last_name}"
+      return f"{obj.user.first_name} {obj.user.last_name}"

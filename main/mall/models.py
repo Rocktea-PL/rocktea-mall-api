@@ -63,7 +63,7 @@ class CustomUser(AbstractUser):
       indexes = [
          models.Index(fields=['id'], name='id_idx'),
       ]
-   
+
    def save(self, *args, **kwargs):
       if not self.username:
          self.username = self._generate_unique_username()
@@ -71,7 +71,7 @@ class CustomUser(AbstractUser):
 
    def _generate_unique_username(self):
       return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
-   
+
    def __str__(self):
       return self.first_name
 
@@ -111,8 +111,8 @@ class Store(models.Model):
          models.Index(fields=['id'], name='store_id_idx'),
          models.Index(fields=['owner'], name='store_owner_ownerx'),
          models.Index(fields=['name'], name='store_name_namex')
-      ]
-      
+   ]
+
    def __str__(self):
       return self.name
 
@@ -180,7 +180,7 @@ class ProductImage(models.Model):
    
    class Meta:
       indexes = [
-         models.Index(fields=['images'], name='product_images_imagesx')
+      models.Index(fields=['images'], name='product_images_imagesx')
       ]
 
 
@@ -208,19 +208,22 @@ class ProductVariant(models.Model):
    ('Silver', 'Silver'),
    ]
    
-   product = models.ManyToManyField(Product, related_name='product_variants')
+   product = models.ManyToManyField('Product', related_name='product_variants')
    size = models.CharField(max_length=50, null=True)
    colors = ArrayField(models.CharField(max_length=20, choices=COLOR_CHOICES))
    wholesale_price = models.DecimalField(max_digits=11, decimal_places=2)
-   
+
    def __str__(self):
       return self.size
-
-
-class StoreProductVariant(models.Model):
-   store = models.ForeignKey(Store, on_delete=models.CASCADE)
-   product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='store_variants')
+   
+   
+class StoreProductPricing(models.Model):
+   product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
+   store = models.ForeignKey('Store', on_delete=models.CASCADE)
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
+
+   def __str__(self):
+      return f"{self.product_variant} - {self.store} - ${self.retail_price}"
 
 
 class Category(models.Model):

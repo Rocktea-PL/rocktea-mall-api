@@ -1,7 +1,7 @@
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, StoreProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView
+from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing
 
 from order.views import OrderItemsViewSet, OrderViewSet, CartViewSet, ViewOrders
 from tenants.views import TenantSignUp
@@ -19,7 +19,8 @@ router.register('signup/user', TenantSignUp, basename="signup-tenant")
 router.register('products', ProductViewSet, basename='products')
 router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
-router.register('store-variant', StoreProductVariantView, basename='store-variant')
+router.register('store_pricing', StoreProductPricing, basename='storepr')
+# router.register('store-variant', StoreProductVariantView, basename='store-variant')
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('orders', OrderViewSet, basename='orders')
 router.register('product-details', ProductDetails, basename='product-details')
