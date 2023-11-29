@@ -215,10 +215,10 @@ class ProductVariant(models.Model):
 
    def __str__(self):
       return self.size
-   
-   
+
+
 class StoreProductPricing(models.Model):
-   product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
+   product_variant = models.OneToOneField(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
    store = models.ForeignKey('Store', on_delete=models.CASCADE)
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
 
@@ -256,7 +256,7 @@ class Category(models.Model):
 class SubCategories(models.Model):
    category = models.ForeignKey(Category, related_name="subcategories", on_delete=models.CASCADE)
    name = models.CharField(max_length=30)
-   
+
    class Meta:
       indexes = [
          models.Index(fields=['name'], name='subcategories_name_namex')
@@ -264,12 +264,12 @@ class SubCategories(models.Model):
    
    def __str__(self):
       return self.name
-   
+
 
 class ProductTypes(models.Model):
    subcategory = models.ForeignKey(SubCategories, related_name="producttypes", on_delete=models.CASCADE)
    name = models.CharField(max_length=100, unique=True)
-   
+
    class Meta:
       indexes = [
          models.Index(fields=['name'], name='producttypes_name_namex')
@@ -277,7 +277,7 @@ class ProductTypes(models.Model):
    
    def __str__(self):
       return self.name
-   
+
 
 class Brand(models.Model):
    producttype = models.ManyToManyField(ProductTypes)
@@ -287,8 +287,7 @@ class Brand(models.Model):
       indexes = [
          models.Index(fields=['name'], name='brand_name_namex')
       ]
-   
-   
+
    def __str__(self):
       return self.name
 

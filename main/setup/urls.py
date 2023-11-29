@@ -17,10 +17,13 @@ router.register('categories', GetCategories, basename='categories')
 router.register('create/store', CreateStore, basename='create-store')
 router.register('signup/user', TenantSignUp, basename="signup-tenant")
 router.register('products', ProductViewSet, basename='products')
+
 router.register('marketplace', MarketPlaceView, basename='marketplace')
+
 router.register('product-variant', ProductVariantView, basename='productvariant')
-router.register('store_pricing', StoreProductPricing, basename='storepr')
-# router.register('store-variant', StoreProductVariantView, basename='store-variant')
+
+router.register('store_pricing', StoreProductPricing, basename='storeprice')
+
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('orders', OrderViewSet, basename='orders')
 router.register('product-details', ProductDetails, basename='product-details')

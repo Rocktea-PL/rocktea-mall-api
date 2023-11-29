@@ -245,7 +245,7 @@ class ProductSerializer(serializers.ModelSerializer):
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
       
-      # representation['producttype'] = {"name": instance.}
+      representation['sales_count'] = {"sales_count": instance.sales_count}
       
       representation['category'] = {"id": instance.category.id,
                                  "name": instance.category.name}
