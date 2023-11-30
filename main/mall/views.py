@@ -10,6 +10,7 @@ from order.serializers import OrderSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
@@ -109,6 +110,7 @@ class StoreProductPricing(viewsets.ModelViewSet):
 
 
 class GetVariantAndPricing(APIView):
+   parser_classes = [JSONParser]
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
       verified_product = get_object_or_404(Product, id=product_id)
