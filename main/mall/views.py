@@ -122,6 +122,7 @@ class GetVariantAndPricing(APIView):
          "product": verified_product.name,
          "variants": [
                {
+                  "id": variant.id,
                   "size": variant.size,
                   "colors": variant.colors,
                   "wholesale_price": variant.wholesale_price,

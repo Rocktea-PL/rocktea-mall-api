@@ -196,7 +196,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   productvariant = ProductVariantSerializer(many=True, read_only=True)
+   productvariant = ProductVariantSerializer(many=True, read_only=False)
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
