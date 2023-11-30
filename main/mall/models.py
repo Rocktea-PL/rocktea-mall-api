@@ -218,7 +218,7 @@ class ProductVariant(models.Model):
 
 
 class StoreProductPricing(models.Model):
-   product_variant = models.OneToOneField(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
+   product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
    store = models.ForeignKey('Store', on_delete=models.CASCADE)
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
 
