@@ -292,7 +292,6 @@ class Brand(models.Model):
       return self.name
 
 
-# TODO Implement Cart and WishList Feature After MarketPlace
 class Cart(models.Model):
    user = models.ForeignKey(CustomUser, limit_choices_to={"is_consumer":True}, on_delete=models.CASCADE)
    store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)

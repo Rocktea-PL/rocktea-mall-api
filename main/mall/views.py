@@ -123,7 +123,7 @@ class GetVariantAndPricing(APIView):
                   "size": variant.size,
                   "colors": variant.colors,
                   "wholesale_price": variant.wholesale_price,
-                  "store_pricings": [{"retail_price": store_pricing.retail_price} for store_pricing in variant.storeprices.all()],
+                  "store_pricings": [{"retail_price": variant.storeprices.retail_price}],
                }
                for variant in variants
          ],
