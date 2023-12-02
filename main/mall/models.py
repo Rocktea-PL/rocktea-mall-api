@@ -40,6 +40,13 @@ class CustomUserManager(BaseUserManager):
 
 # StoreOwner models
 class CustomUser(AbstractUser):
+   
+   SERVICE_TYPE = (
+      ('Personal Assistant', 'Personal Assistant'),
+      ('Fashion Designer', 'Fashion Designer'),
+      ('Makeup Artist', 'Makeup Artist'),
+   )
+   
    id = models.CharField(default=uuid4, unique=True, primary_key=True, db_index=True, max_length=36)
    username = models.CharField(max_length=7, unique=True)
    email = models.EmailField(unique=True)
@@ -52,6 +59,10 @@ class CustomUser(AbstractUser):
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
    shipping_address = models.CharField(max_length=500, null=True)
+   
+   # Services Extension
+   type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
+   is_services = models.BooleanField(default=False)
    
    USERNAME_FIELD = 'email'
    REQUIRED_FIELDS = []
@@ -115,7 +126,6 @@ class Store(models.Model):
 
    def __str__(self):
       return self.name
-
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):

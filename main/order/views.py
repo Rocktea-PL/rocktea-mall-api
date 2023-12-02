@@ -2,7 +2,7 @@ from django.http import Http404
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from .models import Order, OrderItems, Store, CustomUser, Cart, CartItem
-from mall.models import Product, ProductVariant, CustomUser
+from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
 from .serializers import OrderSerializer, OrderItemsSerializer, CartSerializer, CartItemSerializer
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
@@ -87,20 +87,20 @@ class CreateOrder(APIView):
                price = wholesale_price + retail_price
 
          if price is not None:
-               item_total_price = Decimal(price) * Decimal(product_data["quantity"])
-               total_price += item_total_price
+            item_total_price = Decimal(price) * Decimal(product_data["quantity"])
+            total_price += item_total_price
 
-               OrderItems.objects.create(
-                  order=order,
-                  product=product,
-                  quantity=product_data["quantity"],
-               )
-               # Increment the sales count of the associated product
-               product.sales_count += product_data['quantity']
-               product.save()
+            OrderItems.objects.create(
+               order=order,
+               product=product,
+               quantity=product_data["quantity"],
+            )
+            # Increment the sales count of the associated product
+            product.sales_count += product_data['quantity']
+            product.save()
          else:
-               # Handle the case where the price is not available for the product
-               logging.error("Price not available for product with id: {}".format(product.id))
+            # Handle the case where the price is not available for the product
+            logging.error("Price not available for product with id: {}".format(product.id))
 
       # Set the total_price attribute of the order before saving
       order.total_price = total_price
@@ -122,14 +122,14 @@ class CreateOrder(APIView):
          return None
 
 
-   # def get_retail_price(self, store, variant_id):
-   #    try:
-   #       store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
-   #       return store_variant.retail_price
-   #    except StoreProductVariant.DoesNotExist:
-   #       logging.error("No Store Variant")
-   #       return None
-
+   def get_retail_price(self, store, variant_id):
+      try:
+         store_variant = StoreProductPricing.objects.get(store=store, product_variant=variant_id)
+         return store_variant.retail_price
+      except StoreProductPricing.DoesNotExist:
+         logging.error("No Store Variant")
+      return None
+   
 
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()

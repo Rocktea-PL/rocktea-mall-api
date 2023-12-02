@@ -69,11 +69,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "contact": f"{self.user.contact}",
       "is_storeowner": self.user.is_store_owner,
       "has_store": has_store,
+      "is_services": self.user.is_services
    }
 
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
          data['user_data']['theme'] = self.user.owners.theme
+         
+      if is_servies:
+         data['user_data']['type'] = self.user.owners.type
 
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)

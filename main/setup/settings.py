@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     
     # Security
     "corsheaders",
-    "order"
+    "order",
+    "services"
 ]
 
 MIDDLEWARE = [
