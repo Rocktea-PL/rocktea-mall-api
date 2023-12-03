@@ -76,7 +76,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          data['user_data']["store_id"] = self.user.owners.id
          data['user_data']['theme'] = self.user.owners.theme
          
-      if data['is_services']:
+      if data['user_data']['is_services']:
          data['user_data']['type'] = self.user.owners.type
 
       refresh = self.get_token(self.user)
