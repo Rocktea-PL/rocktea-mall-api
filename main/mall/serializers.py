@@ -48,12 +48,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    def validate(self, attrs):
       data = super().validate(attrs)
       user_id = self.user.id
-      
+
       try:
          user = CustomUser.objects.get(is_store_owner=True, id=user_id)
       except CustomUser.DoesNotExist:
          raise serializers.ValidationError("User Does Not Exist")
-      
+
       try:
          store = Store.objects.get(owner=user)
          has_store = True
@@ -71,11 +71,10 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "has_store": has_store,
       "is_services": self.user.is_services
    }
-
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
          data['user_data']['theme'] = self.user.owners.theme
-         
+
       if data['user_data']['is_services']:
          data['user_data']['type'] = self.user.owners.type
 
@@ -299,7 +298,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       validated_data['store'] = store  # Set the store field in validated_data
 
       # Create the MarketPlace instance
-      instance = MarketPlace.objects.create(**validated_data, list_product=True)
+      instance = MarketPlace.objects.get_or_create(**validated_data, list_product=True)
       return instance
       
       # Assuming `product` is a related field
