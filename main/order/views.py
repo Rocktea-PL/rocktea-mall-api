@@ -2,7 +2,7 @@ from django.http import Http404
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from .models import Order, OrderItems, Store, CustomUser, Cart, CartItem
-from mall.models import Product, ProductVariant, StoreProductVariant, CustomUser
+from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
 from .serializers import OrderSerializer, OrderItemsSerializer, CartSerializer, CartItemSerializer
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
@@ -12,6 +12,8 @@ import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets
+# from rest_framework.authentication import TokenAuthentication
+
 
 
 class CreateOrder(APIView):
@@ -34,10 +36,10 @@ class CreateOrder(APIView):
       store = self.get_store(store_id)
 
       # Create Order
-      order = self.create_order(customer_id, collect, store)
+      order = self.create_order(customer_id, collect, store, total_price)
 
       # Create Order Items
-      total_price = self.create_order_items(order, products, store)
+      self.create_order_items(order, products, store)
       order.save()
 
       return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
@@ -52,12 +54,13 @@ class CreateOrder(APIView):
          logging.exception("An Unexpected Error Occurred")
          return None
 
-   def create_order(self, customer_id, collect, store):
+   def create_order(self, customer_id, collect, store, total_price):
       order_data = {
          'buyer': customer_id,
          'status': "Pending",
          'shipping_address': collect["shipping_address"],
          'store': store.id,
+         'total_price': total_price
       }
 
       order_serializer = OrderSerializer(data=order_data)
@@ -66,9 +69,10 @@ class CreateOrder(APIView):
          order = order_serializer.save()
          return order
       else:
-         logging.error("An Error Occurred")
+         logging.error("Order not valid")
          print(order_serializer.errors)
          raise serializers.ValidationError("Invalid order data")
+
 
    def create_order_items(self, order, products, store):
       total_price = Decimal('0.00')
@@ -83,17 +87,20 @@ class CreateOrder(APIView):
                price = wholesale_price + retail_price
 
          if price is not None:
-               item_total_price = Decimal(price) * Decimal(product_data["quantity"])
-               total_price += item_total_price
+            item_total_price = Decimal(price) * Decimal(product_data["quantity"])
+            total_price += item_total_price
 
-               OrderItems.objects.create(
-                  order=order,
-                  product=product,
-                  quantity=product_data["quantity"],
-               )
+            OrderItems.objects.create(
+               order=order,
+               product=product,
+               quantity=product_data["quantity"],
+            )
+            # Increment the sales count of the associated product
+            product.sales_count += product_data['quantity']
+            product.save()
          else:
-               # Handle the case where the price is not available for the product
-               logging.error("Price not available for product with id: {}".format(product.id))
+            # Handle the case where the price is not available for the product
+            logging.error("Price not available for product with id: {}".format(product.id))
 
       # Set the total_price attribute of the order before saving
       order.total_price = total_price
@@ -111,19 +118,18 @@ class CreateOrder(APIView):
          logging.info(variant.wholesale_price)
          return variant.wholesale_price
       except ProductVariant.DoesNotExist:
-         logging.error("An Unexpected Error Occured")
+         logging.error("No Product Variant")
          return None
 
 
    def get_retail_price(self, store, variant_id):
       try:
-         store_variant = StoreProductVariant.objects.get(store=store, product_variant=variant_id)
+         store_variant = StoreProductPricing.objects.get(store=store, product_variant=variant_id)
          return store_variant.retail_price
-      except StoreProductVariant.DoesNotExist:
-         logging.error("An Unexpected Error Occured")
-         return None
-         
-
+      except StoreProductPricing.DoesNotExist:
+         logging.error("No Store Variant")
+      return None
+   
 
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
@@ -142,8 +148,11 @@ class OrderViewSet(ModelViewSet):
       
       
 class CartViewSet(viewsets.ViewSet):
+   # authentication_classes = [TokenAuthentication]
    def create(self, request):
       user = request.user
+      store = self.request.query_params.get("store")
+      print(store)
       products = request.data.get('products', [])
       
       # Check if the user already has a cart

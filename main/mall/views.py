@@ -1,16 +1,16 @@
 from rest_framework import viewsets
-from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, 
-                           MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, 
-                           ProductImageSerializer, MarketPlaceSerializer,
-                           ProductVariantSerializer, StoreProductVariantSerializer, ProductDetailSerializer)
+from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer,
+                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant, StoreProductVariant
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, StoreProductPricing
+
 from order.models import Order
 from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
 from rest_framework.renderers import JSONRenderer
+from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action
@@ -19,7 +19,7 @@ from helpers.views import BaseView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from django.db import transaction
-from rest_framework.generics import ListCreateAPIView
+from rest_framework.generics import ListCreateAPIView, ListAPIView
 from .task import upload_image
 from rest_framework.parsers import MultiPartParser
 from django.shortcuts import get_object_or_404
@@ -34,7 +34,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    """
    Sign Up Store Owners Feature
    """
-   queryset = CustomUser.objects.all()
+   queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
 
@@ -43,8 +43,9 @@ class CreateStore(viewsets.ModelViewSet):
    """
    Create Store Feature 
    """
+   # TODO Add request.store.id to get store info
    queryset = Store.objects.all()
-   serializer_class = CreateStoreSerializer         
+   serializer_class = CreateStoreSerializer
    
    def get_serializer_context(self):
       return {'request': self.request}
@@ -101,66 +102,41 @@ class ProductVariantView(viewsets.ModelViewSet):
          return ProductVariant.objects.none()
       
       
-class StoreProductVariantView(viewsets.ModelViewSet):
-   queryset = StoreProductVariant.objects.all().select_related('store', 'product_variant')
-   serializer_class = StoreProductVariantSerializer
-   
-   def get_queryset(self):
-      store = self.request.query_params.get('store')
-      product_id = self.request.query_params.get('product')
-      size = self.request.query_params.get('size')
+class StoreProductPricing(viewsets.ModelViewSet):
+   queryset = StoreProductPricing.objects.select_related('product_variant', 'store')
+   serializer_class = StoreProductPricingSerializer
 
-      if product_id is not None:
-         product = self.get_product(product_id)
-         # Get Product Variants
-         product_variants = ProductVariant.objects.filter(product=product, size=size)
-      else:
-         # If product is not provided, return all product variants
-         product_variants = ProductVariant.objects.all()
+# Get the related product pricing data in one place
 
-      if store is not None:
-         variants = StoreProductVariant.objects.filter(product_variant__in=product_variants, store=store)
-         return product_variants, variants
 
-      # If store is not provided, return all variants
-      return product_variants, None
+class GetVariantAndPricing(APIView):
+   parser_classes = [JSONParser]
+   def get(self, request, **kwargs):
+      product_id = kwargs.get('product_id')
+      verified_product = get_object_or_404(Product, id=product_id)
 
-   def list(self, request, *args, **kwargs):
-      product_variants, store_variants = self.get_queryset()
+      variants = ProductVariant.objects.filter(product=verified_product)
 
-      # Handle the case where no product variants are found
-      if not product_variants.exists():
-         return Response({"message": "No product variants found."})
-
-      # Serialize data using your serializer
-      product_variants_serializer = ProductVariantSerializer(product_variants, many=True)
-      serialized_product_variants = product_variants_serializer.data
-
-      # Serialize store_variants using a custom serialization method
-      serialized_store_variants = self.serialize_store_product_variants(store_variants)
-
-      response_data = {
-         "product_variant": serialized_product_variants,
-         "store_variant": serialized_store_variants
+      # You can customize the data structure based on your requirements
+      data = {
+         "product": verified_product.name,
+         "variants": [
+               {
+                  "id": variant.id,
+                  "size": variant.size,
+                  "colors": variant.colors,
+                  "wholesale_price": variant.wholesale_price,
+                  "store_pricings": [
+                     {"retail_price": pricing.retail_price}
+                     for pricing in variant.storeprices.all()
+                  ],
+                  }
+            for variant in variants
+         ],
       }
 
-      return Response(response_data)
+      return Response(data)
 
-   def serialize_store_product_variants(self, store_variants):
-      serialized_data = []
-      for store_variant in store_variants:
-         serialized_store_variant = {
-               "id": store_variant.id,
-               "retail_price": store_variant.retail_price,
-               "store": str(store_variant.store.id),  # Convert UUID to string if needed
-               "product_variant": store_variant.product_variant.id,
-               "size": store_variant.product_variant.size if store_variant.product_variant.size else None,
-         }
-         serialized_data.append(serialized_store_variant)
-      return serialized_data
-
-   def get_product(self, product_id):
-      return get_object_or_404(Product, id=product_id)
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
@@ -203,8 +179,8 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
+      # store_id = self.request.user.owners.id
       store_id = self.request.query_params.get("store")
-      
       try:
          store = get_object_or_404(Store, id=store_id)
          # Filter the queryset based on the specified store and list_product=True
@@ -213,7 +189,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
          return queryset
       except Store.DoesNotExist:
          return MarketPlace.objects.none()
-      
+
 
 # Get Dropshipper Store Counts
 class DropshipperDashboardCounts(APIView):
@@ -238,8 +214,15 @@ class DropshipperDashboardCounts(APIView):
          "Orders": order_count,
          "Customers": customer_count
       }
-
       return Response(data, status=status.HTTP_200_OK)
+   
+   
+# Best Selling Product Data
+class BestSellingProductView(ListAPIView):
+   serializer_class = ProductSerializer
+   
+   def get_queryset(self):
+      return Product.objects.all().order_by('-sales_count')[:3]
 
 
 class StoreOrdersViewSet(ListAPIView):
@@ -267,31 +250,26 @@ class StoreOrdersViewSet(ListAPIView):
       return store
 
 
+class BrandView(viewsets.ModelViewSet):
+   queryset = Brand.objects.prefetch_related('producttype')
+   serializer_class = BrandSerializer
+   
+
+class SubCategoryView(viewsets.ModelViewSet):
+   queryset =  SubCategories.objects.select_related('category')
+   serializer_class = SubCategorySerializer
+   
+
+class ProductTypeView(viewsets.ModelViewSet):
+   queryset = ProductTypes.objects.select_related('subcategory')
+   serializer_class = ProductTypesSerializer
+
+
 class ProductDetails(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants', 'store_variants__store')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductDetailSerializer
 
-   def retrieve(self, request, *args, **kwargs):
-         # Get the product ID from the URL parameters
-         product_id = kwargs.get('pk')
 
-         # Filter the queryset to include only the specified product ID
-         product_instance = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants').get(pk=product_id)
-
-         # Get the product variant ID from the request parameters
-         product_variant_id = self.request.query_params.get('variant')
-         store_id = self.request.query_params.get('store')
-
-         # Filter the related store product variants based on the product variant ID
-         store_product_variants = StoreProductVariant.objects.filter(product_variant=product_variant_id, store=store_id)
-
-         # Serialize the product and store product variants
-         product_serializer = ProductDetailSerializer(product_instance)
-         store_product_variants_serializer = StoreProductVariantSerializer(store_product_variants, many=True)
-
-         # You can attach the related store product variants to the product instance
-         data = {
-            "product_data": product_serializer.data,
-            "store_variants": store_product_variants_serializer.data
-         }
-         return Response(data)
+class WalletView(viewsets.ModelViewSet):
+   queryset = Wallet.objects.select_related('store')
+   serializer_class = WalletSerializer

@@ -1,6 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, 
-                     ProductImage, MarketPlace, ProductVariant, StoreProductVariant)
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -70,10 +69,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "contact": f"{self.user.contact}",
       "is_storeowner": self.user.is_store_owner,
       "has_store": has_store,
+      "is_services": self.user.is_services
    }
 
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
+         data['user_data']['theme'] = self.user.owners.theme
+         
+      if data['is_services']:
+         data['user_data']['type'] = self.user.owners.type
 
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
@@ -88,7 +92,8 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "theme","facebook", "whatsapp", "twitter", "instagram")
+
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):
@@ -115,13 +120,16 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-         for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category"]:
-            setattr(instance, field, validated_data.get(field, getattr(instance, field)))
-         instance.save()
-         return instance
+      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "facebook", "whatsapp", "twitter", "instagram"]:
+         setattr(instance, field, validated_data.get(
+            field, getattr(instance, field)))
+
+      instance.save()  # Move this outside the loop to save the instance after updating all fields
+      return instance
+
       
    def create(self, validated_data):
-      owner =self.context['request'].user
+      owner = self.context['request'].user
       try:
          storeowner = Store.objects.create(owner=owner, **validated_data)
       except IntegrityError as e:
@@ -130,7 +138,6 @@ class CreateStoreSerializer(serializers.ModelSerializer):
                raise ValidationError("You already have a store. Only one store per user is allowed.")
          else:
                raise e
-      
       return storeowner
    
    def get_owner(self, value):
@@ -174,6 +181,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
       model = ProductImage
       fields = '__all__'
 
+
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
@@ -189,39 +197,37 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
 
       return representation
-      
 
-class StoreProductVariantSerializer(serializers.ModelSerializer):
+
+class StoreProductPricingSerializer(serializers.ModelSerializer):
    productvariant = ProductVariantSerializer(many=True, read_only=True)
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
-      model = StoreProductVariant
+      model = StoreProductPricing
       fields = '__all__'
       
    def to_representation(self, instance):
-      # Call the parent class's to_representation method
-      representation = super(StoreProductVariantSerializer, self).to_representation(instance)
+      representation = super(StoreProductPricingSerializer, self).to_representation(instance)
 
       # Format the 'total_price' field with commas as thousands separator
       representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
 
       return representation
-      
+
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-   # sizes = serializers.PrimaryKeyRelatedField(many=True, queryset=Size.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-   storevariant = StoreProductVariantSerializer(read_only=True)
+   # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', 'storevariant', "product_variants"]
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', "product_variants"]
       read_only_fields = ('id', "sku")
    
    def to_representation(self, instance):
@@ -243,7 +249,7 @@ class ProductSerializer(serializers.ModelSerializer):
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
       
-      # representation['producttype'] = {"name": instance.}
+      representation['sales_count'] = {"sales_count": instance.sales_count}
       
       representation['category'] = {"id": instance.category.id,
                                  "name": instance.category.name}
@@ -255,7 +261,6 @@ class ProductSerializer(serializers.ModelSerializer):
 
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
       return representation
-
 
 # serializers.py
 class MarketPlaceSerializer(serializers.ModelSerializer):
@@ -321,7 +326,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                "name": instance.product.name,
                "images": self.serialize_product_images(instance.product.images.all()),
                "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
-               "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
+               # "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
                "category": instance.product.category.name,
                "subcategory": instance.product.subcategory.name,
                "product_type": instance.product.producttype,
@@ -343,38 +348,10 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
 
-   def get_store_variant(self, product_variants, store_id):
-      product_variant_ids = [variant.id for variant in product_variants]
-      store_variant_queryset = StoreProductVariant.objects.filter(
-         store=store_id, product_variant__in=product_variant_ids
-      ).select_related("product_variant")
-
-      store_variants_details = []
-      for store_variant_detail in store_variant_queryset:
-         store_variants_details.append(
-            {
-               "id": store_variant_detail.id,
-               "product_variant_id": store_variant_detail.product_variant.id,
-               "product_variant_size": store_variant_detail.product_variant.size,
-               "retail_price": store_variant_detail.retail_price
-            }
-         )
-      return store_variants_details
-   
-   
 class ProductDetailSerializer(serializers.ModelSerializer):
-   category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-   subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
-   brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-   producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-   storevariant = StoreProductVariantSerializer(read_only=True)
-   product_variants = ProductVariantSerializer(read_only=True, many=True)
-
    class Meta:
       model = Product
-      fields = ['id', 'sku', 'name', 'description', 'quantity', 'is_available', 'created_at', 'on_promo',
-               'upload_status', 'category', 'subcategory', 'brand', 'producttype', 'images', 'storevariant',
-               'product_variants']
+      fields = '__all__'
       read_only_fields = ('id', 'sku')
 
    def to_representation(self, instance):
@@ -396,42 +373,31 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       representation['brand'] = {"id": instance.brand.id, "name": instance.brand.name}
       representation['category'] = {"id": instance.category.id, "name": instance.category.name}
       representation['subcategory'] = {"id": instance.subcategory.id, "name": instance.subcategory.name}
+      # representation['producttype'] = {"id": instance.producttype.id, "name": instance.producttype.name}
 
       representation['product'] = {
             "id": instance.id,
             "name": instance.name,
             "images": [{"url": prod.images.url} for prod in instance.images.all()],
             "product_variant": self.serialize_product_variants(instance.product_variants.all()),
-            # "store_variant": self.get_store_variant(instance.product_variants.all()),
             "category": instance.category.name,
             "subcategory": instance.subcategory.name,
-            "product_type": instance.producttype,
+            # "producttype": getattr(instance.producttypes, 'name', None),
             "upload_status": instance.upload_status
          }
-      # else:
-      #    representation['product'] = None
-
-      # representation['listed'] = instance.list_product
       cache.set(cache_key, representation, timeout=20)
       return representation
 
    def serialize_product_variants(self, variants):
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
-   def get_store_variant(self, product_variants, store_id):
-      product_variant_ids = [variant.id for variant in product_variants]
-      store_variant_queryset = StoreProductVariant.objects.filter(
-         store=store_id, product_variant__in=product_variant_ids
-      ).select_related("product_variant")
 
-      store_variants_details = []
-      for store_variant_detail in store_variant_queryset:
-         store_variants_details.append(
-               {
-                  "id": store_variant_detail.id,
-                  "product_variant_id": store_variant_detail.product_variant.id,
-                  "product_variant_size": store_variant_detail.product_variant.size,
-                  "retail_price": store_variant_detail.retail_price,
-               }
-         )
-      return store_variants_details
+class WalletSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = Wallet
+      fields = ['store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
+      
+   def to_representation(self, instance):
+      representation = super(WalletSerializer, self).to_representation(instance)
+      representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      return representation

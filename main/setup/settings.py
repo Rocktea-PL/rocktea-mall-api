@@ -47,7 +47,8 @@ INSTALLED_APPS = [
     
     # Security
     "corsheaders",
-    "order"
+    "order",
+    "services"
 ]
 
 MIDDLEWARE = [
@@ -57,9 +58,10 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'mall.middleware.StoreMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'mall.middleware.DomainMiddleware',
+    # 'mall.middleware.DomainMiddleware',
 ]
 
 ROOT_URLCONF = 'setup.urls'
