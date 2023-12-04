@@ -158,6 +158,10 @@ class CartViewSet(viewsets.ViewSet):
       # Check if the user already has a cart
       cart = Cart.objects.filter(user=user).first()
       
+      # variant_id = request.data.get('variant')
+      # product_variant = ProductVariant.objects.get(id=variant_id)
+      # print(product_variant)
+      
       if not cart:
          # Create a new cart if the user doesn't have one
          cart = Cart.objects.create(user=user)
@@ -165,22 +169,25 @@ class CartViewSet(viewsets.ViewSet):
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
-         
+         # product_variant = product.get('product_variant')
+
          # Create a CartItem for each product and associate it with the cart
          cart_item = CartItem.objects.create(cart=cart, product_id=product_id, quantity=quantity)
          
       serializer = CartSerializer(cart)
       return Response(serializer.data)
-   
+
    def list(self, request):
       user = self.request.user.id
       queryset = Cart.objects.filter(user=user).select_related("user")
       serializer = CartSerializer(queryset, many=True)
-      return Response(serializer.data)
-   
-   
+      return Response(serializer.data) 
 
 
+   def retrieve(self, request):
+      pass
+   
+   
 class ViewOrders(viewsets.ViewSet):
    def list(self, request):
       user = self.request.user.id

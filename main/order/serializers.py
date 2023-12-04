@@ -49,10 +49,10 @@ class CartItemSerializer(serializers.ModelSerializer):
    
    class Meta:
       model = CartItem
-      fields = ['id', 'product', 'quantity']
+      fields = ['id', 'product', 'product_variant', 'quantity']
       
    def get_product(self, obj):
-      return f"{obj.product.name}" if obj.product.name else None
+      return {"id":obj.product.id, "name": obj.product.name} if obj.product.name else None
 
 
 class CartSerializer(serializers.ModelSerializer):

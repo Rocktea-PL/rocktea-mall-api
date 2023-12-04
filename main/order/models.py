@@ -45,6 +45,9 @@ class Cart(models.Model):
 class CartItem(models.Model):
    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product')  # Assuming you have a Product model
-   # product_variant = models.ForeignKey()
+   product_variant = models.ForeignKey(ProductVariant, on_delete=models.DO_NOTHING,null=True)
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True)
+   
+   def __str__(self):
+      return self.cart.id
