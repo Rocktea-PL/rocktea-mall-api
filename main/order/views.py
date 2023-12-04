@@ -172,8 +172,16 @@ class CartViewSet(viewsets.ViewSet):
       serializer = CartSerializer(cart)
       return Response(serializer.data)
    
+   def list(self, request):
+      user = self.request.user.id
+      queryset = Cart.objects.filter(user=user).select_related("user")
+      serializer = CartSerializer(queryset, many=True)
+      return Response(serializer.data)
    
-class ViewOrders(ViewSet):
+   
+
+
+class ViewOrders(viewsets.ViewSet):
    def list(self, request):
       user = self.request.user.id
       queryset = Order.objects.filter(buyer=user).select_related("buyer", "store")
