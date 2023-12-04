@@ -165,7 +165,7 @@ class Product(models.Model):
          models.Index(fields=['name'], name='product_name_namex'),
          models.Index(fields=['category'], name= 'product_category_categoryx')
       ]
-      
+   
    def formatted_created_at(self):
       # Format the created_at field as "YMD, Timestamp"
       return self.created_at.strftime("%Y-%m-%d, %H:%M%p")

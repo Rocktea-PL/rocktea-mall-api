@@ -10,6 +10,7 @@ from django.db import IntegrityError
 from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
+from django.db.models import Q
 
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
@@ -50,7 +51,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       user_id = self.user.id
 
       try:
-         user = CustomUser.objects.get(is_store_owner=True, id=user_id)
+         user = CustomUser.objects.get(Q (is_store_owner=True) and Q(id=user_id))
       except CustomUser.DoesNotExist:
          raise serializers.ValidationError("User Does Not Exist")
 
@@ -76,7 +77,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          data['user_data']['theme'] = self.user.owners.theme
 
       if data['user_data']['is_services']:
-         data['user_data']['type'] = self.user.owners.type
+         data['user_data']['type'] = self.user.type
 
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
@@ -301,7 +302,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       instance = MarketPlace.objects.get_or_create(**validated_data, list_product=True)
       return instance
       
-      # Assuming `product` is a related field
+   # Assuming `product` is a related field
    def to_representation(self, instance):
       cache_key = f"Listed Product_{instance.id}"
       cached_data = cache.get(cache_key)
@@ -311,7 +312,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       
       representation = super().to_representation(instance)
 
-   # Assuming `store` is a related field
+      # Assuming `store` is a related field
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
 
       # Assuming `product` is a related field
