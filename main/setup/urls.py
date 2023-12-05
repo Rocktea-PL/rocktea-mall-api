@@ -3,7 +3,7 @@ from django.contrib import admin
 from rest_framework import routers
 from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing
 
-from order.views import OrderItemsViewSet, OrderViewSet, CartViewSet, ViewOrders
+from order.views import OrderItemsViewSet, OrderViewSet, CartViewSet, ViewOrders, CartItemModifyView
 
 from services.views import SignUpServices
 from tenants.views import TenantSignUp
@@ -29,10 +29,13 @@ router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('orders', OrderViewSet, basename='orders')
 router.register('product-details', ProductDetails, basename='product-details')
 router.register('cart', CartViewSet, basename="add-to-cart")
+router.register('cart-item', CartItemModifyView, basename="cartitem")
 router.register('my-orders', ViewOrders, basename="view-orders")
 router.register('brand', BrandView, basename='brands')
 router.register('subcategory', SubCategoryView, basename='subcategory')
 router.register('product-type', ProductTypeView, basename='product-type')
+
+
 
 # Payments
 router.register('wallet', WalletView, basename='wallets')

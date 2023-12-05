@@ -183,9 +183,23 @@ class CartViewSet(viewsets.ViewSet):
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
 
-   def retrieve(self, request):
-      pass
-   
+   def delete(self, request):
+      cart_id = self.request.query_params.get("id")
+      try:
+         # Get the specific cart instance based on the provided ID
+         cart = get_object_or_404(Cart, id=cart_id)
+         # Delete the cart instance
+         cart.delete()
+         return Response({"detail": "Cart deleted successfully"})
+      except Cart.DoesNotExist:
+         logging.error("Incorrect Cart ID")
+         raise serializers.ValidationError("Cart Does Not Exist")
+
+
+class CartItemModifyView(viewsets.ModelViewSet):
+   queryset = CartItem.objects.all()
+   serializer_class = CartItemSerializer
+
    
 class ViewOrders(viewsets.ViewSet):
    def list(self, request):
