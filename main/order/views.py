@@ -149,40 +149,39 @@ class OrderViewSet(ModelViewSet):
       
 class CartViewSet(viewsets.ViewSet):
    # authentication_classes = [TokenAuthentication]
+
    def create(self, request):
       user = request.user
-      store = self.request.query_params.get("store")
-      print(store)
+      store_id = request.data.get("store")
+      # print(store_id)
       products = request.data.get('products', [])
-      
+
       # Check if the user already has a cart
       cart = Cart.objects.filter(user=user).first()
-      
-      # variant_id = request.data.get('variant')
-      # product_variant = ProductVariant.objects.get(id=variant_id)
-      # print(product_variant)
-      
       if not cart:
-         # Create a new cart if the user doesn't have one
-         cart = Cart.objects.create(user=user)
+         # Get the Store instance using the store_id
+         store = get_object_or_404(Store, id=store_id)
+
+         # Create a new cart if the user doesn't have a cart
+         cart = Cart.objects.create(user=user, store=store)
       
+      # product_v = request.data.get('product_variant')
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
-         # product_variant = product.get('product_variant')
+         product_variant = get_object_or_404(ProductVariant, id=product.get('variant'))
 
          # Create a CartItem for each product and associate it with the cart
-         cart_item = CartItem.objects.create(cart=cart, product_id=product_id, quantity=quantity)
-         
+         cart_item = CartItem.objects.create(cart=cart, product_variant=product_variant, product_id=product_id, quantity=quantity)
+
       serializer = CartSerializer(cart)
       return Response(serializer.data)
 
    def list(self, request):
       user = self.request.user.id
-      queryset = Cart.objects.filter(user=user).select_related("user")
+      queryset = Cart.objects.filter(user=user).select_related("user","store")
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
-
 
    def retrieve(self, request):
       pass
