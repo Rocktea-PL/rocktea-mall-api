@@ -136,6 +136,25 @@ class GetVariantAndPricing(APIView):
       }
 
       return Response(data)
+   
+   
+class StoreProductPricingAPIView(APIView):
+   def get(self, request, store_id):
+      try:
+         # Retrieve all store prices related to the specified store
+         store_prices = StoreProductPricing.objects.filter(
+               store_id=store_id)
+
+         # Serialize the data
+         store_prices_serializer = StoreProductPricingSerializer(
+               store_prices, many=True)
+
+         # Return the serialized data as the API response
+         return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
+
+      except Exception as e:
+         # Handle exceptions, you might want to log the error or return a different response
+         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
