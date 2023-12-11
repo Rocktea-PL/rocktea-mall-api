@@ -162,6 +162,11 @@ class SubCategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = SubCategories
       fields = '__all__'
+      
+   # def to_representation(self, instance):
+   #    representation = super(SubCategorySerializer, self).to_representation(instance)
+   #    representation['']
+   #    return representation
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -261,7 +266,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
       return representation
-   
+
 
 class ServicesBusinessInformationSerializer(serializers.ModelSerializer):
    class Meta:
@@ -269,7 +274,6 @@ class ServicesBusinessInformationSerializer(serializers.ModelSerializer):
       fields = "__all__"
 
 
-# serializers.py
 class MarketPlaceSerializer(serializers.ModelSerializer):
    store = serializers.UUIDField(source='store_id', read_only=True)
    # size = PriceSerializer(many=True, read_only=True)

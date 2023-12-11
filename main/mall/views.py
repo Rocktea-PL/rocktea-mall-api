@@ -159,7 +159,19 @@ class StoreProductPricingAPIView(APIView):
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
-   serializer_class = CategorySerializer #TODO Differ this based on user
+   serializer_class = CategorySerializer
+   
+   def retrieve(self, request, *args, **kwargs):
+      instance = self.get_object()
+      category_serializer = self.get_serializer(instance)
+      subcategories_serializer = SubCategorySerializer(instance.subcategories.all(), many=True)
+      product_types_serializer = ProductTypesSerializer(ProductTypes.objects.filter(subcategory__in=instance.subcategories.all()), many=True)
+
+      return Response({
+         'category': category_serializer.data,
+         'subcategories': subcategories_serializer.data,
+         'product_types': product_types_serializer.data
+      })
 
 
 class UploadProductImage(ListCreateAPIView):
@@ -277,7 +289,6 @@ class BrandView(viewsets.ModelViewSet):
 class SubCategoryView(viewsets.ModelViewSet):
    queryset =  SubCategories.objects.select_related('category')
    serializer_class = SubCategorySerializer
-   
 
 class ProductTypeView(viewsets.ModelViewSet):
    queryset = ProductTypes.objects.select_related('subcategory')
