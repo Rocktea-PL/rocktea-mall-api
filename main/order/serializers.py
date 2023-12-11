@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItems, Cart, CartItem
+from .models import OrderItems, Cart, CartItem
 from mall.models import CustomUser, Store, Product
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -21,27 +21,27 @@ class OrderItemsSerializer(serializers.ModelSerializer):
       return representation
 
 
-class OrderSerializer(serializers.ModelSerializer):
-   buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
-   total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-   order_items = OrderItemsSerializer(many=True, read_only=True)
-   created_at = serializers.SerializerMethodField()
+# class OrderSerializer(serializers.ModelSerializer):
+#    # user = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+#    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+#    # order_items = OrderItemsSerializer(many=True, read_only=True)
+#    created_at = serializers.SerializerMethodField()
 
-   class Meta:
-      model = Order
-      fields = ('id', 'buyer', 'status', 'total_price', 'shipping_address', 'order_items', 'created_at','store')
+#    class Meta:
+#       model = Order
+#       fields = "__all__"
+#    # ('id', 'user', 'status', 'total_price', 'created_at', 'store')
+#    def get_created_at(self, obj):
+#       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
    
-   def get_created_at(self, obj):
-      return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
-   
-   def to_representation(self, instance):
-      # Call the parent class's to_representation method
-      representation = super(OrderSerializer, self).to_representation(instance)
+#    def to_representation(self, instance):
+#       # Call the parent class's to_representation method
+#       representation = super(OrderSerializer, self).to_representation(instance)
 
-      # Format the 'total_price' field with commas as thousands separator
-      representation['buyer'] = f"{instance.buyer.first_name} {instance.buyer.last_name}"
-      representation['total_price'] = '{:,.2f}'.format(instance.total_price)
-      return representation
+#       # Format the 'total_price' field with commas as thousands separator
+#       # representation['buyer'] = f"{instance.user.first_name} {instance.user.last_name}"
+#       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
+#       return representation
 
 
 class CartItemSerializer(serializers.ModelSerializer):

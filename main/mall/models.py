@@ -84,7 +84,25 @@ class CustomUser(AbstractUser):
 
    def __str__(self):
       return self.first_name
+   
+   
+class ServicesBusinessInformation(models.Model):
+   EXPERIENCE = (
+      ("1-2 Years", "1-2 Years"),
+      ("3-4 Years", "3-4 Years"),
+      ("5-6 Years", "5-6 Years"),
+      ("7 Years & Above", "7 Years & Above")
+   )
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+   name = models.CharField(max_length=150, unique=True)
+   email = models.EmailField(unique=True)
+   contact = models.CharField(unique=True, max_length=14)
+   years_of_experience = models.CharField(max_length=15)
+   about = models.TextField(max_length=100)
+   business_photograph = models.FileField(storage=RawMediaCloudinaryStorage)
 
+   def __str__(self):
+      return self.name
 
 class Wallet(models.Model):
    store = models.OneToOneField('Store', on_delete=models.CASCADE, null=True)

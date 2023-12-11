@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing)
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing, ServicesBusinessInformation)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -261,6 +261,13 @@ class ProductSerializer(serializers.ModelSerializer):
 
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
       return representation
+   
+
+class ServicesBusinessInformationSerializer(serializer.ModelSerializer):
+   class Meta:
+      model = ServicesBusinessInformation
+      fields = "__all__"
+
 
 # serializers.py
 class MarketPlaceSerializer(serializers.ModelSerializer):

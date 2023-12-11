@@ -1,11 +1,11 @@
 from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer,
-                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer)
+                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer, ServicesBusinessInformationSerializer)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, StoreProductPricing
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, StoreProductPricing, ServicesBusinessInformation
 
-from order.models import Order
-from order.serializers import OrderSerializer
+# from order.models import Order
+# from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
@@ -137,7 +137,7 @@ class GetVariantAndPricing(APIView):
 
       return Response(data)
    
-   
+
 class StoreProductPricingAPIView(APIView):
    def get(self, request, store_id):
       try:
@@ -221,8 +221,8 @@ class DropshipperDashboardCounts(APIView):
       product_count = MarketPlace.objects.filter(
          store=store, list_product=True).count()
 
-      # Get Number of all Orders per store
-      order_count = Order.objects.filter(store=store).count()
+      # # Get Number of all Orders per store
+      # order_count = Order.objects.filter(store=store).count()
 
       # Get Number of Customers
       customer_count = CustomUser.objects.filter(
@@ -230,7 +230,7 @@ class DropshipperDashboardCounts(APIView):
 
       data = {
          "Listed_Products": product_count,
-         "Orders": order_count,
+         # "Orders": order_count,
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
@@ -245,7 +245,7 @@ class BestSellingProductView(ListAPIView):
 
 
 class StoreOrdersViewSet(ListAPIView):
-   serializer_class = OrderSerializer
+   # serializer_class = OrderSerializer
 
    def get_queryset(self):
       store_id = self.request.query_params.get("store")
@@ -292,3 +292,8 @@ class ProductDetails(viewsets.ModelViewSet):
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
+   
+
+class ServicesBusinessInformationView(viewsets.ModelViewSet):
+   queryset = ServicesBusinessInformation.objects.select_related('user')
+   serializer_class = ServicesBusinessInformationSerializer
