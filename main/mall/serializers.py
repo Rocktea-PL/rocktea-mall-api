@@ -263,7 +263,7 @@ class ProductSerializer(serializers.ModelSerializer):
       return representation
    
 
-class ServicesBusinessInformationSerializer(serializer.ModelSerializer):
+class ServicesBusinessInformationSerializer(serializers.ModelSerializer):
    class Meta:
       model = ServicesBusinessInformation
       fields = "__all__"
