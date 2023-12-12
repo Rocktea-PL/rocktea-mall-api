@@ -4,8 +4,8 @@ from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategoryS
 
 from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, StoreProductPricing, ServicesBusinessInformation
 
-# from order.models import Order
-# from order.serializers import OrderSerializer
+from order.models import StoreOrder
+from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions
@@ -257,7 +257,7 @@ class BestSellingProductView(ListAPIView):
 
 
 class StoreOrdersViewSet(ListAPIView):
-   # serializer_class = OrderSerializer
+   serializer_class = OrderSerializer
 
    def get_queryset(self):
       store_id = self.request.query_params.get("store")
@@ -265,10 +265,9 @@ class StoreOrdersViewSet(ListAPIView):
 
       # Use a try-except block to handle the case where no orders are found for the given store
       try:
-         orders = Order.objects.filter(store=verified_store).select_related('buyer', 'store')
-      except Order.DoesNotExist:
-         return Order.objects.none()
-
+         orders = StoreOrder.objects.filter(store=verified_store).select_related('buyer', 'store')
+      except StoreOrder.DoesNotExist:
+         return StoreOrder.objects.none()
       return orders
 
    def get_store(self, store_id):

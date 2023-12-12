@@ -3,8 +3,7 @@ from django.contrib import admin
 from rest_framework import routers
 from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing, ServicesBusinessInformationView
 
-from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView 
-# CheckOutCart
+from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart
 
 from services.views import SignUpServices
 from tenants.views import TenantSignUp
@@ -36,7 +35,7 @@ router.register('brand', BrandView, basename='brands')
 router.register('subcategory', SubCategoryView, basename='subcategory')
 router.register('product-type', ProductTypeView, basename='product-type')
 router.register('business_info', ServicesBusinessInformationView, basename='business')
-# router.register('checkout', CheckOutCart, basename='checkout')
+router.register('checkout', CheckOutCart, basename='checkout')
 
 
 

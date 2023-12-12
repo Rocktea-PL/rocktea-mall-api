@@ -3,7 +3,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from .models import OrderItems, Store, CustomUser, Cart, CartItem
 from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
-from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer
+from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer, OrderSerializer
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
@@ -12,139 +12,11 @@ import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets
-# from rest_framework.authentication import TokenAuthentication
-
-
-
-# class CreateOrder(APIView):
-#    def post(self, request):
-#       # Extract data from request
-#       collect = request.data
-#       customer_id = self.request.query_params.get("buyer")
-
-#       # Verify Customer Exists
-#       customer = self.get_customer_or_raise(customer_id)
-#       if customer is None:
-#          return Response({"error": "Customer does not exist"}, status=status.HTTP_400_BAD_REQUEST)
-
-#       # Collect Products
-#       products = collect["products"]
-#       total_price = Decimal('0.00')
-
-#       # Get the affiliate based on the referral code
-#       store_id = collect.get("store")
-#       store = self.get_store(store_id)
-
-#       # Create Order
-#       order = self.create_order(customer_id, collect, store, total_price)
-
-#       # Create Order Items
-#       self.create_order_items(order, products, store)
-#       order.save()
-
-#       return Response({"message": "Order created successfully"}, status=status.HTTP_201_CREATED)
-
-#    def get_store(self, store_id):
-#       return get_object_or_404(Store, id=store_id)
-
-#    def get_customer_or_raise(self, customer_id):
-#       try:
-#          return CustomUser.objects.get(id=customer_id)
-#       except CustomUser.DoesNotExist:
-#          logging.exception("An Unexpected Error Occurred")
-#          return None
-
-#    def create_order(self, customer_id, collect, store, total_price):
-#       order_data = {
-#          'buyer': customer_id,
-#          'status': "Pending",
-#          'shipping_address': collect["shipping_address"],
-#          'store': store.id,
-#          'total_price': total_price
-#       }
-
-#       order_serializer = OrderSerializer(data=order_data)
-
-#       if order_serializer.is_valid():
-#          order = order_serializer.save()
-#          return order
-#       else:
-#          logging.error("Order not valid")
-#          print(order_serializer.errors)
-#          raise serializers.ValidationError("Invalid order data")
-
-
-#    def create_order_items(self, order, products, store):
-#       total_price = Decimal('0.00')
-#       for product_data in products:
-#          product = self.get_product(product_data["product"])
-#          wholesale_price = self.get_wholesale_price(product_data["product"], product_data["variant"])
-#          retail_price = self.get_retail_price(store, product_data["variant"])
-
-#          price = None  # Initialize price outside the if block
-
-#          if retail_price:
-#                price = wholesale_price + retail_price
-
-#          if price is not None:
-#             item_total_price = Decimal(price) * Decimal(product_data["quantity"])
-#             total_price += item_total_price
-
-#             OrderItems.objects.create(
-#                order=order,
-#                product=product,
-#                quantity=product_data["quantity"],
-#             )
-#             # Increment the sales count of the associated product
-#             product.sales_count += product_data['quantity']
-#             product.save()
-#          else:
-#             # Handle the case where the price is not available for the product
-#             logging.error("Price not available for product with id: {}".format(product.id))
-
-#       # Set the total_price attribute of the order before saving
-#       order.total_price = total_price
-#       order.save()
-
-#       return total_price
-
-#    def get_product(self, product_sn):
-#       return get_object_or_404(Product, id=product_sn)
-
-
-#    def get_wholesale_price(self, product_id, variant_id):
-#       try:
-#          variant = ProductVariant.objects.get(product=product_id, id=variant_id)
-#          logging.info(variant.wholesale_price)
-#          return variant.wholesale_price
-#       except ProductVariant.DoesNotExist:
-#          logging.error("No Product Variant")
-#          return None
-
-
-#    def get_retail_price(self, store, variant_id):
-#       try:
-#          store_variant = StoreProductPricing.objects.get(store=store, product_variant=variant_id)
-#          return store_variant.retail_price
-#       except StoreProductPricing.DoesNotExist:
-#          logging.error("No Store Variant")
-#       return None
-   
 
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
 
-
-# class OrderViewSet(ModelViewSet):
-#    queryset = Order.objects.all().select_related('buyer', 'store')
-#    serializer_class = OrderSerializer
-   
-#    def get_queryset(self):
-#       store = self.request.query_params.get("store")
-#       if store:
-#          return Order.objects.filter(store=store).select_related('buyer', 'store')
-#       return Order.objects.all().select_related('buyer', 'store')
       
       
 class CartViewSet(viewsets.ViewSet):
@@ -153,7 +25,6 @@ class CartViewSet(viewsets.ViewSet):
    def create(self, request):
       user = request.user
       store_id = request.data.get("store")
-      # print(store_id)
       products = request.data.get('products', [])
 
       # Check if the user already has a cart
@@ -164,18 +35,29 @@ class CartViewSet(viewsets.ViewSet):
 
          # Create a new cart if the user doesn't have a cart
          cart = Cart.objects.create(user=user, store=store)
-      
-      # product_v = request.data.get('product_variant')
+
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
-         product_variant = get_object_or_404(ProductVariant, id=product.get('variant'))
+         product_variant_id = product.get('variant')
 
-         # Create a CartItem for each product and associate it with the cart
-         cart_item = CartItem.objects.create(cart=cart, product_variant=product_variant, product_id=product_id, quantity=quantity)
+         # Check if the same product variant is already in the cart
+         existing_item = cart.items.filter(
+               product_id=product_id, product_variant_id=product_variant_id).first()
+
+         if existing_item:
+               # If the product variant is already in the cart, update the quantity
+               existing_item.quantity += quantity
+               existing_item.save()
+         else:
+               # Otherwise, create a new CartItem for the product variant
+               product_variant = get_object_or_404(
+                  ProductVariant, id=product_variant_id)
+               cart_item = CartItem.objects.create(
+                  cart=cart, product_variant=product_variant, product_id=product_id, quantity=quantity)
 
       serializer = CartSerializer(cart)
-      return Response(serializer.data)
+      return Response(serializer.data, status=status.HTTP_201_CREATED)
 
    def list(self, request):
       user = self.request.user.id
@@ -218,7 +100,7 @@ class CheckOutCart(viewsets.ViewSet):
       verified_store = get_object_or_404(Store, id=store)
       
       order_data = {
-         'user': user.id,
+         'buyer': user.id,
          'store': cart.store.id,
          'total_price': total_price,
          'status': 'Pending',
@@ -236,7 +118,7 @@ class CheckOutCart(viewsets.ViewSet):
                'quantity': cart_item.quantity
             }
 
-            order_item_serializer = OrderItemSerializer(data=order_item_data)
+            order_item_serializer = OrderItemsSerializer(data=order_item_data)
 
             if order_item_serializer.is_valid():
                order_item_serializer.save()
@@ -246,7 +128,7 @@ class CheckOutCart(viewsets.ViewSet):
                return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
          # Clear the user's cart after a successful checkout
-         cart.items.all().delete()
+         # cart.items.all().delete()
 
          return Response(order_serializer.data, status=status.HTTP_201_CREATED)
       else:
@@ -254,6 +136,21 @@ class CheckOutCart(viewsets.ViewSet):
          return Response(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
          # Move cart items to order items
+   def list(self, request):
+      # Collect Data
+      user = request.user
+
+      # Get Cart belonging to user
+      try:
+         cart = Cart.objects.get(user=user)
+      except Cart.DoesNotExist:
+         return Response({"detail": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
+
+      # Serialize the cart items
+      cart_items = cart.items.all()
+      cart_items_serializer = CartItemSerializer(cart_items, many=True)
+
+      return Response(cart_items_serializer.data, status=status.HTTP_200_OK)
          
    
    

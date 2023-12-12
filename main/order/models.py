@@ -4,14 +4,14 @@ from uuid import uuid4
 import random as rand, string
 
 
-class Order(models.Model):
+class StoreOrder(models.Model):
    STATUS_CHOICES = (
       ("Pending", "Pending"),
       ("Completed", "Completed"),
       ("In-Review", "In-Review")
    )
    id = models.CharField(primary_key=True, default=uuid4, max_length=36)
-   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_orders', null=True)
+   buyer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_orders', null=True)
    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='store_orders', null=True)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
    total_price = models.DecimalField(decimal_places=2, max_digits=11, default=0.00, null=True)
@@ -22,11 +22,11 @@ class Order(models.Model):
       if not self.order_id:
          random_digits = "".join(rand.choices(string.digits, k=5))
          self.order_id = random_digits
-      return super(Order, self).save(*args, **kwargs)
+      return super(StoreOrder, self).save(*args, **kwargs)
 
 
 class OrderItems(models.Model):
-   # order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order_items', null=True)
+   userorder = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='items', null=True)
    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='order_product', null=True)
    product_variant = models.ForeignKey(ProductVariant, on_delete=models.DO_NOTHING, null=True)
    quantity = models.PositiveIntegerField(default=1)
