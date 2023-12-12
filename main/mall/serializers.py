@@ -291,7 +291,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          except Price.DoesNotExist:
             logging.error("An Error Unexpectedly Occurred")
       return product_prices
-            
+   
    def create(self, validated_data):
       product_id = self.context['request'].query_params.get('product')
       try:
@@ -309,9 +309,18 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
       validated_data['store'] = store  # Set the store field in validated_data
 
-      # Create the MarketPlace instance
-      instance = MarketPlace.objects.get_or_create(**validated_data, list_product=True)
-      return instance
+      # Check if a Marketplace instance already exists for the given product and store
+      marketplace_instance = MarketPlace.objects.filter(product=product, store=store).first()
+
+      if marketplace_instance:
+         # Update the existing instance if it already exists
+         marketplace_instance.list_product = True  # Assuming you want to set list_product to True
+         marketplace_instance.save()
+         return marketplace_instance
+      else:
+         # Create a new Marketplace instance if it doesn't exist
+         instance = MarketPlace.objects.create(**validated_data, list_product=True)
+         return instance
       
    # Assuming `product` is a related field
    def to_representation(self, instance):
@@ -340,7 +349,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                # "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
                "category": instance.product.category.name,
                "subcategory": instance.product.subcategory.name,
-               "product_type": instance.product.producttype,
+               # "product_type": instance.product.producttype,
                "upload_status": instance.product.upload_status
          }
       else:

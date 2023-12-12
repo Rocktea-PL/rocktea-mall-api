@@ -148,7 +148,7 @@ class CheckOutCart(viewsets.ViewSet):
 
       # Serialize the cart items
       cart_items = cart.items.all()
-      cart_items_serializer = CartItemSerializer(cart_items, many=True)
+      cart_items_serializer = ItemSerializer(cart_items, many=True)
 
       return Response(cart_items_serializer.data, status=status.HTTP_200_OK)
          

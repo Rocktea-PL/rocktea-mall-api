@@ -48,10 +48,9 @@ class OrderSerializer(serializers.ModelSerializer):
 
    def to_representation(self, instance):
       representation = super(OrderSerializer, self).to_representation(instance)
-
-      # Format the 'total_price' field with commas as thousands separator
-      # representation['buyer'] = f"{instance.user.first_name} {instance.user.last_name}"
       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
+      order_items = OrderItemsSerializer(instance.order_items, many=True).data
+      representation['order_items'] = order_items
       return representation
 
 
