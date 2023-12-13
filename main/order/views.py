@@ -1,4 +1,4 @@
-from django.http import Http404
+from django.http import Http404, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from .models import OrderItems, Store, CustomUser, Cart, CartItem
@@ -7,6 +7,7 @@ from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerialize
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
+from rest_framework.renderers import JSONRenderer
 from rest_framework import serializers, status
 import logging
 from decimal import Decimal
@@ -21,6 +22,7 @@ class OrderItemsViewSet(ModelViewSet):
       
 class CartViewSet(viewsets.ViewSet):
    # authentication_classes = [TokenAuthentication]
+   renderer_classes = [JSONRenderer,]
 
    def create(self, request):
       user = request.user
@@ -41,7 +43,10 @@ class CartViewSet(viewsets.ViewSet):
          quantity = product.get('quantity', 1)
          product_variant_id = product.get('variant')
          product_price = product.get('price')
-                  
+
+         if product_id is None:
+               return JsonResponse({"error": "Product ID is required"}, status=400)
+
          # Check if the same product variant is already in the cart
          existing_item = cart.items.filter(
                product_id=product_id, product_variant_id=product_variant_id).first()
