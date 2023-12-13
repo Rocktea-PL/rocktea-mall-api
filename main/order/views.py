@@ -40,7 +40,8 @@ class CartViewSet(viewsets.ViewSet):
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
          product_variant_id = product.get('variant')
-
+         product_price = product.get('price')
+                  
          # Check if the same product variant is already in the cart
          existing_item = cart.items.filter(
                product_id=product_id, product_variant_id=product_variant_id).first()
