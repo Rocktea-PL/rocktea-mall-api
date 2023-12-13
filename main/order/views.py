@@ -54,6 +54,7 @@ class CartViewSet(viewsets.ViewSet):
          if existing_item:
                # If the product variant is already in the cart, update the quantity
                existing_item.quantity += quantity
+               existing_item.price = product_price
                existing_item.save()
          else:
                # Otherwise, create a new CartItem for the product variant
@@ -67,7 +68,7 @@ class CartViewSet(viewsets.ViewSet):
 
    def list(self, request):
       user = self.request.user.id
-      queryset = Cart.objects.filter(user=user).select_related("user","store")
+      queryset = Cart.objects.filter(user=user).select_related("user", "store")
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
 
