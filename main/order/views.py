@@ -55,7 +55,7 @@ class CartViewSet(viewsets.ViewSet):
                product_variant = get_object_or_404(
                   ProductVariant, id=product_variant_id)
                cart_item = CartItem.objects.create(
-                  cart=cart, product_variant=product_variant, product_id=product_id, quantity=quantity)
+                  cart=cart, product_variant=product_variant, price=product_price, product_id=product_id, quantity=quantity)
 
       serializer = CartSerializer(cart)
       return Response(serializer.data, status=status.HTTP_201_CREATED)
