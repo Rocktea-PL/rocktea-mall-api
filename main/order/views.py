@@ -1,7 +1,7 @@
 from django.http import Http404, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import OrderItems, Store, CustomUser, Cart, CartItem
+from .models import OrderItems, Store, CustomUser, Cart, CartItem, StoreOrder
 from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
 from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer, OrderSerializer
 from rest_framework.views import APIView
@@ -95,17 +95,21 @@ class CheckOutCart(viewsets.ViewSet):
    def create(self, request):
       # Collect Data
       user = request.user
-      store = request.data.get("store")
+      store_id = request.data.get("store")
       total_price = request.data.get("total_price")
-      
+
+      # Validate that required fields are present
+      if not (store_id and total_price):
+         return JsonResponse({"error": "Missing required fields in the request"}, status=400)
+
       # Get Cart belonging to user
       try:
          cart = Cart.objects.get(user=user)
       except Cart.DoesNotExist:
          return Response({"detail": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
-      
-      verified_store = get_object_or_404(Store, id=store)
-      
+
+      verified_store = get_object_or_404(Store, id=store_id)
+
       order_data = {
          'buyer': user.id,
          'store': cart.store.id,
@@ -113,57 +117,54 @@ class CheckOutCart(viewsets.ViewSet):
          'status': 'Pending',
       }
       order_serializer = OrderSerializer(data=order_data)
-      
+
       if order_serializer.is_valid():
          order = order_serializer.save()
 
          for cart_item in cart.items.all():
-            order_item_data = {
-               'order': order.id,
-               'product': cart_item.product.id,
-               'product_variant': cart_item.product_variant.id,
-               'quantity': cart_item.quantity
-            }
+            # print(cart_item)
+               order_item_data = {
+                  'userorder': order.id,
+                  'product': cart_item.product.id,
+                  'product_variant': cart_item.product_variant.id,
+                  'quantity': cart_item.quantity
+               }
 
-            order_item_serializer = OrderItemsSerializer(data=order_item_data)
+               order_item_serializer = OrderItemsSerializer(data=order_item_data)
 
-            if order_item_serializer.is_valid():
-               order_item_serializer.save()
-            else:
-               # Handle the case where an order item cannot be created
-               logging.error("Order Item ERROR")
-               return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+               if order_item_serializer.is_valid():
+                  order_item_serializer.save()
+               else:
+                  # Handle the case where an order item cannot be created
+                  logging.error("Order Item ERROR")
+                  return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
          # Clear the user's cart after a successful checkout
-         # cart.items.all().delete()
+         cart.items.all().delete()
 
          return Response(order_serializer.data, status=status.HTTP_201_CREATED)
       else:
          logging.error("Order ERROR")
          return Response(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-         # Move cart items to order items
+   # Move cart items to order items
    def list(self, request):
       # Collect Data
-      user = request.user
+      user = request.user.id
 
-      # Get Cart belonging to user
-      try:
-         cart = Cart.objects.get(user=user)
-      except Cart.DoesNotExist:
-         return Response({"detail": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
+      # Get user's orders
+      orders = StoreOrder.objects.filter(buyer=user)
 
-      # Serialize the cart items
-      cart_items = cart.items.all()
-      cart_items_serializer = ItemSerializer(cart_items, many=True)
+      # Serialize the order items from all orders
+      order_items = OrderItems.objects.filter(userorder__in=orders)
+      order_items_serializer = OrderItemsSerializer(order_items, many=True)
 
-      return Response(cart_items_serializer.data, status=status.HTTP_200_OK)
-         
-   
-   
+      return Response(order_items_serializer.data, status=status.HTTP_200_OK)
+
+
 class ViewOrders(viewsets.ViewSet):
    def list(self, request):
       user = self.request.user.id
-      queryset = Order.objects.filter(buyer=user).select_related("buyer", "store")
+      queryset = StoreOrder.objects.filter(buyer=user).select_related("buyer", "store")
       serializer = OrderSerializer(queryset, many=True)
       return Response(serializer.data)

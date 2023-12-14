@@ -13,7 +13,7 @@ from datetime import datetime
 class OrderItemsSerializer(serializers.ModelSerializer):
    class Meta:
       model = OrderItems
-      fields = ['product', 'quantity']
+      fields = ['product', 'quantity', 'userorder', 'product_variant']
    
    def to_representation(self, instance):
       representation=super(OrderItemsSerializer, self).to_representation(instance)
@@ -36,12 +36,13 @@ class OrderItemsSerializer(serializers.ModelSerializer):
 class OrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
-   order_items = OrderItemsSerializer(many=True, read_only=True)
+   order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
    created_at = serializers.SerializerMethodField()
 
    class Meta:
       model = StoreOrder
       fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items']
+      read_only_fields = ['order_items']
       
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
@@ -49,8 +50,8 @@ class OrderSerializer(serializers.ModelSerializer):
    def to_representation(self, instance):
       representation = super(OrderSerializer, self).to_representation(instance)
       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
-      order_items = OrderItemsSerializer(instance.order_items, many=True).data
-      representation['order_items'] = order_items
+      order_items = OrderItemsSerializer(instance.items.all(), many=True).data
+      # representation['order_items'] = order_items
       return representation
 
 
