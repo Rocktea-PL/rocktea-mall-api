@@ -92,6 +92,7 @@ class CartItemModifyView(viewsets.ModelViewSet):
 
 # Checkout Cart and Delete Cart
 class CheckOutCart(viewsets.ViewSet):
+   renderer_classes = [JSONRenderer,]
    def create(self, request):
       # Collect Data
       user = request.user
