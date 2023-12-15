@@ -163,10 +163,10 @@ class SubCategorySerializer(serializers.ModelSerializer):
       model = SubCategories
       fields = '__all__'
       
-   # def to_representation(self, instance):
-   #    representation = super(SubCategorySerializer, self).to_representation(instance)
-   #    representation['']
-   #    return representation
+   def to_representation(self, instance):
+      representation = super(SubCategorySerializer, self).to_representation(instance)
+      representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
+      return representation
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -179,6 +179,11 @@ class ProductTypesSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductTypes
       fields = '__all__'
+      
+   def to_representation(self, instance):
+      representation = super(ProductTypesSerializer, self).to_representation(instance)
+      representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
+      return representation
 
 
 class ProductImageSerializer(serializers.ModelSerializer):

@@ -101,9 +101,11 @@ class ServicesBusinessInformation(models.Model):
    contact = models.CharField(unique=True, max_length=14)
    years_of_experience = models.CharField(max_length=15)
    about = models.TextField(max_length=100)
+   location = models.CharField(max_length=250, null=True)
    business_photograph = models.FileField(storage=RawMediaCloudinaryStorage)
    business_photograph2 = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    business_photograph3 = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+   charges = models.DecimalField(default=0.00, max_digits=12, decimal_places=2)
 
    def __str__(self):
       return self.name
