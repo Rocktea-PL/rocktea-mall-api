@@ -12,6 +12,11 @@ from django.urls import path
 # def trigger_error(request):
 #     division_by_zero = 1 / 0
 
+# urlpatterns = [
+#     path('rocktea/wallet/<str:store_id>/', WalletView.as_view(
+#         {'get': 'list', 'patch': 'partial_update'}), name='wallet-detail'),
+#     # Add other URL patterns as needed
+# ]
 
 router = routers.DefaultRouter()
 # Store Owner
@@ -37,8 +42,6 @@ router.register('product-type', ProductTypeView, basename='product-type')
 router.register('business_info', ServicesBusinessInformationView, basename='business')
 router.register('checkout', CheckOutCart, basename='checkout')
 
-
-
 # Payments
 router.register('wallet', WalletView, basename='wallets')
 
@@ -55,3 +58,4 @@ urlpatterns = [
     path('order/', include('order.urls')),
     path('service/', include('services.urls'))
 ]
+urlpatterns += router.urls

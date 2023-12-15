@@ -321,7 +321,8 @@ class ProductDetails(viewsets.ModelViewSet):
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
-   
+   lookup_field = 'store_id'
+
 
 class ServicesBusinessInformationView(viewsets.ModelViewSet):
    queryset = ServicesBusinessInformation.objects.select_related('user')
