@@ -415,7 +415,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class WalletSerializer(serializers.ModelSerializer):
    class Meta:
       model = Wallet
-      fields = ['store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
+      fields = ['id', 'store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
       
    def to_representation(self, instance):
       representation = super(WalletSerializer, self).to_representation(instance)

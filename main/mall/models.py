@@ -10,6 +10,7 @@ from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+# from services.models import ServicesCategory
 
 def generate_unique_code():
    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -95,6 +96,7 @@ class ServicesBusinessInformation(models.Model):
    )
    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
    name = models.CharField(max_length=150, unique=True)
+   category = models.OneToOneField('services.ServicesCategory', on_delete=models.CASCADE, null=True)
    email = models.EmailField(unique=True)
    contact = models.CharField(unique=True, max_length=14)
    years_of_experience = models.CharField(max_length=15)
@@ -105,6 +107,7 @@ class ServicesBusinessInformation(models.Model):
 
    def __str__(self):
       return self.name
+
 
 class Wallet(models.Model):
    store = models.OneToOneField('Store', on_delete=models.CASCADE, null=True)
