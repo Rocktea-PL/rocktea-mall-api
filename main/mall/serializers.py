@@ -5,6 +5,7 @@ import re, logging
 from PIL import Image
 from rest_framework import status
 from rest_framework import serializers
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
@@ -210,21 +211,37 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   productvariant = ProductVariantSerializer(many=True, read_only=True)
+   product_variant = ProductVariantSerializer(many=True, read_only=True)
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
       model = StoreProductPricing
-      fields = '__all__'
+      fields = ['id', 'store', 'product_variant', 'retail_price']
       
    def to_representation(self, instance):
       representation = super(StoreProductPricingSerializer, self).to_representation(instance)
-
       # Format the 'total_price' field with commas as thousands separator
       representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
-
       return representation
+   
+   # def create(self, validated_data):
+   #    store = validated_data.get('store')
+   #    productvariant = validated_data.get('product_variant')
 
+   #    if not productvariant:
+   #       # If product_variant is not provided or is None, raise a validation error
+   #       raise serializers.ValidationError({'detail': 'Product variant is required.'})
+
+   #    # Check if a pricing for the product_variant already exists for the store
+   #    existing_pricing = StoreProductPricing.objects.filter(store=store, product_variant=productvariant).first()
+
+   #    if existing_pricing:
+   #       # If a pricing already exists, raise a validation error indicating that the product variant already exists
+   #       raise serializers.ValidationError({'detail': 'Product variant pricing already exists for this store.'})
+
+   #    # If no pricing exists, create a new one
+   #    pricing_instance = StoreProductPricing.objects.create(**validated_data)
+   #    return validated_data
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
@@ -349,6 +366,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
             representation['product'] = {
                "id": instance.product.id,
                "name": instance.product.name,
+               "quantity": instance.product.quantity,
                "images": self.serialize_product_images(instance.product.images.all()),
                "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
                # "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),

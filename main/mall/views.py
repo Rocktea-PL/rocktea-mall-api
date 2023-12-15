@@ -156,6 +156,25 @@ class StoreProductPricingAPIView(APIView):
          # Handle exceptions, you might want to log the error or return a different response
          return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+   def delete(self, request, store_id):
+      try:
+         # Get the store price to be deleted
+         store_price = StoreProductPricing.objects.get(store_id=store_id, id=request.data.get('store_price_id'))
+
+         # Delete the store price
+         store_price.delete()
+
+         # Return a success response
+         return Response({'detail': 'Store price deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+
+      except StoreProductPricing.DoesNotExist:
+         # Return a 404 response if the store price is not found
+         return Response({'detail': 'Store price not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+      except Exception as e:
+         # Handle other exceptions, you might want to log the error or return a different response
+         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
