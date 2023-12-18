@@ -211,13 +211,28 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   product_variant = ProductVariantSerializer(many=False, read_only=True)
+   # product_variant = ProductVariantSerializer(many=False, read_only=False)
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
       model = StoreProductPricing
       fields = ['id', 'store', 'product_variant', 'retail_price']
       
+   # def validate_product_variant(self, value):
+   #    return value
+
+   def validate(self, data):
+      # Retrieve the store and product variant from the validated data
+      store = data['store']
+      product_variant = data.get('product_variant')
+
+      # Check if a pricing entry already exists for the same store and product variant
+      existing_pricing = StoreProductPricing.objects.filter(store=store, product_variant=product_variant).exclude(id=data.get('id', None)).first()
+
+      if existing_pricing:
+         raise serializers.ValidationError("Price for this variant in this store already exists.")
+      return data
+
    def to_representation(self, instance):
       representation = super(StoreProductPricingSerializer, self).to_representation(instance)
       # Format the 'total_price' field with commas as thousands separator
