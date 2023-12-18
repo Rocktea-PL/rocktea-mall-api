@@ -9,14 +9,6 @@ from services.views import SignUpServices
 from tenants.views import TenantSignUp
 from django.urls import path
 
-# def trigger_error(request):
-#     division_by_zero = 1 / 0
-
-# urlpatterns = [
-#     path('rocktea/wallet/<str:store_id>/', WalletView.as_view(
-#         {'get': 'list', 'patch': 'partial_update'}), name='wallet-detail'),
-#     # Add other URL patterns as needed
-# ]
 
 router = routers.DefaultRouter()
 # Store Owner
