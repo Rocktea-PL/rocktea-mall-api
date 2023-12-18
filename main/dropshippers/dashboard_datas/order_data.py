@@ -3,14 +3,15 @@
 from rest_framework import generics
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
+from order.models import StoreOrder
 
 
-# class MyOrders(generics.ListAPIView):
-#    serializer_class = OrderSerializer
-#    def get_queryset(self):
-#       user = self.request.user
-#       try:
-#          order = Order.objects.filter(buyer=user).count()
-#       except Order.DoesNotExist:
-#          return None
-#       return order
+class MyOrders(generics.ListAPIView):
+   serializer_class = OrderSerializer
+   def get_queryset(self):
+      user = self.request.user
+      try:
+         order = StoreOrder.objects.filter(buyer=user).count()
+      except StoreOrder.DoesNotExist:
+         return None
+      return order

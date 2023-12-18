@@ -43,7 +43,6 @@ class CreateStore(viewsets.ModelViewSet):
    """
    Create Store Feature 
    """
-   # TODO Add request.store.id to get store info
    queryset = Store.objects.all()
    serializer_class = CreateStoreSerializer
    
