@@ -61,6 +61,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          has_store = True
       except Store.DoesNotExist:
          has_store = False
+         
+      try:
+         user = ServicesBusinessInformation.objects.get(user=user_id)
+         has_service = True
+      except ServicesBusinessInformation.DoesNotExist:
+         has_service = False
       
       data['user_data'] = {
       "id": self.user.id,
@@ -71,7 +77,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "contact": f"{self.user.contact}",
       "is_storeowner": self.user.is_store_owner,
       "has_store": has_store,
-      "is_services": self.user.is_services
+      "is_services": self.user.is_services,
+      "has_service": has_service
    }
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
