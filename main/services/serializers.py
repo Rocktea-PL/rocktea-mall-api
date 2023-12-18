@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from mall.models import CustomUser
+from mall.models import CustomUser, ServicesBusinessInformation
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 
@@ -40,6 +40,13 @@ class ServicesLogin(TokenObtainPairSerializer):
 
    def validate(self, attrs):
       data = super().validate(attrs)
+      user_id = self.user.id
+      
+      try:
+         user = ServicesBusinessInformation.objects.get(user=user_id)
+         has_service=True
+      except ServicesBusinessInformation.DoesNotExist:
+         has_service = False
 
       data['user_data'] = {
          "id": self.user.id,
@@ -49,8 +56,10 @@ class ServicesLogin(TokenObtainPairSerializer):
          "username": self.user.username,
          "contact": str(self.user.contact),
          "is_services": self.user.is_services,
-         "type": self.user.type
+         "type": self.user.type,
+         "has_service": has_service
       }
+
 
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
