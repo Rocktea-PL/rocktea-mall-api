@@ -211,7 +211,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   product_variant = ProductVariantSerializer(many=True, read_only=True)
+   product_variant = ProductVariantSerializer(many=False, read_only=True)
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
@@ -223,25 +223,7 @@ class StoreProductPricingSerializer(serializers.ModelSerializer):
       # Format the 'total_price' field with commas as thousands separator
       representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
       return representation
-   
-   # def create(self, validated_data):
-   #    store = validated_data.get('store')
-   #    productvariant = validated_data.get('product_variant')
 
-   #    if not productvariant:
-   #       # If product_variant is not provided or is None, raise a validation error
-   #       raise serializers.ValidationError({'detail': 'Product variant is required.'})
-
-   #    # Check if a pricing for the product_variant already exists for the store
-   #    existing_pricing = StoreProductPricing.objects.filter(store=store, product_variant=productvariant).first()
-
-   #    if existing_pricing:
-   #       # If a pricing already exists, raise a validation error indicating that the product variant already exists
-   #       raise serializers.ValidationError({'detail': 'Product variant pricing already exists for this store.'})
-
-   #    # If no pricing exists, create a new one
-   #    pricing_instance = StoreProductPricing.objects.create(**validated_data)
-   #    return validated_data
 
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
