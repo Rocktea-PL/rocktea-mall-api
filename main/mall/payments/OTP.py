@@ -14,7 +14,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 def get_user_or_none(user_id):
    try:
-      user = get_user_model().objects.get(id=user_id, is_store_owner=True, is_services=True, is_consumer=False)
+      user = get_user_model().objects.get(id=user_id, (is_store_owner=True) | (is_services=True), is_consumer=False)
       return user
    except ObjectDoesNotExist:
       return None
