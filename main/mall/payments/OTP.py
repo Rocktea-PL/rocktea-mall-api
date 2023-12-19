@@ -10,6 +10,7 @@ from django.http import QueryDict
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
 
 def get_user_or_none(user_id):
    try:
