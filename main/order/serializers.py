@@ -39,11 +39,12 @@ class OrderSerializer(serializers.ModelSerializer):
    order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
    created_at = serializers.SerializerMethodField()
    order_id = serializers.CharField(max_length=5, read_only=True)
+   status = serializers.CharField(max_length=9, read_only=True)
 
    class Meta:
       model = StoreOrder
-      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id']
-      read_only_fields = ['order_items', 'order_id']
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'status']
+      read_only_fields = ['order_items', 'order_id', 'status']
       
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
