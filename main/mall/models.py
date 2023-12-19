@@ -96,7 +96,7 @@ class ServicesBusinessInformation(models.Model):
    )
    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
    name = models.CharField(max_length=150, unique=True)
-   category = models.OneToOneField('services.ServicesCategory', on_delete=models.CASCADE, null=True)
+   category = models.ForeignKey('services.ServicesCategory', on_delete=models.CASCADE, null=True)
    email = models.EmailField(unique=True)
    contact = models.CharField(unique=True, max_length=14)
    years_of_experience = models.CharField(max_length=15)
