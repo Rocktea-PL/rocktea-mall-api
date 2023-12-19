@@ -11,10 +11,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import transaction
 from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Q
 
 def get_user_or_none(user_id):
    try:
-      user = get_user_model().objects.get(id=user_id, Q(is_store_owner=True) | Q(is_services=True), is_consumer=False)
+      user = get_user_model().objects.get(Q(id=user_id, is_store_owner=True) | Q(id=user_id, is_services=True), is_consumer=False)
       return user
    except ObjectDoesNotExist:
       return None
