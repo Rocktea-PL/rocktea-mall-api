@@ -5,7 +5,7 @@ from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductView
 
 from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart, ViewOrders
 
-from services.views import SignUpServices
+from services.views import SignUpServices, ServicesCategoryView
 from tenants.views import TenantSignUp
 from django.urls import path
 
@@ -39,6 +39,8 @@ router.register('wallet', WalletView, basename='wallets')
 
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
+router.register('services-category', ServicesCategoryView,
+                basename='service-cat')
 
 
 urlpatterns = [
