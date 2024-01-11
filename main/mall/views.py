@@ -177,6 +177,7 @@ class StoreProductPricingAPIView(APIView):
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
+   
    serializer_class = CategorySerializer
    
    def retrieve(self, request, *args, **kwargs):
