@@ -252,6 +252,7 @@ class ProductVariant(models.Model):
 
 
 class StoreProductPricing(models.Model):
+   # product = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='varied_products')
    product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
    store = models.ForeignKey('Store', on_delete=models.CASCADE)
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
@@ -347,3 +348,32 @@ class MarketPlace(models.Model):
       return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"
 
 
+class ReportUser(models.Model):
+   OFFENSE = (
+      ('Inappropriate Behavior', 'Inappropriate Behavior'),
+      ('Violating Terms of Service', 'Violating Terms of Service'),
+      ('Shipping and Fulfillment Issues', 'Shipping and Fulfillment Issues'),
+      ('Poor Customer Service', 'Poor Customer Service'),
+      ('Unfair Competition Practices', 'Unfair Competition Practices'),
+      ('Fraudulent Activities', 'Fraudulent Activities'),
+   )
+   
+   STATUS = (
+      ('Pending', 'Pending'),
+      ('In-Progress', 'In-Progress'),
+      ('Resolved', 'Resolved')
+   )
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='reported_user')
+   title = models.CharField(max_length=31, choices=OFFENSE, null=True)
+   other = models.CharField(max_length=30, null=True)
+   details = models.TextField()
+   support_code = models.CharField(max_length=10, default='')
+   status = models.CharField(choices=STATUS, max_length=11, default='Pending')
+
+   def __str__(self):
+      return f"{self.user.first_name} {self.title}"
+   
+   def save(self, *args, **kwargs):
+      if not self.support_code:
+         self.support_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
+      return super().save(*args, **kwargs)

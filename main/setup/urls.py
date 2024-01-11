@@ -2,12 +2,14 @@ from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
 from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing, ServicesBusinessInformationView
+from mall.custom_view.reportuser import ReportUserView
 
 from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart, ViewOrders
 
 from services.views import SignUpServices, ServicesCategoryView
 from tenants.views import TenantSignUp
 from django.urls import path
+
 
 
 router = routers.DefaultRouter()
@@ -39,8 +41,9 @@ router.register('wallet', WalletView, basename='wallets')
 
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
-router.register('services-category', ServicesCategoryView,
-                basename='service-cat')
+router.register('services-category', ServicesCategoryView,basename='service-cat')
+
+router.register('report/user', ReportUserView, basename='report-user')
 
 
 urlpatterns = [

@@ -1,5 +1,5 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing, ServicesBusinessInformation)
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing, ServicesBusinessInformation, ReportUser)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -276,15 +276,15 @@ class ProductSerializer(serializers.ModelSerializer):
          
       if representation['images'] is None:
          del representation['images']
-      
+
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
-      
+
       representation['sales_count'] = {"sales_count": instance.sales_count}
-      
+
       representation['category'] = {"id": instance.category.id,
                                  "name": instance.category.name}
-      
+
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
 
@@ -447,4 +447,21 @@ class WalletSerializer(serializers.ModelSerializer):
    def to_representation(self, instance):
       representation = super(WalletSerializer, self).to_representation(instance)
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      return representation
+
+
+class ReportUserSerializer(serializers.ModelSerializer):
+   other = serializers.CharField(required=False)
+   support_code = serializers.CharField(read_only=True)
+   status = serializers.CharField(read_only=True)
+   class Meta:
+      model = ReportUser
+      fields = ['id', 'user', 'title', 'other', 'details', 'support_code', 'status']
+      
+   def to_representation(self, instance):
+      representation = super(ReportUserSerializer, self).to_representation(instance)
+      representation['user'] = {
+         "id": instance.user.id,
+         "full_name": f"{instance.user.first_name} {instance.user.last_name}",
+      }
       return representation
