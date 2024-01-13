@@ -102,7 +102,7 @@ class ProductVariantView(viewsets.ModelViewSet):
       
       
 class StoreProductPricing(viewsets.ModelViewSet):
-   queryset = StoreProductPricing.objects.select_related('product_variant', 'store')
+   queryset = StoreProductPricing.objects.select_related('product', 'store')
    serializer_class = StoreProductPricingSerializer
 
 # Get the related product pricing data in one place

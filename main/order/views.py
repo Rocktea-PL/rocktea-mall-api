@@ -37,7 +37,6 @@ class CartViewSet(viewsets.ViewSet):
 
          # Create a new cart if the user doesn't have a cart
          cart = Cart.objects.create(user=user, store=store)
-
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
@@ -46,7 +45,7 @@ class CartViewSet(viewsets.ViewSet):
 
          if product_id is None:
                return JsonResponse({"error": "Product ID is required"}, status=400)
-
+#TODO REFACTOR THIS
          # Check if the same product variant is already in the cart
          existing_item = cart.items.filter(
                product_id=product_id, product_variant_id=product_variant_id).first()

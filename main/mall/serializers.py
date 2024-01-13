@@ -218,12 +218,12 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   # product_variant = ProductVariantSerializer(many=False, read_only=False)
+   product = PrimaryKeyRelatedField(queryset=Product.objects.all())
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
       model = StoreProductPricing
-      fields = ['id', 'store', 'product_variant', 'retail_price']
+      fields = ['id', 'store', 'product', 'retail_price']
       
    # def validate_product_variant(self, value):
    #    return value
@@ -231,17 +231,21 @@ class StoreProductPricingSerializer(serializers.ModelSerializer):
    def validate(self, data):
       # Retrieve the store and product variant from the validated data
       store = data['store']
-      product_variant = data.get('product_variant')
+      product = data.get('product')
 
       # Check if a pricing entry already exists for the same store and product variant
-      existing_pricing = StoreProductPricing.objects.filter(store=store, product_variant=product_variant).exclude(id=data.get('id', None)).first()
+      existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=data.get('id', None)).first()
 
       if existing_pricing:
-         raise serializers.ValidationError("Price for this variant in this store already exists.")
+         raise serializers.ValidationError("Pricing for this product in this store already exists.")
       return data
 
    def to_representation(self, instance):
       representation = super(StoreProductPricingSerializer, self).to_representation(instance)
+      representation['product'] = {"id": instance.product.id, "name":instance.product.name}
+      
+      representation['store'] = {"id": instance.store.id, "name":instance.store.name}
+      
       # Format the 'total_price' field with commas as thousands separator
       representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
       return representation
