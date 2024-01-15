@@ -355,6 +355,7 @@ class ReportUser(models.Model):
       ('Poor Customer Service', 'Poor Customer Service'),
       ('Unfair Competition Practices', 'Unfair Competition Practices'),
       ('Fraudulent Activities', 'Fraudulent Activities'),
+      ('Others', 'Others')
    )
    
    STATUS = (
