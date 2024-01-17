@@ -26,14 +26,14 @@ class CartViewSet(viewsets.ViewSet):
 
    def create(self, request):
       user = request.user
-      store_id = request.data.get("store")
+      # store_id = request.data.get("store")
       products = request.data.get('products', [])
 
       # Check if the user already has a cart
       cart = Cart.objects.filter(user=user).first()
       if not cart:
          # Get the Store instance using the store_id
-         store = get_object_or_404(Store, id=store_id)
+         store = request.user.associated_domain
 
          # Create a new cart if the user doesn't have a cart
          cart = Cart.objects.create(user=user, store=store)
@@ -45,7 +45,7 @@ class CartViewSet(viewsets.ViewSet):
 
          if product_id is None:
                return JsonResponse({"error": "Product ID is required"}, status=400)
-#TODO REFACTOR THIS
+
          # Check if the same product variant is already in the cart
          existing_item = cart.items.filter(
                product_id=product_id, product_variant_id=product_variant_id).first()
@@ -64,7 +64,14 @@ class CartViewSet(viewsets.ViewSet):
 
       serializer = CartSerializer(cart)
       return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+   
+   # def calc_product_price(self, product, store, variant):
+   #    # Get Product
+   #    product = get_object_or_404(Product, id=product)
+      
+   #    # Get Product Variant for that product
+      
+      
    def list(self, request):
       user = self.request.user.id
       queryset = Cart.objects.filter(user=user).select_related("user", "store")

@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 
 
 class StoreUserSignUp(serializers.ModelSerializer):
+   associated_domain = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), required=True)
    class Meta:
       model = CustomUser
       fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "associated_domain", "is_consumer", "password")
