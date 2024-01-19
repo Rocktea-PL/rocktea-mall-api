@@ -1,10 +1,10 @@
 from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer,
-                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer)
+                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer, ServicesBusinessInformationSerializer)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, StoreProductPricing
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, ServicesBusinessInformation, StoreProductPricing
 
-from order.models import Order
+from order.models import StoreOrder
 from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -43,7 +43,6 @@ class CreateStore(viewsets.ModelViewSet):
    """
    Create Store Feature 
    """
-   # TODO Add request.store.id to get store info
    queryset = Store.objects.all()
    serializer_class = CreateStoreSerializer
    
@@ -103,44 +102,66 @@ class ProductVariantView(viewsets.ModelViewSet):
       
       
 class StoreProductPricing(viewsets.ModelViewSet):
-   queryset = StoreProductPricing.objects.select_related('product_variant', 'store')
+   queryset = StoreProductPricing.objects.select_related('product', 'store')
    serializer_class = StoreProductPricingSerializer
+   # lookup_field = 'product'
 
-# Get the related product pricing data in one place
 
 
-class GetVariantAndPricing(APIView):
-   parser_classes = [JSONParser]
-   def get(self, request, **kwargs):
-      product_id = kwargs.get('product_id')
-      verified_product = get_object_or_404(Product, id=product_id)
+class StoreProductPricingAPIView(APIView):
+   def get(self, request, store_id):
+      try:
+         # Retrieve all store prices related to the specified store
+         store_prices = StoreProductPricing.objects.filter(
+               store_id=store_id)
 
-      variants = ProductVariant.objects.filter(product=verified_product)
+         # Serialize the data
+         store_prices_serializer = StoreProductPricingSerializer(
+               store_prices, many=True)
 
-      # You can customize the data structure based on your requirements
-      data = {
-         "product": verified_product.name,
-         "variants": [
-               {
-                  "id": variant.id,
-                  "size": variant.size,
-                  "colors": variant.colors,
-                  "wholesale_price": variant.wholesale_price,
-                  "store_pricings": [
-                     {"retail_price": pricing.retail_price}
-                     for pricing in variant.storeprices.all()
-                  ],
-                  }
-            for variant in variants
-         ],
-      }
+         # Return the serialized data as the API response
+         return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
 
-      return Response(data)
+      except Exception as e:
+         # Handle exceptions, you might want to log the error or return a different response
+         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+   def delete(self, request, store_id):
+      try:
+         # Get the store price to be deleted
+         store_price = StoreProductPricing.objects.get(store_id=store_id, id=request.data.get('store_price_id'))
+
+         # Delete the store price
+         store_price.delete()
+
+         # Return a success response
+         return Response({'detail': 'Store price deleted successfully.'}, status=status.HTTP_204_NO_CONTENT)
+
+      except StoreProductPricing.DoesNotExist:
+         # Return a 404 response if the store price is not found
+         return Response({'detail': 'Store price not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+      except Exception as e:
+         # Handle other exceptions, you might want to log the error or return a different response
+         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
-   serializer_class = CategorySerializer #TODO Differ this based on user
+   
+   serializer_class = CategorySerializer
+   
+   def retrieve(self, request, *args, **kwargs):
+      instance = self.get_object()
+      category_serializer = self.get_serializer(instance)
+      subcategories_serializer = SubCategorySerializer(instance.subcategories.all(), many=True)
+      product_types_serializer = ProductTypesSerializer(ProductTypes.objects.filter(subcategory__in=instance.subcategories.all()), many=True)
+
+      return Response({
+         'category': category_serializer.data,
+         'subcategories': subcategories_serializer.data,
+         'product_types': product_types_serializer.data
+      })
 
 
 class UploadProductImage(ListCreateAPIView):
@@ -202,8 +223,8 @@ class DropshipperDashboardCounts(APIView):
       product_count = MarketPlace.objects.filter(
          store=store, list_product=True).count()
 
-      # Get Number of all Orders per store
-      order_count = Order.objects.filter(store=store).count()
+      # # Get Number of all Orders per store
+      # order_count = Order.objects.filter(store=store).count()
 
       # Get Number of Customers
       customer_count = CustomUser.objects.filter(
@@ -211,7 +232,7 @@ class DropshipperDashboardCounts(APIView):
 
       data = {
          "Listed_Products": product_count,
-         "Orders": order_count,
+         # "Orders": order_count,
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
@@ -234,10 +255,9 @@ class StoreOrdersViewSet(ListAPIView):
 
       # Use a try-except block to handle the case where no orders are found for the given store
       try:
-         orders = Order.objects.filter(store=verified_store).select_related('buyer', 'store')
-      except Order.DoesNotExist:
-         return Order.objects.none()
-
+         orders = StoreOrder.objects.filter(store=verified_store).select_related('buyer', 'store')
+      except StoreOrder.DoesNotExist:
+         return StoreOrder.objects.none()
       return orders
 
    def get_store(self, store_id):
@@ -258,7 +278,6 @@ class BrandView(viewsets.ModelViewSet):
 class SubCategoryView(viewsets.ModelViewSet):
    queryset =  SubCategories.objects.select_related('category')
    serializer_class = SubCategorySerializer
-   
 
 class ProductTypeView(viewsets.ModelViewSet):
    queryset = ProductTypes.objects.select_related('subcategory')
@@ -273,3 +292,9 @@ class ProductDetails(viewsets.ModelViewSet):
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
+   lookup_field = 'store_id'
+
+
+class ServicesBusinessInformationView(viewsets.ModelViewSet):
+   queryset = ServicesBusinessInformation.objects.select_related('user')
+   serializer_class = ServicesBusinessInformationSerializer

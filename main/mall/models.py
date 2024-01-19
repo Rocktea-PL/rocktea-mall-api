@@ -10,6 +10,7 @@ from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+# from services.models import ServicesCategory
 
 def generate_unique_code():
    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -40,13 +41,12 @@ class CustomUserManager(BaseUserManager):
 
 # StoreOwner models
 class CustomUser(AbstractUser):
-   
    SERVICE_TYPE = (
       ('Personal Assistant', 'Personal Assistant'),
       ('Fashion Designer', 'Fashion Designer'),
       ('Makeup Artist', 'Makeup Artist'),
    )
-   
+
    id = models.CharField(default=uuid4, unique=True, primary_key=True, db_index=True, max_length=36)
    username = models.CharField(max_length=7, unique=True)
    email = models.EmailField(unique=True)
@@ -59,7 +59,7 @@ class CustomUser(AbstractUser):
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
    shipping_address = models.CharField(max_length=500, null=True)
-   
+
    # Services Extension
    type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
    is_services = models.BooleanField(default=False)
@@ -68,7 +68,7 @@ class CustomUser(AbstractUser):
    REQUIRED_FIELDS = []
 
    objects = CustomUserManager()
-   
+
    class Meta:
       # Add an index for the 'uid' field
       indexes = [
@@ -85,6 +85,30 @@ class CustomUser(AbstractUser):
 
    def __str__(self):
       return self.first_name
+   
+   
+class ServicesBusinessInformation(models.Model):
+   EXPERIENCE = (
+      ("1-2 Years", "1-2 Years"),
+      ("3-4 Years", "3-4 Years"),
+      ("5-6 Years", "5-6 Years"),
+      ("7 Years & Above", "7 Years & Above")
+   )
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+   name = models.CharField(max_length=150, unique=True)
+   category = models.ForeignKey('services.ServicesCategory', on_delete=models.CASCADE, null=True)
+   email = models.EmailField(unique=True)
+   contact = models.CharField(unique=True, max_length=14)
+   years_of_experience = models.CharField(max_length=15)
+   about = models.TextField(max_length=100)
+   location = models.CharField(max_length=250, null=True)
+   business_photograph = models.FileField(storage=RawMediaCloudinaryStorage)
+   business_photograph2 = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+   business_photograph3 = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+   charges = models.DecimalField(default=0.00, max_digits=12, decimal_places=2)
+
+   def __str__(self):
+      return self.name
 
 
 class Wallet(models.Model):
@@ -166,7 +190,7 @@ class Product(models.Model):
          models.Index(fields=['name'], name='product_name_namex'),
          models.Index(fields=['category'], name= 'product_category_categoryx')
       ]
-      
+   
    def formatted_created_at(self):
       # Format the created_at field as "YMD, Timestamp"
       return self.created_at.strftime("%Y-%m-%d, %H:%M%p")
@@ -228,7 +252,7 @@ class ProductVariant(models.Model):
 
 
 class StoreProductPricing(models.Model):
-   product_variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='storeprices')
+   product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='varied_products', null=True)
    store = models.ForeignKey('Store', on_delete=models.CASCADE)
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
 
@@ -321,3 +345,35 @@ class MarketPlace(models.Model):
    
    def __repr__(self):
       return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"
+
+
+class ReportUser(models.Model):
+   OFFENSE = (
+      ('Inappropriate Behavior', 'Inappropriate Behavior'),
+      ('Violating Terms of Service', 'Violating Terms of Service'),
+      ('Shipping and Fulfillment Issues', 'Shipping and Fulfillment Issues'),
+      ('Poor Customer Service', 'Poor Customer Service'),
+      ('Unfair Competition Practices', 'Unfair Competition Practices'),
+      ('Fraudulent Activities', 'Fraudulent Activities'),
+      ('Others', 'Others')
+   )
+   
+   STATUS = (
+      ('Pending', 'Pending'),
+      ('In-Progress', 'In-Progress'),
+      ('Resolved', 'Resolved')
+   )
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='reported_user')
+   title = models.CharField(max_length=31, choices=OFFENSE, null=True)
+   other = models.CharField(max_length=30, null=True)
+   details = models.TextField()
+   support_code = models.CharField(max_length=10, default='')
+   status = models.CharField(choices=STATUS, max_length=11, default='Pending')
+
+   def __str__(self):
+      return f"{self.user.first_name} {self.title}"
+   
+   def save(self, *args, **kwargs):
+      if not self.support_code:
+         self.support_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
+      return super().save(*args, **kwargs)

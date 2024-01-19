@@ -1,15 +1,17 @@
 from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing)
+from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing, ServicesBusinessInformation, ReportUser)
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
 from rest_framework import status
 from rest_framework import serializers
+from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
+from django.db.models import Q
 
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
@@ -48,17 +50,23 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    def validate(self, attrs):
       data = super().validate(attrs)
       user_id = self.user.id
-      
+
       try:
-         user = CustomUser.objects.get(is_store_owner=True, id=user_id)
+         user = CustomUser.objects.get(Q (is_store_owner=True) and Q(id=user_id))
       except CustomUser.DoesNotExist:
          raise serializers.ValidationError("User Does Not Exist")
-      
+
       try:
          store = Store.objects.get(owner=user)
          has_store = True
       except Store.DoesNotExist:
          has_store = False
+         
+      try:
+         user = ServicesBusinessInformation.objects.get(user=user_id)
+         has_service = True
+      except ServicesBusinessInformation.DoesNotExist:
+         has_service = False
       
       data['user_data'] = {
       "id": self.user.id,
@@ -69,15 +77,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "contact": f"{self.user.contact}",
       "is_storeowner": self.user.is_store_owner,
       "has_store": has_store,
-      "is_services": self.user.is_services
+      "is_services": self.user.is_services,
+      "has_service": has_service
    }
-
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
          data['user_data']['theme'] = self.user.owners.theme
-         
-      if data['is_services']:
-         data['user_data']['type'] = self.user.owners.type
+
+      if data['user_data']['is_services']:
+         data['user_data']['type'] = self.user.type
 
       refresh = self.get_token(self.user)
       data["refresh"] = str(refresh)
@@ -162,6 +170,11 @@ class SubCategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = SubCategories
       fields = '__all__'
+      
+   def to_representation(self, instance):
+      representation = super(SubCategorySerializer, self).to_representation(instance)
+      representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
+      return representation
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -174,6 +187,11 @@ class ProductTypesSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductTypes
       fields = '__all__'
+      
+   def to_representation(self, instance):
+      representation = super(ProductTypesSerializer, self).to_representation(instance)
+      representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
+      return representation
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -200,19 +218,36 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   productvariant = ProductVariantSerializer(many=True, read_only=True)
+   product = PrimaryKeyRelatedField(queryset=Product.objects.all())
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    
    class Meta:
       model = StoreProductPricing
-      fields = '__all__'
+      fields = ['id', 'store', 'product', 'retail_price']
       
+   # def validate_product_variant(self, value):
+   #    return value
+
+   def validate(self, data):
+      # Retrieve the store and product variant from the validated data
+      store = data['store']
+      product = data.get('product')
+
+      # Check if a pricing entry already exists for the same store and product variant
+      existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=data.get('id', None)).first()
+
+      if existing_pricing:
+         raise serializers.ValidationError("Pricing for this product in this store already exists.")
+      return data
+
    def to_representation(self, instance):
       representation = super(StoreProductPricingSerializer, self).to_representation(instance)
-
+      representation['product'] = {"id": instance.product.id, "name":instance.product.name}
+      
+      representation['store'] = {"id": instance.store.id, "name":instance.store.name}
+      
       # Format the 'total_price' field with commas as thousands separator
       representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
-
       return representation
 
 
@@ -245,15 +280,15 @@ class ProductSerializer(serializers.ModelSerializer):
          
       if representation['images'] is None:
          del representation['images']
-      
+
       representation['brand'] = {"id": instance.brand.id,
                                  "name": instance.brand.name}
-      
+
       representation['sales_count'] = {"sales_count": instance.sales_count}
-      
+
       representation['category'] = {"id": instance.category.id,
                                  "name": instance.category.name}
-      
+
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
 
@@ -262,7 +297,13 @@ class ProductSerializer(serializers.ModelSerializer):
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
       return representation
 
-# serializers.py
+
+class ServicesBusinessInformationSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ServicesBusinessInformation
+      fields = "__all__"
+
+
 class MarketPlaceSerializer(serializers.ModelSerializer):
    store = serializers.UUIDField(source='store_id', read_only=True)
    # size = PriceSerializer(many=True, read_only=True)
@@ -280,7 +321,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          except Price.DoesNotExist:
             logging.error("An Error Unexpectedly Occurred")
       return product_prices
-            
+   
    def create(self, validated_data):
       product_id = self.context['request'].query_params.get('product')
       try:
@@ -298,11 +339,20 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
       validated_data['store'] = store  # Set the store field in validated_data
 
-      # Create the MarketPlace instance
-      instance = MarketPlace.objects.create(**validated_data, list_product=True)
-      return instance
+      # Check if a Marketplace instance already exists for the given product and store
+      marketplace_instance = MarketPlace.objects.filter(product=product, store=store).first()
+
+      if marketplace_instance:
+         # Update the existing instance if it already exists
+         marketplace_instance.list_product = True  # Assuming you want to set list_product to True
+         marketplace_instance.save()
+         return marketplace_instance
+      else:
+         # Create a new Marketplace instance if it doesn't exist
+         instance = MarketPlace.objects.create(**validated_data, list_product=True)
+         return instance
       
-      # Assuming `product` is a related field
+   # Assuming `product` is a related field
    def to_representation(self, instance):
       cache_key = f"Listed Product_{instance.id}"
       cached_data = cache.get(cache_key)
@@ -312,7 +362,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       
       representation = super().to_representation(instance)
 
-   # Assuming `store` is a related field
+      # Assuming `store` is a related field
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
 
       # Assuming `product` is a related field
@@ -324,12 +374,13 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
             representation['product'] = {
                "id": instance.product.id,
                "name": instance.product.name,
+               "quantity": instance.product.quantity,
                "images": self.serialize_product_images(instance.product.images.all()),
                "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
                # "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
                "category": instance.product.category.name,
                "subcategory": instance.product.subcategory.name,
-               "product_type": instance.product.producttype,
+               # "product_type": instance.product.producttype,
                "upload_status": instance.product.upload_status
          }
       else:
@@ -395,9 +446,26 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class WalletSerializer(serializers.ModelSerializer):
    class Meta:
       model = Wallet
-      fields = ['store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
+      fields = ['id', 'store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
       
    def to_representation(self, instance):
       representation = super(WalletSerializer, self).to_representation(instance)
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      return representation
+
+
+class ReportUserSerializer(serializers.ModelSerializer):
+   other = serializers.CharField(required=False)
+   support_code = serializers.CharField(read_only=True)
+   status = serializers.CharField(read_only=True)
+   class Meta:
+      model = ReportUser
+      fields = ['id', 'user', 'title', 'other', 'details', 'support_code', 'status']
+      
+   def to_representation(self, instance):
+      representation = super(ReportUserSerializer, self).to_representation(instance)
+      representation['user'] = {
+         "id": instance.user.id,
+         "full_name": f"{instance.user.first_name} {instance.user.last_name}",
+      }
       return representation

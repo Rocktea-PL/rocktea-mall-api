@@ -91,11 +91,11 @@ WSGI_APPLICATION = 'setup.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': env('T_DB_NAME'),
-        'USER': env('T_DB_USER'),
-        'PASSWORD': env('T_DB_PASSWORD'), 
-        'HOST': env('T_DB_HOST'),
-        'PORT': env('T_DB_PORT'),
+        'PGUSER': env('PGUSER'),
+        'PGHOST': env('PGHOST'),
+        'NAME': env('PGDATABASE'),
+        'PGPORT': env('PGPORT'),
+        'PGPASSWORD': env('PGPASSWORD'),
         
     },
     
@@ -108,14 +108,6 @@ DATABASES = {
         'PORT': env('DB_PORT'),
     },
     
-    'test': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'PGUSER': env('PGUSER'),
-        'PGHOST': env('PGHOST'),
-        'NAME': env('PGDATABASE'),
-        'PGPORT': env('PGPORT'),
-        'PGPASSWORD': env('PGPASSWORD'),
-    },
 }
 
 # CORS_ALLOWED_ORIGINS = [
@@ -172,7 +164,6 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
 }
-
 
 
 REST_FRAMEWORK = {

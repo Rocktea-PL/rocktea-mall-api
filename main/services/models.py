@@ -1,21 +1,9 @@
 from django.db import models
-# from cloudinary_storage.storage import RawMediaCloudinaryStorage
+from mall.models import ServicesBusinessInformation, CustomUser
 
-# Create your models here.
-# class Services(models.Model):
-#    SERVICE_TYPE = (
-#       ('Personal Assistant', 'Personal Assistant'),
-#       ('Fashion Designer', 'Fashion Designer'),
-#       ('Makeup Artist', 'Makeup Artist'),
-#    )
+class ServicesCategory(models.Model):
+   name = models.CharField(max_length=50, unique=True)
    
-#    first_name = models.CharField(max_length=250)
-#    last_name = models.CharField(max_length=250)
-#    contact = models.CharField(max_length=14)
-#    date_of_birth = models.DateField()
-#    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
-#    password = models.CharField(max_length=128)
-#    type = models.CharField(choices=SERVICE_TYPE, max_length=18)
-   
-
+   def __str__(self):
+      return self.name
    
