@@ -1,5 +1,5 @@
-from rest_framework import serializers
-from .models import OrderItems, Cart, CartItem, StoreOrder
+from rest_framework import serializers, status
+from .models import OrderItems, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation, StoreOrder
 from mall.models import CustomUser, Store, Product
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -19,18 +19,6 @@ class OrderItemsSerializer(serializers.ModelSerializer):
       representation=super(OrderItemsSerializer, self).to_representation(instance)
       representation["product"]= [{"name": instance.product.name, "sku": instance.product.sku}]
       return representation
-
-
-# class OrderSerializer(serializers.ModelSerializer):
-#    items = OrderItemsSerializer(many=True)
-
-#    class Meta:
-#       model = Order
-#       fields = ['id', 'user', 'store', 'created_at', 'total_price', 'items']
-   
-#    def to_representation(self, instance):
-#       representation['total_amount'] = '{:,.2f}'.format(instance.total_price)
-#       return representation
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -80,3 +68,29 @@ class CartSerializer(serializers.ModelSerializer):
 
    def get_user(self, obj):
       return f"{obj.user.first_name} {obj.user.last_name}"
+
+
+class OrderDeliverySerializer(serializers.ModelSerializer):
+   order = serializers.PrimaryKeyRelatedField(queryset=StoreOrder.objects.all())
+
+   class Meta:
+      model = OrderDeliveryConfirmation
+      fields = ['id', 'order', 'code']
+
+   # def create(self, validated_data):
+   #    order_id = validated_data.get("order")
+   #    code = validated_data.get("code")
+
+   #    try:
+   #       verified_order = StoreOrder.objects.get(id=order_id)
+   #    except StoreOrder.DoesNotExist:
+   #       raise serializers.ValidationError("Order Not Found")
+
+   #    correct_code = verified_order.delivery_code
+   #    if code == correct_code:
+   #       verified_order.status = "Delivered"
+   #       verified_order.save()
+   #    else:
+   #       raise serializers.ValidationError("Invalid Delivery Code")
+
+   #    return super().create(validated_data)

@@ -1,9 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from mall.models import CustomUser, Store, Product, Category, SubCategories
+from rest_framework import status, viewsets
+from mall.models import CustomUser, Store, Product, Category, SubCategories, StoreProductPricing, Product, ProductVariant
 
-
+from django.shortcuts import get_object_or_404
+from rest_framework.parsers import JSONParser
 
 class MyProducts(APIView):
    """
@@ -17,3 +18,41 @@ class MyProducts(APIView):
       except CustomUser.DoesNotExist:
          raise ValueError("Sorry you need to Sign Up or Login first")
       return owner
+   
+   
+class GetVariantAndPricing(APIView):
+   parser_classes = [JSONParser]
+
+   def get(self, request, **kwargs):
+      product_id = kwargs.get('product_id')
+      store_id = self.request.query_params.get("store")
+      verified_product = get_object_or_404(Product, id=product_id)
+      verified_store = get_object_or_404(Store, id=store_id)
+
+      variants = ProductVariant.objects.filter(product=verified_product)
+
+      data = {
+         "product": verified_product.name,
+         "variants": [
+               {
+                  "id": variant.id,
+                  "size": variant.size,
+                  "colors": variant.colors,
+                  "wholesale_price": variant.wholesale_price,
+                  "store_pricings": {
+                     "retail_price": self.get_store_pricing(verified_product.id, verified_store)
+                  },
+               }
+               for variant in variants
+         ],
+      }
+      return Response(data)
+
+   def get_store_pricing(self, product, store):
+      try:
+         store_product = StoreProductPricing.objects.get(
+               product=product, store=store)
+      except StoreProductPricing.DoesNotExist:
+         return None  # Handle the case when pricing information is not available
+
+      return store_product.retail_price

@@ -2,7 +2,7 @@ from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer,
                         MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer, ServicesBusinessInformationSerializer)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, StoreProductPricing, ServicesBusinessInformation
+from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, ServicesBusinessInformation, StoreProductPricing
 
 from order.models import StoreOrder
 from order.serializers import OrderSerializer
@@ -104,38 +104,9 @@ class ProductVariantView(viewsets.ModelViewSet):
 class StoreProductPricing(viewsets.ModelViewSet):
    queryset = StoreProductPricing.objects.select_related('product', 'store')
    serializer_class = StoreProductPricingSerializer
+   # lookup_field = 'product'
 
-# Get the related product pricing data in one place
 
-
-class GetVariantAndPricing(APIView):
-   parser_classes = [JSONParser]
-   def get(self, request, **kwargs):
-      product_id = kwargs.get('product_id')
-      verified_product = get_object_or_404(Product, id=product_id)
-
-      variants = ProductVariant.objects.filter(product=verified_product)
-
-      # You can customize the data structure based on your requirements
-      data = {
-         "product": verified_product.name,
-         "variants": [
-               {
-                  "id": variant.id,
-                  "size": variant.size,
-                  "colors": variant.colors,
-                  "wholesale_price": variant.wholesale_price,
-                  "store_pricings": [
-                     {"retail_price": pricing.retail_price}
-                     for pricing in variant.storeprices.all()
-                  ],
-                  }
-            for variant in variants
-         ],
-      }
-
-      return Response(data)
-   
 
 class StoreProductPricingAPIView(APIView):
    def get(self, request, store_id):

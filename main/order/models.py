@@ -2,13 +2,16 @@ from django.db import models
 from mall.models import Product, CustomUser, Store, ProductVariant #StoreProductVariant
 from uuid import uuid4
 import random as rand, string
+from rest_framework.response import Response
+from rest_framework import status
 
 
 class StoreOrder(models.Model):
    STATUS_CHOICES = (
       ("Pending", "Pending"),
       ("Completed", "Completed"),
-      ("In-Review", "In-Review")
+      ("In-Review", "In-Review"),
+      ("Delivered", "Delivered")
    )
    id = models.CharField(primary_key=True, default=uuid4, max_length=36)
    buyer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_orders', null=True)
@@ -16,12 +19,16 @@ class StoreOrder(models.Model):
    created_at = models.DateTimeField(auto_now_add=True, null=True)
    total_price = models.DecimalField(decimal_places=2, max_digits=11, default=0.00, null=True)
    status = models.CharField(max_length=9, choices=STATUS_CHOICES, default="Pending", null=True)
-   order_id = models.CharField(max_length=5, unique=True, null=True)
+   order_sn = models.CharField(max_length=5, unique=True, null=True)
+   delivery_code = models.CharField(max_length=5, null=True)
    
    def save(self, *args, **kwargs):
       if not self.order_id:
          random_digits = "".join(rand.choices(string.digits, k=5))
          self.order_id = random_digits
+   
+      if not self.delivery_code:
+         self.delivery_code = "".join(rand.choices(string.ascii_uppercase + string.digits, k=5))
       return super(StoreOrder, self).save(*args, **kwargs)
 
 
@@ -31,6 +38,14 @@ class OrderItems(models.Model):
    product_variant = models.ForeignKey(ProductVariant, on_delete=models.DO_NOTHING, null=True)
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
+
+
+class OrderDeliveryConfirmation(models.Model):
+   order = models.ForeignKey(StoreOrder, on_delete=models.DO_NOTHING)
+   code = models.CharField(max_length=5)
+
+   def __str__(self):
+      return self.code
 
 
 class Cart(models.Model):

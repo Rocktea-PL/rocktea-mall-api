@@ -1,9 +1,11 @@
 from django.http import Http404, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import OrderItems, Store, CustomUser, Cart, CartItem, StoreOrder
+from .models import OrderItems, Store, CustomUser, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation
+
 from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
-from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer, OrderSerializer
+from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDeliverySerializer
+
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
@@ -18,8 +20,7 @@ class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
 
-      
-      
+
 class CartViewSet(viewsets.ViewSet):
    # authentication_classes = [TokenAuthentication]
    renderer_classes = [JSONRenderer,]
@@ -33,10 +34,11 @@ class CartViewSet(viewsets.ViewSet):
       cart = Cart.objects.filter(user=user).first()
       if not cart:
          # Get the Store instance using the store_id
-         store = request.user.associated_domain
+         store = request.data.get("store")
+         verified_store = get_object_or_404(Store, id=store)
 
          # Create a new cart if the user doesn't have a cart
-         cart = Cart.objects.create(user=user, store=store)
+         cart = Cart.objects.create(user=user, store=verified_store)
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
@@ -175,3 +177,8 @@ class ViewOrders(viewsets.ViewSet):
       queryset = StoreOrder.objects.filter(buyer=user).select_related("buyer", "store")
       serializer = OrderSerializer(queryset, many=True)
       return Response(serializer.data)
+
+
+class OrderDeliverView(viewsets.ModelViewSet):
+   queryset = OrderDeliveryConfirmation.objects.select_related("order")
+   serializer_class = OrderDeliverySerializer

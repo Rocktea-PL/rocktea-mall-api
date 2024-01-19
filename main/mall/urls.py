@@ -1,6 +1,7 @@
 from django.urls import path
-from .views import SignInUserView, UploadProductImage, DropshipperDashboardCounts, StoreOrdersViewSet, BestSellingProductView, GetVariantAndPricing, StoreProductPricingAPIView
+from .views import SignInUserView, UploadProductImage, DropshipperDashboardCounts, StoreOrdersViewSet, BestSellingProductView, StoreProductPricingAPIView
 from .payments import OTP
+from mall.store_features.product import GetVariantAndPricing
 
 urlpatterns = [
     path("signin/", SignInUserView.as_view(), name="signin"),
