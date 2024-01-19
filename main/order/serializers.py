@@ -71,26 +71,25 @@ class CartSerializer(serializers.ModelSerializer):
 
 
 class OrderDeliverySerializer(serializers.ModelSerializer):
-   order = serializers.PrimaryKeyRelatedField(queryset=StoreOrder.objects.all())
-
    class Meta:
       model = OrderDeliveryConfirmation
-      fields = ['id', 'order', 'code']
+      fields = ['id', 'storeorder', 'code']
+      
+   # storeorder = serializers.PrimaryKeyRelatedField(queryset=StoreOrder.objects.all(), source='storeorder.id')
+   def validate(self, data):
+      store_order = data['storeorder']
+      confirmation_code = data['code']
 
-   # def create(self, validated_data):
-   #    order_id = validated_data.get("order")
-   #    code = validated_data.get("code")
+      try:
+         confirmation = OrderDeliveryConfirmation.objects.get(
+               storeorder=store_order, code=confirmation_code)
+      except OrderDeliveryConfirmation.DoesNotExist:
+         raise serializers.ValidationError("Invalid Delivery Code")
 
-   #    try:
-   #       verified_order = StoreOrder.objects.get(id=order_id)
-   #    except StoreOrder.DoesNotExist:
-   #       raise serializers.ValidationError("Order Not Found")
+      if confirmation.storeorder.delivery_code == confirmation.code:
+         confirmation.storeorder.status = "Delivered"
+         confirmation.storeorder.save()
+      else:
+         raise serializers.ValidationError("Invalid Delivery Code")
 
-   #    correct_code = verified_order.delivery_code
-   #    if code == correct_code:
-   #       verified_order.status = "Delivered"
-   #       verified_order.save()
-   #    else:
-   #       raise serializers.ValidationError("Invalid Delivery Code")
-
-   #    return super().create(validated_data)
+      return data

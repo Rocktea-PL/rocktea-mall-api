@@ -23,9 +23,9 @@ class StoreOrder(models.Model):
    delivery_code = models.CharField(max_length=5, null=True)
    
    def save(self, *args, **kwargs):
-      if not self.order_id:
+      if not self.order_sn:
          random_digits = "".join(rand.choices(string.digits, k=5))
-         self.order_id = random_digits
+         self.order_sn = random_digits
    
       if not self.delivery_code:
          self.delivery_code = "".join(rand.choices(string.ascii_uppercase + string.digits, k=5))
@@ -39,9 +39,9 @@ class OrderItems(models.Model):
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-
+   
 class OrderDeliveryConfirmation(models.Model):
-   order = models.ForeignKey(StoreOrder, on_delete=models.DO_NOTHING)
+   storeorder = models.ForeignKey(StoreOrder, on_delete=models.DO_NOTHING)
    code = models.CharField(max_length=5)
 
    def __str__(self):

@@ -26,15 +26,16 @@ class CartViewSet(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
 
    def create(self, request):
-      user = request.user
+      user = request.query_params.get("user")
+      store = request.data.get("store")
       # store_id = request.data.get("store")
       products = request.data.get('products', [])
 
       # Check if the user already has a cart
-      cart = Cart.objects.filter(user=user).first()
+      cart = Cart.objects.filter(user=user, store=store).first()
       if not cart:
          # Get the Store instance using the store_id
-         store = request.data.get("store")
+         
          verified_store = get_object_or_404(Store, id=store)
 
          # Create a new cart if the user doesn't have a cart
@@ -66,12 +67,6 @@ class CartViewSet(viewsets.ViewSet):
 
       serializer = CartSerializer(cart)
       return Response(serializer.data, status=status.HTTP_201_CREATED)
-   
-   # def calc_product_price(self, product, store, variant):
-   #    # Get Product
-   #    product = get_object_or_404(Product, id=product)
-      
-   #    # Get Product Variant for that product
       
       
    def list(self, request):
@@ -180,5 +175,5 @@ class ViewOrders(viewsets.ViewSet):
 
 
 class OrderDeliverView(viewsets.ModelViewSet):
-   queryset = OrderDeliveryConfirmation.objects.select_related("order")
+   queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
