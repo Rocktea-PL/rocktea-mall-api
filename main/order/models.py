@@ -39,13 +39,28 @@ class OrderItems(models.Model):
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
-   
+
 class OrderDeliveryConfirmation(models.Model):
-   storeorder = models.ForeignKey(StoreOrder, on_delete=models.DO_NOTHING)
+   userorder = models.ForeignKey('StoreOrder', on_delete=models.DO_NOTHING)
    code = models.CharField(max_length=5)
 
    def __str__(self):
       return self.code
+
+   def save(self, *args, **kwargs):
+      store = self.get_store_order()
+      if store.delivery_code == self.code:
+         store.status = "Delivered"
+         store.save()
+         super(OrderDeliveryConfirmation, self).save(*args, **kwargs)
+      else:
+         raise ValidationError("Incorrect Delivery Code")
+
+   def get_store_order(self):
+      try:
+         return StoreOrder.objects.get(id=self.userorder_id)
+      except StoreOrder.DoesNotExist:
+         raise ValidationError("Store Order Not Found")
 
 
 class Cart(models.Model):

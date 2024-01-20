@@ -73,23 +73,4 @@ class CartSerializer(serializers.ModelSerializer):
 class OrderDeliverySerializer(serializers.ModelSerializer):
    class Meta:
       model = OrderDeliveryConfirmation
-      fields = ['id', 'storeorder', 'code']
-      
-   # storeorder = serializers.PrimaryKeyRelatedField(queryset=StoreOrder.objects.all(), source='storeorder.id')
-   def validate(self, data):
-      store_order = data['storeorder']
-      confirmation_code = data['code']
-
-      try:
-         confirmation = OrderDeliveryConfirmation.objects.get(
-               storeorder=store_order, code=confirmation_code)
-      except OrderDeliveryConfirmation.DoesNotExist:
-         raise serializers.ValidationError("Invalid Delivery Code")
-
-      if confirmation.storeorder.delivery_code == confirmation.code:
-         confirmation.storeorder.status = "Delivered"
-         confirmation.storeorder.save()
-      else:
-         raise serializers.ValidationError("Invalid Delivery Code")
-
-      return data
+      fields = ['id', 'userorder', 'code']
