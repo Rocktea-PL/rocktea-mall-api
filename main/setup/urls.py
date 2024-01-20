@@ -4,7 +4,7 @@ from rest_framework import routers
 from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing, ServicesBusinessInformationView, CreateLogisticsAccount
 from mall.custom_view.reportuser import ReportUserView
 
-from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart, ViewOrders, OrderDeliverView
+from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart, ViewOrders, OrderDeliverView, AllOrders
 from order.logistics.assign_order import AssignOrderView
 
 from services.views import SignUpServices, ServicesCategoryView
@@ -52,6 +52,7 @@ router.register('report/user', ReportUserView, basename='report-user')
 # Logistics & Operations
 router.register('signup/logistics', CreateLogisticsAccount, basename='logistics')
 router.register('assign-order', AssignOrderView, basename='assigned_orders')
+router.register('all-orders', AllOrders, basename='allorders')
 
 
 

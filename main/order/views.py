@@ -15,7 +15,14 @@ import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets
+from rest_framework.pagination import PageNumberPagination
 
+
+class OrderPagination(PageNumberPagination):
+   page_size = 5
+   page_size_query_param = 'page_size'
+   max_page_size = 1000
+   
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
@@ -174,6 +181,22 @@ class ViewOrders(viewsets.ViewSet):
       return Response(serializer.data)
 
 
+class CustomPagination(PageNumberPagination):
+   page_size = 10  # Set the number of items per page
+   page_size_query_param = 'page_size'
+   max_page_size = 1000
+
+
+class AllOrders(viewsets.ModelViewSet):
+   serializer_class = OrderSerializer
+   pagination_class = CustomPagination
+
+   def get_queryset(self):
+      queryset = StoreOrder.objects.all().select_related("buyer", "store").order_by("-created_at")
+      return queryset
+
+
 class OrderDeliverView(viewsets.ModelViewSet):
    queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
+   pagination_class = OrderPagination
