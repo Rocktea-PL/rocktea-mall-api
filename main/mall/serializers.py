@@ -13,6 +13,32 @@ from setup.celery import app
 from django.http import Http404
 from django.db.models import Q
 
+class LogisticSerializer(ModelSerializer):
+   class Meta:
+      model=CustomUser
+      fields = ("id", "first_name", "last_name", "email", "profile_image", "password")
+      
+   def create(self, validated_data):
+      # Extract password from validated_data
+      password = validated_data.pop("password", None)
+      if password:
+         # Validate the password using regular expressions
+         if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+            raise ValidationError(
+               {"error": "Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+
+      user = CustomUser.objects.create(**validated_data)
+
+      # Confirm the user as a store owner
+      user.is_logistics = True
+
+      if password:
+         # Set and save the user's password only if a valid password is provided
+         user.set_password(password)
+         user.save()
+      return user
+
+
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
    
@@ -52,7 +78,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       user_id = self.user.id
 
       try:
-         user = CustomUser.objects.get(Q (is_store_owner=True) and Q(id=user_id))
+         user = CustomUser.objects.get(Q(is_store_owner=True) | Q(is_logistics=True) and Q(id=user_id))
       except CustomUser.DoesNotExist:
          raise serializers.ValidationError("User Does Not Exist")
 
@@ -67,6 +93,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          has_service = True
       except ServicesBusinessInformation.DoesNotExist:
          has_service = False
+   
       
       data['user_data'] = {
       "id": self.user.id,
@@ -78,6 +105,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "is_storeowner": self.user.is_store_owner,
       "has_store": has_store,
       "is_services": self.user.is_services,
+      "is_logistics": self.user.is_logistics,
       "has_service": has_service
    }
       if has_store:

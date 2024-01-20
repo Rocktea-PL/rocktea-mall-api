@@ -1,10 +1,11 @@
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing, ServicesBusinessInformationView
+from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing, ServicesBusinessInformationView, CreateLogisticsAccount
 from mall.custom_view.reportuser import ReportUserView
 
 from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart, ViewOrders, OrderDeliverView
+from order.logistics.assign_order import AssignOrderView
 
 from services.views import SignUpServices, ServicesCategoryView
 from tenants.views import TenantSignUp
@@ -46,6 +47,11 @@ router.register('signup/services', SignUpServices, basename='signup-services')
 router.register('services-category', ServicesCategoryView,basename='service-cat')
 
 router.register('report/user', ReportUserView, basename='report-user')
+
+
+# Logistics & Operations
+router.register('signup/logistics', CreateLogisticsAccount, basename='logistics')
+router.register('assign-order', AssignOrderView, basename='assigned_orders')
 
 
 

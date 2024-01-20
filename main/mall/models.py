@@ -55,6 +55,7 @@ class CustomUser(AbstractUser):
    contact = PhoneNumberField()
    is_store_owner = models.BooleanField(default=False)
    is_consumer = models.BooleanField(default=False)
+   is_logistics = models.BooleanField(default=False)
    password = models.CharField(max_length=200)
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)

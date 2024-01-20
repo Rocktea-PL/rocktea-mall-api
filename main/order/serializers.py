@@ -1,5 +1,5 @@
 from rest_framework import serializers, status
-from .models import OrderItems, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation, StoreOrder
+from .models import OrderItems, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation, StoreOrder, AssignOrder
 from mall.models import CustomUser, Store, Product
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -74,3 +74,42 @@ class OrderDeliverySerializer(serializers.ModelSerializer):
    class Meta:
       model = OrderDeliveryConfirmation
       fields = ['id', 'userorder', 'code']
+      
+
+
+class AssignOrderSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = AssignOrder
+      fields = ['id', 'order', 'rider']
+
+   # def validate(self, data):
+   #    orders = data.get('order')
+   #    rider = data.get('rider')
+
+      # return data
+   def create(self, validated_data):
+      orders_data = validated_data.pop('order')
+      assign_order = AssignOrder.objects.create(**validated_data)
+
+      for order in orders_data:
+         assign_order.order.add(order)
+
+      return assign_order
+   
+   def to_representation(self, instance):
+      representation = super(AssignOrderSerializer, self).to_representation(instance)
+
+      # Retrieve the rider information
+      rider_info = {
+         "name": f"{instance.rider.first_name} {instance.rider.last_name}",
+         "profile_image": instance.rider.profile_image.url,
+         "email": instance.rider.email
+      }
+      representation['rider'] = rider_info
+
+      # Retrieve the order information
+      order_info = [{"id": order.id, "owner": f"{order.buyer.first_name} {order.buyer.last_name}", "from": order.store.name} for order in instance.order.all()]  # Use .all() to get the queryset
+      representation['order'] = order_info
+
+      return representation
+

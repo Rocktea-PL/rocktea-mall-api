@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer,
-                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer, ServicesBusinessInformationSerializer)
+                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer, ServicesBusinessInformationSerializer, LogisticSerializer)
 
 from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, ServicesBusinessInformation, StoreProductPricing
 
@@ -37,6 +37,11 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
+   
+
+class CreateLogisticsAccount(viewsets.ModelViewSet):
+   queryset = CustomUser.objects.filter(is_logistics=True)
+   serializer_class = LogisticSerializer
 
 
 class CreateStore(viewsets.ModelViewSet):

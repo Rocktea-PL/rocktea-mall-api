@@ -11,7 +11,8 @@ class StoreOrder(models.Model):
       ("Pending", "Pending"),
       ("Completed", "Completed"),
       ("In-Review", "In-Review"),
-      ("Delivered", "Delivered")
+      ("Delivered", "Delivered"),
+      ("Returned", "Returned")
    )
    id = models.CharField(primary_key=True, default=uuid4, max_length=36)
    buyer = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_orders', null=True)
@@ -31,6 +32,11 @@ class StoreOrder(models.Model):
          self.delivery_code = "".join(rand.choices(string.ascii_uppercase + string.digits, k=5))
       return super(StoreOrder, self).save(*args, **kwargs)
 
+
+class AssignOrder(models.Model):
+   order = models.ManyToManyField(StoreOrder)
+   rider = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, limit_choices_to={'is_logistics':True}, null=True)
+   
 
 class OrderItems(models.Model):
    userorder = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='items', null=True)
