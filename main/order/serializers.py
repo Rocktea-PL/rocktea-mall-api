@@ -41,7 +41,7 @@ class OrderSerializer(serializers.ModelSerializer):
       representation = super(OrderSerializer, self).to_representation(instance)
       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
       order_items = OrderItemsSerializer(instance.items.all(), many=True).data
-      representation['buyer'] = f"{instance.buyer.first_name} {instance.buyer.last_name}"
+      representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
       representation['store'] = instance.store.name
       return representation
 
