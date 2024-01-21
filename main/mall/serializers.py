@@ -41,6 +41,7 @@ class LogisticSerializer(ModelSerializer):
 
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
+   profile_image = serializers.FileField(required=False)
    
    class Meta:
       model=CustomUser
