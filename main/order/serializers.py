@@ -46,6 +46,47 @@ class OrderSerializer(serializers.ModelSerializer):
       return representation
 
 
+class AssignedOrderSerializer(serializers.ModelSerializer):
+   buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+   total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+   order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
+   created_at = serializers.SerializerMethodField()
+   order_id = serializers.CharField(max_length=5, read_only=True)
+   status = serializers.CharField(max_length=9, read_only=True)
+
+   # Logistics
+   rider_assigned = serializers.CharField(max_length=32, read_only=True)
+
+   class Meta:
+      model = StoreOrder
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'rider_assigned', 'status']
+      read_only_fields = ['order_items', 'order_id', 'status']
+
+   def get_created_at(self, obj):
+      return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
+
+   def to_representation(self, instance):
+      representation = super(AssignedOrderSerializer, self).to_representation(instance)
+      representation['total_price'] = '{:,.2f}'.format(instance.total_price)
+      order_items = OrderItemsSerializer(instance.items.all(), many=True).data
+      representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
+      representation['store'] = instance.store.name
+      representation['rider_assigned'] = self.get_assigned_rider(instance.id)
+      return representation
+
+   def get_assigned_rider(self, storeorder_id):
+      try:
+         storeorders = AssignOrder.objects.filter(order=storeorder_id)
+      except AssignOrder.DoesNotExist:
+         return None
+
+      if storeorders.exists():
+         # Choose the first assigned rider or implement your own logic
+         return {"full_name": f"{storeorders.first().rider.first_name} {storeorders.first().rider.last_name}",
+               "profile_image": storeorders.first().rider.profile_image.url}
+      else:
+         return None
+
 class CartItemSerializer(serializers.ModelSerializer):
    product = serializers.SerializerMethodField()
    

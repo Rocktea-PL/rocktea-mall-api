@@ -22,7 +22,8 @@ from .serializers import (
    CartSerializer, 
    CartItemSerializer, 
    OrderSerializer, 
-   OrderDeliverySerializer
+   OrderDeliverySerializer,
+   AssignedOrderSerializer
    )
 
 from django.http import Http404, JsonResponse
@@ -226,7 +227,7 @@ class OrderDeliverView(viewsets.ModelViewSet):
 
 
 class AssignedOrders(generics.ListAPIView):
-   serializer_class = OrderSerializer
+   serializer_class = AssignedOrderSerializer
 
    def list(self, request, **kwargs):
       rider_id = kwargs.get("rider")  # Replace with the actual rider's ID

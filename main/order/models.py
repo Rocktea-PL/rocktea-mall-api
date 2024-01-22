@@ -36,7 +36,7 @@ class StoreOrder(models.Model):
 class AssignOrder(models.Model):
    order = models.ManyToManyField(StoreOrder)
    rider = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, limit_choices_to={'is_logistics':True}, null=True)
-   
+
 
 class OrderItems(models.Model):
    userorder = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='items', null=True)
