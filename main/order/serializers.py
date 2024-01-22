@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import logging
 from datetime import datetime
+from django.core.cache import cache
 
 
 class OrderItemsSerializer(serializers.ModelSerializer):
@@ -21,7 +22,7 @@ class OrderItemsSerializer(serializers.ModelSerializer):
       return representation
 
 
-class OrderSerializer(serializers.ModelSerializer):
+class AssignedOrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
    order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
@@ -38,40 +39,57 @@ class OrderSerializer(serializers.ModelSerializer):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
 
    def to_representation(self, instance):
-      representation = super(OrderSerializer, self).to_representation(instance)
+      cache_key = f"Order_Key_{instance.id}"
+      cached_data = cache.get(cache_key)
+      
+      if cached_data is not None:
+         return cached_data
+      
+      representation = super(AssignedOrderSerializer, self).to_representation(instance)
       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
       order_items = OrderItemsSerializer(instance.items.all(), many=True).data
       representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
       representation['store'] = instance.store.name
+      
+      cache.set(cache_key, representation, timeout=60 * 3)
       return representation
 
 
-class AssignedOrderSerializer(serializers.ModelSerializer):
+class OrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
    order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
    created_at = serializers.SerializerMethodField()
    order_id = serializers.CharField(max_length=5, read_only=True)
    status = serializers.CharField(max_length=9, read_only=True)
+   delivery_code = serializers.CharField(max_length=5, read_only=True)
 
    # Logistics
    rider_assigned = serializers.CharField(max_length=32, read_only=True)
 
    class Meta:
       model = StoreOrder
-      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'rider_assigned', 'status']
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status']
       read_only_fields = ['order_items', 'order_id', 'status']
 
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
 
    def to_representation(self, instance):
-      representation = super(AssignedOrderSerializer, self).to_representation(instance)
+      cache_key = f"order_id {instance.id}"
+      cached_data = cache.get(cache_key)
+      
+      if cached_data is not None:
+         return cached_data
+      
+      representation = super(OrderSerializer, self).to_representation(instance)
       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
       order_items = OrderItemsSerializer(instance.items.all(), many=True).data
       representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
       representation['store'] = instance.store.name
       representation['rider_assigned'] = self.get_assigned_rider(instance.id)
+      cache.set(cache_key, representation, timeout=60*2)
+      
       return representation
 
    def get_assigned_rider(self, storeorder_id):
@@ -86,6 +104,7 @@ class AssignedOrderSerializer(serializers.ModelSerializer):
                "profile_image": storeorders.first().rider.profile_image.url}
       else:
          return None
+
 
 class CartItemSerializer(serializers.ModelSerializer):
    product = serializers.SerializerMethodField()

@@ -226,8 +226,10 @@ class OrderDeliverView(viewsets.ModelViewSet):
    pagination_class = OrderPagination
 
 
+
 class AssignedOrders(generics.ListAPIView):
    serializer_class = AssignedOrderSerializer
+   pagination_class = CustomPagination
 
    def list(self, request, **kwargs):
       rider_id = kwargs.get("rider")  # Replace with the actual rider's ID
@@ -240,7 +242,7 @@ class AssignedOrders(generics.ListAPIView):
 
       # Now, you can access the related StoreOrder instances
       all_orders_for_rider = StoreOrder.objects.filter(
-         assignorder__in=assigned_orders)
+         assignorder__in=assigned_orders).order_by('-created_at')
 
       serializer = self.get_serializer(all_orders_for_rider, many=True)
       return Response({"orders": serializer.data}, status=status.HTTP_200_OK)

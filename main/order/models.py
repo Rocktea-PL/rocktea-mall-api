@@ -21,7 +21,7 @@ class StoreOrder(models.Model):
    total_price = models.DecimalField(decimal_places=2, max_digits=11, default=0.00, null=True)
    status = models.CharField(max_length=9, choices=STATUS_CHOICES, default="Pending", null=True)
    order_sn = models.CharField(max_length=5, unique=True, null=True)
-   delivery_code = models.CharField(max_length=5, null=True)
+   delivery_code = models.CharField(max_length=5, null=True, unique=True)
    
    def save(self, *args, **kwargs):
       if not self.order_sn:
