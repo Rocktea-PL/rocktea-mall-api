@@ -134,7 +134,7 @@ class Store(models.Model):
    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
-   associated_domain = models.CharField(max_length=15, null=True)
+   associated_domain = models.CharField(max_length=15, null=True, unique=True)
    theme = models.CharField(max_length=6, null=True)
    facebook = models.URLField(null=True)
    whatsapp = models.URLField(null=True)

@@ -10,7 +10,7 @@ class StoreOrder(models.Model):
    STATUS_CHOICES = (
       ("Pending", "Pending"),
       ("Completed", "Completed"),
-      ("In-Review", "In-Review"),
+      ("Enroute", "Enroute"),
       ("Delivered", "Delivered"),
       ("Returned", "Returned")
    )

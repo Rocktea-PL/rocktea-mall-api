@@ -1,11 +1,33 @@
+
+from .models import (
+   OrderItems, 
+   Store, 
+   CustomUser, 
+   Cart, 
+   CartItem, 
+   StoreOrder, 
+   OrderDeliveryConfirmation,
+   AssignOrder
+   )
+
+from mall.models import (
+   Product, 
+   ProductVariant, 
+   CustomUser, 
+   StoreProductPricing
+   )
+
+from .serializers import (
+   OrderItemsSerializer, 
+   CartSerializer, 
+   CartItemSerializer, 
+   OrderSerializer, 
+   OrderDeliverySerializer
+   )
+
 from django.http import Http404, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import OrderItems, Store, CustomUser, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation
-
-from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
-from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDeliverySerializer
-
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
@@ -14,7 +36,7 @@ from rest_framework import serializers, status
 import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import viewsets
+from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
 
 
@@ -22,7 +44,8 @@ class OrderPagination(PageNumberPagination):
    page_size = 5
    page_size_query_param = 'page_size'
    max_page_size = 1000
-   
+
+
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
@@ -200,3 +223,23 @@ class OrderDeliverView(viewsets.ModelViewSet):
    queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
    pagination_class = OrderPagination
+
+
+class AssignedOrders(generics.ListAPIView):
+   serializer_class = OrderSerializer
+
+   def list(self, request, **kwargs):
+      rider_id = kwargs.get("rider")  # Replace with the actual rider's ID
+
+      # Assuming you have an instance of the CustomUser model for the given rider_id
+      rider_user = CustomUser.objects.get(id=rider_id)
+
+      # Query AssignOrder to get all orders associated with the rider
+      assigned_orders = AssignOrder.objects.filter(rider=rider_user)
+
+      # Now, you can access the related StoreOrder instances
+      all_orders_for_rider = StoreOrder.objects.filter(
+         assignorder__in=assigned_orders)
+
+      serializer = self.get_serializer(all_orders_for_rider, many=True)
+      return Response({"orders": serializer.data}, status=status.HTTP_200_OK)

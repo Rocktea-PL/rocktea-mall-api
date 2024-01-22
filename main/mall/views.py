@@ -1,20 +1,48 @@
-from rest_framework import viewsets
-from .serializers import (StoreOwnerSerializer, SubCategorySerializer, CategorySerializer, MyTokenObtainPairSerializer, CreateStoreSerializer, ProductSerializer, ProductImageSerializer,
-                        MarketPlaceSerializer, ProductVariantSerializer, ProductDetailSerializer, BrandSerializer, ProductTypesSerializer, WalletSerializer, StoreProductPricingSerializer, ServicesBusinessInformationSerializer, LogisticSerializer)
+# from rest_framework import viewsets
+from .serializers import (
+   StoreOwnerSerializer, 
+   SubCategorySerializer, 
+   CategorySerializer, 
+   MyTokenObtainPairSerializer, 
+   CreateStoreSerializer, 
+   ProductSerializer, 
+   ProductImageSerializer,
+   MarketPlaceSerializer, 
+   ProductVariantSerializer, 
+   ProductDetailSerializer, 
+   BrandSerializer, 
+   ProductTypesSerializer, 
+   WalletSerializer, 
+   StoreProductPricingSerializer, 
+   ServicesBusinessInformationSerializer, 
+   LogisticSerializer
+)
 
-from .models import CustomUser, Category, Store, Product, ProductImage, MarketPlace, ProductVariant,  Brand, ProductTypes, SubCategories, Wallet, ServicesBusinessInformation, StoreProductPricing
+from .models import (
+   CustomUser, 
+   Category, 
+   Store, 
+   Product, 
+   ProductImage, 
+   MarketPlace, 
+   ProductVariant, 
+   Brand, 
+   ProductTypes, 
+   SubCategories, 
+   Wallet, 
+   ServicesBusinessInformation, 
+   StoreProductPricing
+)
 
 from order.models import StoreOrder
 from order.serializers import OrderSerializer
 
 from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework import permissions
+from rest_framework import permissions, viewsets, status, serializers
 from rest_framework.renderers import JSONRenderer
 from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework import serializers
 from helpers.views import BaseView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
@@ -104,13 +132,13 @@ class ProductVariantView(viewsets.ModelViewSet):
       else:
          # Handle the case where product_id is not provided
          return ProductVariant.objects.none()
-      
-      
+
+
+
 class StoreProductPricing(viewsets.ModelViewSet):
    queryset = StoreProductPricing.objects.select_related('product', 'store')
    serializer_class = StoreProductPricingSerializer
    # lookup_field = 'product'
-
 
 
 class StoreProductPricingAPIView(APIView):
@@ -153,7 +181,6 @@ class StoreProductPricingAPIView(APIView):
 
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
-   
    serializer_class = CategorySerializer
    
    def retrieve(self, request, *args, **kwargs):
@@ -241,8 +268,8 @@ class DropshipperDashboardCounts(APIView):
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
-   
-   
+
+
 # Best Selling Product Data
 class BestSellingProductView(ListAPIView):
    serializer_class = ProductSerializer
@@ -278,11 +305,12 @@ class StoreOrdersViewSet(ListAPIView):
 class BrandView(viewsets.ModelViewSet):
    queryset = Brand.objects.prefetch_related('producttype')
    serializer_class = BrandSerializer
-   
+
 
 class SubCategoryView(viewsets.ModelViewSet):
    queryset =  SubCategories.objects.select_related('category')
    serializer_class = SubCategorySerializer
+
 
 class ProductTypeView(viewsets.ModelViewSet):
    queryset = ProductTypes.objects.select_related('subcategory')
