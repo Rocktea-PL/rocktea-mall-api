@@ -37,6 +37,13 @@ class CustomUserManager(BaseUserManager):
          raise ValueError('Superuser must have is_superuser=True.')
 
       return self.create_user(email, password, **extra_fields)
+   
+   # def create_staff(self, email, password=None, **extra_fields):
+   #    extra_fields.setdefault('is_staff', True)
+   #    if extra_fields.get('is_staff') is not True:
+   #       raise ValueError('User Must have is_staff=True')
+      
+   #    return self.create_user(email, password, **extra_fields)
 
 
 # StoreOwner models
@@ -56,6 +63,7 @@ class CustomUser(AbstractUser):
    is_store_owner = models.BooleanField(default=False)
    is_consumer = models.BooleanField(default=False)
    is_logistics = models.BooleanField(default=False)
+   is_operations = models.BooleanField(default=False)
    password = models.CharField(max_length=200)
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)

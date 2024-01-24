@@ -37,6 +37,33 @@ class LogisticSerializer(ModelSerializer):
          user.set_password(password)
          user.save()
       return user
+   
+   
+class OperationsSerializer(ModelSerializer):
+   class Meta:
+      model = CustomUser
+      fields = ("id", "first_name", "last_name",
+               "email", "profile_image", "password")
+
+   def create(self, validated_data):
+      # Extract password from validated_data
+      password = validated_data.pop("password", None)
+      if password:
+         # Validate the password using regular expressions
+         if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+            raise ValidationError(
+               {"error": "Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+
+      user = CustomUser.objects.create(**validated_data)
+
+      # Confirm the user as a store owner
+      user.is_operations = True
+
+      if password:
+         # Set and save the user's password only if a valid password is provided
+         user.set_password(password)
+         user.save()
+      return user
 
 
 class StoreOwnerSerializer(ModelSerializer):
@@ -107,6 +134,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "has_store": has_store,
       "is_services": self.user.is_services,
       "is_logistics": self.user.is_logistics,
+      "is_operations": self.user.is_operations,
       "has_service": has_service
    }
       if has_store:

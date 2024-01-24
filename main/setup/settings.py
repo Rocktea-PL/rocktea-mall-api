@@ -107,7 +107,6 @@ DATABASES = {
         'HOST': env('DB_HOST'),
         'PORT': env('DB_PORT'),
     },
-    
 }
 
 # CORS_ALLOWED_ORIGINS = [

@@ -15,7 +15,8 @@ from .serializers import (
    WalletSerializer, 
    StoreProductPricingSerializer, 
    ServicesBusinessInformationSerializer, 
-   LogisticSerializer
+   LogisticSerializer,
+   OperationsSerializer
 )
 
 from .models import (
@@ -70,6 +71,11 @@ class CreateStoreOwner(viewsets.ModelViewSet):
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)
    serializer_class = LogisticSerializer
+
+
+class CreateOperationsAccount(viewsets.ModelViewSet):
+   queryset = CustomUser.objects.filter(is_operations=True)
+   serializer_class = OperationsSerializer
 
 
 class CreateStore(viewsets.ModelViewSet):
