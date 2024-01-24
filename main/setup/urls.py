@@ -1,13 +1,39 @@
 from django.urls import path, include
 from django.contrib import admin
 from rest_framework import routers
-from mall.views import CreateStoreOwner, GetCategories, CreateStore, ProductViewSet, MarketPlaceView, ProductVariantView, ProductDetails, BrandView, SubCategoryView, ProductTypeView, WalletView, StoreProductPricing, ServicesBusinessInformationView, CreateLogisticsAccount
+
+from mall.views import (
+        CreateStoreOwner,
+        GetCategories,
+        CreateStore,
+        ProductViewSet,
+        MarketPlaceView,
+        ProductVariantView,
+        ProductDetails,
+        BrandView,
+        SubCategoryView,
+        ProductTypeView,
+        WalletView,
+        StoreProductPricing, ServicesBusinessInformationView, CreateLogisticsAccount,
+        CreateOperationsAccount
+)
 from mall.custom_view.reportuser import ReportUserView
 
-from order.views import OrderItemsViewSet, CartViewSet, CartItemModifyView, CheckOutCart, ViewOrders, OrderDeliverView, AllOrders
-from order.logistics.assign_order import AssignOrderView
+from order.views import (
+    OrderItemsViewSet, 
+    CartViewSet, 
+    CartItemModifyView, 
+    CheckOutCart, 
+    ViewOrders, 
+    OrderDeliverView, 
+    AllOrders)
 
-from services.views import SignUpServices, ServicesCategoryView
+from order.logistics.assign_order import AssignOrderView
+from services.views import (
+    SignUpServices,
+    ServicesCategoryView
+    )
+
 from tenants.views import TenantSignUp
 from django.urls import path
 
@@ -45,7 +71,6 @@ router.register('wallet', WalletView, basename='wallets')
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
 router.register('services-category', ServicesCategoryView,basename='service-cat')
-
 router.register('report/user', ReportUserView, basename='report-user')
 
 
@@ -53,6 +78,7 @@ router.register('report/user', ReportUserView, basename='report-user')
 router.register('signup/logistics', CreateLogisticsAccount, basename='logistics')
 router.register('assign-order', AssignOrderView, basename='assigned_orders')
 router.register('all-orders', AllOrders, basename='allorders')
+router.register('signup/operations', CreateOperationsAccount, basename='operations')
 
 
 
