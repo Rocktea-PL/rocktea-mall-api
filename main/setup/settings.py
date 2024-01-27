@@ -48,7 +48,10 @@ INSTALLED_APPS = [
     # Security
     "corsheaders",
     "order",
-    "services"
+    "services",
+    
+    # API Documentation
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [

@@ -36,6 +36,23 @@ from services.views import (
 
 from tenants.views import TenantSignUp
 from django.urls import path
+from rest_framework import permissions
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
+
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="RockTea Mall API",
+        default_version='v1.0',
+        description="RockTea Mall API: Empowering seamless integration and enhanced shopping experiences with a versatile and efficient e-commerce application programming interface.",
+        terms_of_service="https://www.google.com/policies/terms/",
+        contact=openapi.Contact(email="rockteapl1@gmail.com"),
+        license=openapi.License(name="MIT License"),
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
+)
 
 
 
@@ -84,6 +101,8 @@ router.register('signup/operations', CreateOperationsAccount, basename='operatio
 
 
 urlpatterns = [
+    path('swagger/', schema_view.with_ui('swagger',cache_timeout=0), name='schema-swagger-ui'),
+    # path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     path('admin/', admin.site.urls),
     path('rocktea/', include(router.urls)),
     path('mall/', include("mall.urls")),
