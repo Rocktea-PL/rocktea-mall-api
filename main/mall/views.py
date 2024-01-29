@@ -263,7 +263,7 @@ class DropshipperDashboardCounts(APIView):
          store=store, list_product=True).count()
 
       # # Get Number of all Orders per store
-      # order_count = Order.objects.filter(store=store).count()
+      order_count = StoreOrder.objects.filter(store=store).count()
 
       # Get Number of Customers
       customer_count = CustomUser.objects.filter(
@@ -271,7 +271,7 @@ class DropshipperDashboardCounts(APIView):
 
       data = {
          "Listed_Products": product_count,
-         # "Orders": order_count,
+         "Orders": order_count,
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
