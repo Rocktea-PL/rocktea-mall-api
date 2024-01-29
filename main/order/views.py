@@ -129,7 +129,7 @@ class CheckOutCart(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
    def create(self, request):
       # Collect Data
-      user = request.user
+      user = request.data.get("user")
       store_id = request.data.get("store")
       total_price = request.data.get("total_price")
 
