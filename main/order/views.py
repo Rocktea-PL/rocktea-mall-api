@@ -57,7 +57,7 @@ class CartViewSet(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
 
    def create(self, request):
-      user = request.query_params.get("user")
+      user = request.user
       store = request.data.get("store")
       # store_id = request.data.get("store")
       products = request.data.get('products', [])
@@ -101,7 +101,7 @@ class CartViewSet(viewsets.ViewSet):
       
       
    def list(self, request):
-      user = self.request.query_params.get("user")
+      user = request.user
       queryset = Cart.objects.filter(user=user).select_related("user", "store")
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
