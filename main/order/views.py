@@ -101,10 +101,11 @@ class CartViewSet(viewsets.ViewSet):
       
       
    def list(self, request):
-      user = self.request.user.id
+      user = self.request.query_params.get("user")
       queryset = Cart.objects.filter(user=user).select_related("user", "store")
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
+
 
    def delete(self, request):
       cart_id = self.request.query_params.get("id")
@@ -129,7 +130,7 @@ class CheckOutCart(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
    def create(self, request):
       # Collect Data
-      user = request.data.get("user")
+      user = request.user
       store_id = request.data.get("store")
       total_price = request.data.get("total_price")
 
