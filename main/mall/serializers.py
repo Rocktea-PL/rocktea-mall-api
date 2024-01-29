@@ -292,7 +292,6 @@ class StoreProductPricingSerializer(serializers.ModelSerializer):
 
       # Check if a pricing entry already exists for the same store and product variant
       existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=data.get('id', None)).first()
-
       if existing_pricing:
          raise serializers.ValidationError("Pricing for this product in this store already exists.")
       return data

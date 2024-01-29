@@ -267,6 +267,15 @@ class StoreProductPricing(models.Model):
 
    def __str__(self):
       return f"{self.store} - ${self.retail_price}"
+   
+
+@receiver(post_save, sender=StoreProductPricing)
+def create_marketplace(sender, instance, created, **kwargs):
+   if created:
+      related_product = instance.product
+      related_store = instance.store
+      MarketPlace.objects.get_or_create(store=related_store, product=related_product)
+
 
 
 class Category(models.Model):

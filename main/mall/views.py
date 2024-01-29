@@ -144,11 +144,12 @@ class ProductVariantView(viewsets.ModelViewSet):
 class StoreProductPricing(viewsets.ModelViewSet):
    queryset = StoreProductPricing.objects.select_related('product', 'store')
    serializer_class = StoreProductPricingSerializer
-   # lookup_field = 'product'
+   # lookup_field = 'store'
 
 
 class StoreProductPricingAPIView(APIView):
    def get(self, request, store_id):
+      # store_id = request.query_params.get("store")
       try:
          # Retrieve all store prices related to the specified store
          store_prices = StoreProductPricing.objects.filter(
