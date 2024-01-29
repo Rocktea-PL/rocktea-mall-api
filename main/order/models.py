@@ -73,7 +73,8 @@ class Cart(models.Model):
    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='user_cart', null=True)
    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='stores_cart', null=True)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
-
+   price = models.DecimalField(
+       max_digits=12, decimal_places=2, default=0.00, null=True)
 
 class CartItem(models.Model):
    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
