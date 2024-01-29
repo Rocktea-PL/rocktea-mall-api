@@ -158,8 +158,7 @@ CORS_ALLOW_HEADERS = [
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
-
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+DEFAULT_FILE_STORAGE = 'storages.backends.cloudinary.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
@@ -263,3 +262,7 @@ TEST_SECRET_KEY = env("TEST_SECRET_KEY")
 # Celery settings
 
 
+# SWAGGER
+# SWAGGER_SETTINGS = {
+#     'DEFAULT_INFO': os.path.join(BASE_DIR, 'setup/urls.py'),
+# }

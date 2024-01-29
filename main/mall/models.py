@@ -266,7 +266,7 @@ class StoreProductPricing(models.Model):
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
 
    def __str__(self):
-      return f"{self.product_variant} - {self.store} - ${self.retail_price}"
+      return f"{self.store} - ${self.retail_price}"
 
 
 class Category(models.Model):

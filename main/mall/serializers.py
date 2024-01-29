@@ -37,8 +37,8 @@ class LogisticSerializer(ModelSerializer):
          user.set_password(password)
          user.save()
       return user
-   
-   
+
+
 class OperationsSerializer(ModelSerializer):
    class Meta:
       model = CustomUser
@@ -299,7 +299,7 @@ class StoreProductPricingSerializer(serializers.ModelSerializer):
 
    def to_representation(self, instance):
       representation = super(StoreProductPricingSerializer, self).to_representation(instance)
-      representation['product'] = {"id": instance.product.id, "name":instance.product.name}
+      representation['product'] = {"id": getattr(instance.product, 'id', None), "name": getattr(instance.product,'name', None)}
       
       representation['store'] = {"id": instance.store.id, "name":instance.store.name}
       
