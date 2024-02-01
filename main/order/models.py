@@ -44,6 +44,10 @@ class OrderItems(models.Model):
    product_variant = models.ForeignKey(ProductVariant, on_delete=models.DO_NOTHING, null=True)
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
+   
+   def __str__(self):
+      return self.created_at
+   
 
 
 class OrderDeliveryConfirmation(models.Model):
