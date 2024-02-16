@@ -272,7 +272,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
       store_domain = self.request.domain_name
       print(store_domain)
       try:
-         store = get_object_or_404(Store, associated_domain=store_domain)
+         store = get_object_or_404(Store, do=store_domain)
          # Filter the queryset based on the specified store and list_product=True
          queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product').order_by("-id")
          # cache.set(cache_key, queryset, timeout=100)
@@ -286,7 +286,7 @@ class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
       store_domain = request.domain_name
-      store = get_object_or_404(Store, associated_domain=store_domain)
+      store = get_object_or_404(Store, domain_name=store_domain)
 
       # Get Number of Listed Products
       product_count = MarketPlace.objects.filter(
