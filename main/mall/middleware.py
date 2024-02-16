@@ -9,7 +9,7 @@ class DomainNameMiddleware:
 
     def __call__(self, request):
         # Extracting the domain name from the request
-        domain_name = request.META.get('HTTP_HOST', None)
+        domain_name = request.META.get('HTTP_ORIGIN', None)
 
         # Storing the domain name in request object for further use
         request.domain_name = domain_name
