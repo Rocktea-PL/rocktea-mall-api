@@ -9,7 +9,7 @@ def get_store_instance(request):
    """Get Store ID using Store Domain Name """
    store_domain = request.domain_name
    try:
-      store = get_object_or_404(Store, associated_domain=store_domain)
+      store = get_object_or_404(Store, domain_name=store_domain)
    except Http404:
       raise ValidationError("Store Does Not Exist")
    return store.id

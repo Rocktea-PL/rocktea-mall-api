@@ -163,6 +163,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          data['user_data']["store_id"] = self.user.owners.id
          data['user_data']['theme'] = self.user.owners.theme
          data['user_data']['category'] = self.user.owners.category.id
+         data['user_data']['domain_name'] = getattr(self.user.owners, 'domain_name', None)
 
       if data['user_data']['is_services']:
          data['user_data']['type'] = self.user.type
@@ -217,11 +218,11 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    def create(self, validated_data):
       owner = self.context['request'].user
-      # associated_domain = self.context['request'].domain_name
+      host_domain = self.context['request'].domain_name
 
       try:
          storeowner = Store.objects.create(owner=owner, **validated_data)
-         # storeowner.associated_domain = associated_domain
+         storeowner.domain_name = host_domain
          storeowner.save()
       except IntegrityError as e:
          # Catch the IntegrityError and customize the error message
@@ -416,7 +417,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       """ Use Store Domain Name to get the Store instance"""
       store_domain = self.context['request'].domain_name
       try:
-         store = Store.objects.get(associated_domain=store_domain)
+         store = Store.objects.get(domain_name=store_domain)
       except Store.DoesNotExist:
          raise serializers.ValidationError("Store Does Not Exist")
       return store
