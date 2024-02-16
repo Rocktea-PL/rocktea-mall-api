@@ -37,13 +37,6 @@ class CustomUserManager(BaseUserManager):
          raise ValueError('Superuser must have is_superuser=True.')
 
       return self.create_user(email, password, **extra_fields)
-   
-   # def create_staff(self, email, password=None, **extra_fields):
-   #    extra_fields.setdefault('is_staff', True)
-   #    if extra_fields.get('is_staff') is not True:
-   #       raise ValueError('User Must have is_staff=True')
-      
-   #    return self.create_user(email, password, **extra_fields)
 
 
 # StoreOwner models
@@ -142,7 +135,12 @@ class Store(models.Model):
    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
-   associated_domain = models.CharField(max_length=15, null=True, unique=True)
+   domain_name = models.CharField(max_length=15, null=True, unique=True)
+   
+   temp_id = models.CharField(max_length=10, unique=True, null=True)
+   completed = models.BooleanField(default=False)
+   
+   # Custom Add-Ons
    theme = models.CharField(max_length=6, null=True)
    facebook = models.URLField(null=True)
    whatsapp = models.URLField(null=True)
@@ -159,6 +157,7 @@ class Store(models.Model):
 
    def __str__(self):
       return self.name
+   
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):

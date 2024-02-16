@@ -4,6 +4,7 @@ from uuid import uuid4
 import random as rand, string
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.serializers import ValidationError
 
 
 class StoreOrder(models.Model):
@@ -47,7 +48,6 @@ class OrderItems(models.Model):
    
    def __str__(self):
       return self.created_at
-   
 
 
 class OrderDeliveryConfirmation(models.Model):
@@ -63,6 +63,7 @@ class OrderDeliveryConfirmation(models.Model):
          store.status = "Delivered"
          store.save()
          super(OrderDeliveryConfirmation, self).save(*args, **kwargs)
+         return Response("Order Confirmed Succesfully")
       else:
          raise ValidationError("Incorrect Delivery Code")
 

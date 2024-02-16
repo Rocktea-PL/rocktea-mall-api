@@ -1,5 +1,27 @@
-from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField, ReadOnlyField, ValidationError
-from .models import (CustomUser, Store, Category, SubCategories, Product, Brand, ProductTypes, ProductImage, MarketPlace, ProductVariant, Wallet, StoreProductPricing, ServicesBusinessInformation, ReportUser)
+from rest_framework.serializers import (
+   ModelSerializer, 
+   PrimaryKeyRelatedField, 
+   ReadOnlyField, 
+   ValidationError
+   )
+
+from .models import (
+   CustomUser, 
+   Store, 
+   Category, 
+   SubCategories, 
+   Product, 
+   Brand, 
+   ProductTypes, 
+   ProductImage, 
+   MarketPlace, 
+   ProductVariant, 
+   Wallet, 
+   StoreProductPricing, 
+   ServicesBusinessInformation, 
+   ReportUser
+   )
+
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
 from PIL import Image
@@ -12,6 +34,7 @@ from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
 from django.db.models import Q
+# from .store_features.get_store_id import get_store_instance
 
 class LogisticSerializer(ModelSerializer):
    class Meta:
@@ -27,11 +50,10 @@ class LogisticSerializer(ModelSerializer):
             raise ValidationError(
                {"error": "Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
 
-      user = CustomUser.objects.create(**validated_data)
-
+      user=CustomUser.objects.create(**validated_data)
+      
       # Confirm the user as a store owner
       user.is_logistics = True
-
       if password:
          # Set and save the user's password only if a valid password is provided
          user.set_password(password)
@@ -42,8 +64,7 @@ class LogisticSerializer(ModelSerializer):
 class OperationsSerializer(ModelSerializer):
    class Meta:
       model = CustomUser
-      fields = ("id", "first_name", "last_name",
-               "email", "profile_image", "password")
+      fields = ("id", "first_name", "last_name", "email", "profile_image", "password")
 
    def create(self, validated_data):
       # Extract password from validated_data
@@ -159,7 +180,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "theme","facebook", "whatsapp", "twitter", "instagram")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "domain_name", "theme","facebook", "whatsapp", "twitter", "instagram")
 
       read_only_fields = ("owner",)
 
@@ -194,11 +215,14 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       instance.save()  # Move this outside the loop to save the instance after updating all fields
       return instance
 
-      
    def create(self, validated_data):
       owner = self.context['request'].user
+      # associated_domain = self.context['request'].domain_name
+
       try:
          storeowner = Store.objects.create(owner=owner, **validated_data)
+         # storeowner.associated_domain = associated_domain
+         storeowner.save()
       except IntegrityError as e:
          # Catch the IntegrityError and customize the error message
          if 'duplicate key' in str(e).lower():
@@ -275,37 +299,20 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
       return representation
 
-
 class StoreProductPricingSerializer(serializers.ModelSerializer):
-   product = PrimaryKeyRelatedField(queryset=Product.objects.all())
+   product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
-   
+
    class Meta:
       model = StoreProductPricing
       fields = ['id', 'store', 'product', 'retail_price']
-      
-   # def validate_product_variant(self, value):
-   #    return value
-
-   def validate(self, data):
-      # Retrieve the store and product variant from the validated data
-      store = data['store']
-      product = data.get('product')
-
-      # Check if a pricing entry already exists for the same store and product variant
-      existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=data.get('id', None)).first()
-      if existing_pricing:
-         raise serializers.ValidationError("Pricing for this product in this store already exists.")
-      return data
 
    def to_representation(self, instance):
-      representation = super(StoreProductPricingSerializer, self).to_representation(instance)
-      representation['product'] = {"id": getattr(instance.product, 'id', None), "name": getattr(instance.product,'name', None)}
-      
-      representation['store'] = {"id": instance.store.id, "name":instance.store.name}
-      
-      # Format the 'total_price' field with commas as thousands separator
-      representation['retail_price'] ='{:,.2f}'.format(instance.retail_price)
+      representation = super().to_representation(instance)
+      representation['product'] = {"id": getattr(instance.product, 'id', None), "name": getattr(instance.product, 'name', None)}
+      representation['store'] = {"id": instance.store.id, "name": instance.store.name}
+      retail_price_float = float(instance.retail_price)
+      representation['retail_price'] = '{:,.2f}'.format(retail_price_float)
       return representation
 
 
@@ -383,18 +390,13 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    def create(self, validated_data):
       product_id = self.context['request'].query_params.get('product')
       try:
-         product = get_object_or_404(Product, id=product_id)
+         product = Product.objects.get(id=product_id)
          # Assign the product to the instance
          validated_data['product'] = product
-      except Http404:
+      except Product.DoesNotExist:
          raise ValidationError("Product not found.")
 
-      store_id = self.context['request'].query_params.get('store')
-      try:
-         store = Store.objects.get(id=store_id)
-      except Store.DoesNotExist:
-         raise ValidationError(f'Store {store_id} does not exist.')
-
+      store = self.get_store_instance()
       validated_data['store'] = store  # Set the store field in validated_data
 
       # Check if a Marketplace instance already exists for the given product and store
@@ -410,6 +412,15 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          instance = MarketPlace.objects.create(**validated_data, list_product=True)
          return instance
       
+   def get_store_instance(self):
+      """ Use Store Domain Name to get the Store instance"""
+      store_domain = self.context['request'].domain_name
+      try:
+         store = Store.objects.get(associated_domain=store_domain)
+      except Store.DoesNotExist:
+         raise serializers.ValidationError("Store Does Not Exist")
+      return store
+
    # Assuming `product` is a related field
    def to_representation(self, instance):
       cache_key = f"Listed Product_{instance.id}"
@@ -435,10 +446,8 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                "quantity": instance.product.quantity,
                "images": self.serialize_product_images(instance.product.images.all()),
                "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
-               # "store_variant": self.get_store_variant(instance.product.product_variants.all(), instance.store.id),
                "category": instance.product.category.name,
                "subcategory": instance.product.subcategory.name,
-               # "product_type": instance.product.producttype,
                "upload_status": instance.product.upload_status
          }
       else:
@@ -504,8 +513,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class WalletSerializer(serializers.ModelSerializer):
    class Meta:
       model = Wallet
-      fields = ['id', 'store','balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
-      
+      fields = ['id', 'store', 'balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
+
    def to_representation(self, instance):
       representation = super(WalletSerializer, self).to_representation(instance)
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
@@ -527,3 +536,74 @@ class ReportUserSerializer(serializers.ModelSerializer):
          "full_name": f"{instance.user.first_name} {instance.user.last_name}",
       }
       return representation
+   
+   
+   
+   
+   
+# LAST RESORT
+# class CreateStoreSerializer(serializers.ModelSerializer):
+#    TIN_number = serializers.IntegerField(required=False)
+#    logo = serializers.FileField(required=False)
+#    year_of_establishment = serializers.DateField(required=False)
+
+#    class Meta:
+#       model = Store
+#       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "theme","facebook", "whatsapp", "twitter", "instagram")
+
+#       read_only_fields = ("owner",)
+
+#    def validate_TIN_number(self, value):
+#       if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
+#          raise serializers.ValidationError("Invalid TIN number. It should be 9 characters long.")
+#       return value
+
+#    def validate_logo(self, value):
+#       # check the file extension
+#       if value:
+#          file_extension = value.name.split('.')[-1].lower()
+#          if file_extension not in ['png']:
+#                raise serializers.ValidationError("Invalid Image format. Only PNG is allowed.")
+#       return value
+      
+#    def validate_owner(self, value):
+#       if value is None:
+#          return value  # If owner is None, no validation is needed
+
+#       try:
+#          user = CustomUser.objects.get(is_store_owner=True, id=value)
+#       except CustomUser.DoesNotExist:
+#          raise serializers.ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
+#       return value
+   
+#    def update(self, instance, validated_data):
+#       for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "facebook", "whatsapp", "twitter", "instagram"]:
+#          setattr(instance, field, validated_data.get(
+#             field, getattr(instance, field)))
+
+#       instance.save()  # Move this outside the loop to save the instance after updating all fields
+#       return instance
+
+      
+#    def create(self, validated_data):
+#       owner = self.context['request'].user
+#       try:
+#          storeowner = Store.objects.create(owner=owner, **validated_data)
+#       except IntegrityError as e:
+#          # Catch the IntegrityError and customize the error message
+#          if 'duplicate key' in str(e).lower():
+#                raise ValidationError("You already have a store. Only one store per user is allowed.")
+#          else:
+#                raise e
+#       return storeowner
+   
+#    def get_owner(self, value):
+#       if value:
+#          try:
+#             owner = CustomUser.objects.get(is_store_owner=True, id=value)
+#          except CustomUser.DoesNotExist:
+#             raise serializers.ValidationError("User Does Not Exist or Is Not a Store Owner")
+#          return value
+#       if Store.objects.filter(owner=owner).exists:
+#          raise serializers.ValidationError("Sorry you have a store already")
+#       return serializers.ValidationError("Provide User")

@@ -38,6 +38,7 @@ class AssignedOrderSerializer(serializers.ModelSerializer):
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
 
+
    def to_representation(self, instance):
       cache_key = f"Order_Key_{instance.id}"
       cached_data = cache.get(cache_key)
@@ -74,6 +75,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
+   
+   # def create(self)
 
    def to_representation(self, instance):
       cache_key = f"order_id {instance.id}"
@@ -168,7 +171,7 @@ class AssignOrderSerializer(serializers.ModelSerializer):
       representation['rider'] = rider_info
 
       # Retrieve the order information
-      order_info = [{"id": order.id, "owner": f"{order.buyer.first_name} {order.buyer.last_name}", "from": order.store.name} for order in instance.order.all()]  # Use .all() to get the queryset
+      order_info = [{"id": order.id, "owner": f"{order.buyer.first_name} {order.buyer.last_name}", "from": order.store.name} for order in instance.order.all()]
       representation['order'] = order_info
 
       return representation

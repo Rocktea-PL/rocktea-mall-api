@@ -58,7 +58,7 @@ class CartViewSet(viewsets.ViewSet):
 
    def create(self, request):
       user = request.user
-      store = request.data.get("store")
+      store_domain = request.domain_name
       # store_id = request.data.get("store")
       products = request.data.get('products', [])
 
@@ -66,11 +66,10 @@ class CartViewSet(viewsets.ViewSet):
       cart = Cart.objects.filter(user=user, store=store).first()
       if not cart:
          # Get the Store instance using the store_id
-         
-         verified_store = get_object_or_404(Store, id=store)
+         verified_store = get_object_or_404(Store, associated_domain=store_domain)
 
          # Create a new cart if the user doesn't have a cart
-         cart = Cart.objects.create(user=user, store=verified_store)
+         cart = Cart.objects.create(user=user, store=verified_store.id)
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
@@ -87,7 +86,7 @@ class CartViewSet(viewsets.ViewSet):
          if existing_item:
                # If the product variant is already in the cart, update the quantity
                existing_item.quantity += quantity
-               existing_item.price = product_price
+               existing_item.price += product_price
                existing_item.save()
          else:
                # Otherwise, create a new CartItem for the product variant
@@ -225,7 +224,6 @@ class OrderDeliverView(viewsets.ModelViewSet):
    queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
    pagination_class = OrderPagination
-
 
 
 class AssignedOrders(generics.ListAPIView):

@@ -14,7 +14,8 @@ from mall.views import (
         SubCategoryView,
         ProductTypeView,
         WalletView,
-        StoreProductPricing, ServicesBusinessInformationView, CreateLogisticsAccount,
+        # StoreProductPricing, 
+        ServicesBusinessInformationView, CreateLogisticsAccount,
         CreateOperationsAccount
 )
 from mall.custom_view.reportuser import ReportUserView
@@ -67,7 +68,7 @@ router.register('signup/user', TenantSignUp, basename="signup-tenant")
 router.register('products', ProductViewSet, basename='products')
 router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
-router.register('store_pricing', StoreProductPricing, basename='storeprice')
+# router.register('store_pricing', StoreProductPricing, basename='storeprice')
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('order-delivery/confirmation', OrderDeliverView, basename='confirmation')
 
@@ -83,7 +84,7 @@ router.register('business_info', ServicesBusinessInformationView, basename='busi
 router.register('checkout', CheckOutCart, basename='checkout')
 
 # Payments
-router.register('wallet', WalletView, basename='wallets')
+router.register(r'wallet', WalletView, basename='wallets')
 
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')

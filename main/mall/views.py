@@ -37,26 +37,25 @@ from .models import (
 
 from order.models import StoreOrder
 from order.serializers import OrderSerializer
-
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions, viewsets, status, serializers
 from rest_framework.renderers import JSONRenderer
-from rest_framework.parsers import JSONParser
+from rest_framework.parsers import JSONParser, MultiPartParser
+from rest_framework.generics import ListCreateAPIView, ListAPIView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from rest_framework.generics import ListAPIView
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from helpers.views import BaseView
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.views import APIView
 from django.db import transaction
-from rest_framework.generics import ListCreateAPIView, ListAPIView
 from .task import upload_image
-from rest_framework.parsers import MultiPartParser
-from django.shortcuts import get_object_or_404
-import logging
 from django.db.models import Count
 from django.core.cache import cache
-from rest_framework.pagination import PageNumberPagination
-from rest_framework.generics import ListAPIView
+import logging
+from .store_features.get_store_id import get_store_instance
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -66,7 +65,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
-   
+
 
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)
@@ -140,21 +139,52 @@ class ProductVariantView(viewsets.ModelViewSet):
          return ProductVariant.objects.none()
 
 
+class CreateAndGetStoreProductPricing(APIView):
+   def post(self, request):
+      collect = request.data
+      store_id = get_store_instance(request)
+      product_id = collect.get("product")
+      retail_price = collect.get("retail_price")
 
-class StoreProductPricing(viewsets.ModelViewSet):
-   queryset = StoreProductPricing.objects.select_related('product', 'store')
-   serializer_class = StoreProductPricingSerializer
-   # lookup_field = 'store'
+      # Fetch the store and product objects
+      store = Store.objects.get(pk=store_id)
+      product = Product.objects.get(pk=product_id)
+
+      # Check if the product pricing is valid before proceeding
+      self.validate_product_pricing(store, product)
+
+      # Create the StoreProductPricing instance
+      store_product_price = StoreProductPricing.objects.create(
+         store=store,
+         product=product,
+         retail_price=retail_price
+      )
+      store_product_price.save()  # Call the save method
+
+      serializer = StoreProductPricingSerializer(store_product_price)
+      return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
+
+   def validate_product_pricing(self, store, product):
+      existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=None).first()
+      if existing_pricing:
+         raise serializers.ValidationError("Pricing for this product in this store already exists.")
+
+   def get(self, request):
+      # Retrieve all StoreProductPricing instances
+      store_product_prices = StoreProductPricing.objects.all()
+      serializer = StoreProductPricingSerializer(store_product_prices,many=True)
+      return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 
 class StoreProductPricingAPIView(APIView):
-   def get(self, request, store_id):
+   def get(self, request):
       # store_id = request.query_params.get("store")
       try:
          # Retrieve all store prices related to the specified store
          store_prices = StoreProductPricing.objects.filter(
-               store_id=store_id)
-
+               store_id=get_store_instance(request))
+         
          # Serialize the data
          store_prices_serializer = StoreProductPricingSerializer(
                store_prices, many=True)
@@ -165,11 +195,12 @@ class StoreProductPricingAPIView(APIView):
       except Exception as e:
          # Handle exceptions, you might want to log the error or return a different response
          return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+   
 
    def delete(self, request, store_id):
       try:
          # Get the store price to be deleted
-         store_price = StoreProductPricing.objects.get(store_id=store_id, id=request.data.get('store_price_id'))
+         store_price = StoreProductPricing.objects.get(store_id=store_id, id=get_store_instance())
 
          # Delete the store price
          store_price.delete()
@@ -204,11 +235,10 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
 
 
 class UploadProductImage(ListCreateAPIView):
-   # PENDING ERROR (BKLOG-#001): PERMISSIONS NOT WORKING and FILE SIZE VALIDATION NOT INCLUDED
    queryset = ProductImage.objects.all()
    serializer_class = ProductImageSerializer
    parser_classes = (MultiPartParser,)
-   
+
    def perform_create(self, serializer):
       image = self.request.FILES.get('image')
       images = serializer.save()
@@ -220,13 +250,12 @@ class UploadProductImage(ListCreateAPIView):
          task_status = result.status
 
          if task_status == "SUCCESS":
-               return Response({'message': 'Course created successfully.'}, status=status.HTTP_201_CREATED)
+            return Response({'message': 'Course created successfully.'}, status=status.HTTP_201_CREATED)
          elif task_status in ("FAILURE", "REVOKED"):
-               images.delete()
-               return Response({'message': 'Failed to upload video.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            images.delete()
+            return Response({'message': 'Failed to upload video.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
          else:
-               return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
-
+            return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
 
 
@@ -240,9 +269,10 @@ class MarketPlaceView(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # store_id = self.request.user.owners.id
-      store_id = self.request.query_params.get("store")
+      store_domain = self.request.domain_name
+      print(store_domain)
       try:
-         store = get_object_or_404(Store, id=store_id)
+         store = get_object_or_404(Store, associated_domain=store_domain)
          # Filter the queryset based on the specified store and list_product=True
          queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product').order_by("-id")
          # cache.set(cache_key, queryset, timeout=100)
@@ -255,12 +285,12 @@ class MarketPlaceView(viewsets.ModelViewSet):
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
-      store_id = request.query_params.get('store')
-      store = get_object_or_404(Store, id=store_id)
+      store_domain = request.domain_name
+      store = get_object_or_404(Store, associated_domain=store_domain)
 
       # Get Number of Listed Products
       product_count = MarketPlace.objects.filter(
-         store=store, list_product=True).count()
+         store=store.id, list_product=True).count()
 
       # # Get Number of all Orders per store
       order_count = StoreOrder.objects.filter(store=store).count()
@@ -275,6 +305,11 @@ class DropshipperDashboardCounts(APIView):
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
+   
+   # def get_store_id(self, store_id):
+   #    store_domain = request.domain_name
+
+   #    stor
 
 
 # Best Selling Product Data
@@ -332,7 +367,12 @@ class ProductDetails(viewsets.ModelViewSet):
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
-   lookup_field = 'store_id'
+   lookup_field = 'store_id'  # Change the lookup field
+
+   # def get_object(self):
+   #    queryset = self.filter_queryset(self.get_queryset())
+   #    filter_kwargs = {self.lookup_field: self.kwargs[self.lookup_url_kwarg]}
+   #    return get_object_or_404(queryset, **filter_kwargs) 
 
 
 class ServicesBusinessInformationView(viewsets.ModelViewSet):
