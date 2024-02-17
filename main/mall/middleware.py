@@ -10,7 +10,9 @@ class DomainNameMiddleware:
 
     def __call__(self, request):
         # Extracting the domain name from the request
-        domain_name = request.META.get('HTTP_ORIGIN', None)
+        domain_name = "127.0.0.1"
+        # request.META.get('HTTP_ORIGIN', None)
+        print("DD" + str(domain_name))
 
         validated_domain_name = self._validate_domain_name(
             domain_name, request)
@@ -27,6 +29,7 @@ class DomainNameMiddleware:
         Verify that the user logged into that account is the owner of the account by matching the Store Domain name to the Registered Store Owner.
         """
         user_id = request.COOKIES.get('user_id')
+        store_id = request.COOKIES.get('StoreId')
 
         if user_id is None:
             # Return None or some default value to indicate that user_id is not found
@@ -39,10 +42,12 @@ class DomainNameMiddleware:
 
         if verified_user.is_store_owner:
             try:
-                store = Store.objects.get(owner=verified_user, domain_name=domain_name)
+                store = Store.objects.get(owner=verified_user, id=store_id)
             except Store.DoesNotExist:
                 raise serializers.ValidationError("This User Does Not Own this Store")
-            return domain_name
+            # print(store.id)
+            return store.id
+            
 
         elif verified_user.is_consumer:
             return self.get_consumer_associated_domain(domain_name, verified_user, request)
