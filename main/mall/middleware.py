@@ -26,26 +26,22 @@ class DomainNameMiddleware:
         """
         Verify that the user logged into that account is the owner of the account by matching the Store Domain name to the Registered Store Owner.
         """
-        user_id = request.COOKIES.get('user_id', None)
+        user_id = request.COOKIES.get('user_id')
 
         if user_id is None:
-            raise serializers.ValidationError("User ID not found in cookies")
+            # Return None or some default value to indicate that user_id is not found
+            return None
 
         try:
             verified_user = get_object_or_404(CustomUser, id=user_id)
         except ObjectDoesNotExist:
-            raise serializers.ValidationError(
-                "Sorry, This User does not exist!")
-            
-        # print(verified_user.is_store_owner)
+            raise serializers.ValidationError("Sorry, This User does not exist!")
 
         if verified_user.is_store_owner:
             try:
-                store = Store.objects.get(
-                    owner=verified_user, domain_name=domain_name)
+                store = Store.objects.get(owner=verified_user, domain_name=domain_name)
             except Store.DoesNotExist:
-                raise serializers.ValidationError(
-                    "This User Does Not Own this Store")
+                raise serializers.ValidationError("This User Does Not Own this Store")
             return domain_name
 
         elif verified_user.is_consumer:

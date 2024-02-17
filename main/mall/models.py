@@ -137,7 +137,6 @@ class Store(models.Model):
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
    domain_name = models.CharField(max_length=100, null=True, unique=True)
    
-   temp_id = models.CharField(max_length=10, unique=True, null=True)
    completed = models.BooleanField(default=False)
    
    # Custom Add-Ons

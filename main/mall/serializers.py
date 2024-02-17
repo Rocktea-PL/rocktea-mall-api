@@ -164,6 +164,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          data['user_data']['theme'] = self.user.owners.theme
          data['user_data']['category'] = self.user.owners.category.id
          data['user_data']['domain_name'] = getattr(self.user.owners, 'domain_name', None)
+         data['user_data']['completed'] = self.user.owners.completed
 
       if data['user_data']['is_services']:
          data['user_data']['type'] = self.user.type
