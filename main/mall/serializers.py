@@ -219,11 +219,11 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    def create(self, validated_data):
       owner = self.context['request'].user
-      host_domain = self.context['request'].domain_name
+      # host_domain = self.context['request'].domain_name
 
       try:
          storeowner = Store.objects.create(owner=owner, **validated_data)
-         storeowner.domain_name = host_domain
+         # storeowner.domain_name = host_domain
          storeowner.save()
       except IntegrityError as e:
          # Catch the IntegrityError and customize the error message
