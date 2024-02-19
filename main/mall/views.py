@@ -67,6 +67,17 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
 
+   def get_queryset(self):
+      # Get the user_id from cookies
+      user_id = self.request.COOKIES.get('user_id')
+
+      # If user_id is present in cookies, filter the queryset by it
+      if user_id:
+            queryset = CustomUser.objects.filter(id=user_id)
+      else:
+         # If user_id is not present, return an empty queryset or handle it as per your requirement
+         queryset = CustomUser.objects.none()
+      return queryset
 
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)

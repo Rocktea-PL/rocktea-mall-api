@@ -10,9 +10,7 @@ class DomainNameMiddleware:
 
     def __call__(self, request):
         # Extracting the domain name from the request
-        domain_name = "127.0.0.1"
-        # request.META.get('HTTP_ORIGIN', None)
-        print("DD" + str(domain_name))
+        domain_name = request.META.get('HTTP_ORIGIN', None)
 
         validated_domain_name = self._validate_domain_name(
             domain_name, request)

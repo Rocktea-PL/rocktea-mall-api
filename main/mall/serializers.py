@@ -1,8 +1,7 @@
 from rest_framework.serializers import (
    ModelSerializer, 
    PrimaryKeyRelatedField, 
-   ReadOnlyField, 
-   # ValidationError
+   ReadOnlyField,
    )
 
 from workshop.exceptions import (
@@ -416,7 +415,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          # Create a new Marketplace instance if it doesn't exist
          instance = MarketPlace.objects.create(**validated_data, list_product=True)
          return instance
-      
+
    def get_store_instance(self):
       """ Use Store Domain Name to get the Store instance"""
       store_domain = self.context['request'].domain_name
@@ -433,7 +432,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       
       if cached_data is not None:
          return cached_data
-      
+
       representation = super().to_representation(instance)
 
       # Assuming `store` is a related field
