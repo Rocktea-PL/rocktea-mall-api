@@ -8,7 +8,7 @@ from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
-from django.db.models.signals import post_save
+
 # from services.models import ServicesCategory
 
 def generate_unique_code():

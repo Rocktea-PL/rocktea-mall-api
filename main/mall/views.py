@@ -32,7 +32,8 @@ from .models import (
    SubCategories, 
    Wallet, 
    ServicesBusinessInformation, 
-   StoreProductPricing
+   StoreProductPricing,
+   Wallet
 )
 
 from order.models import StoreOrder
@@ -142,12 +143,12 @@ class ProductVariantView(viewsets.ModelViewSet):
 class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
       collect = request.data
-      store_id = get_store_instance(request)
+      store_id = request.domain_name
       product_id = collect.get("product")
       retail_price = collect.get("retail_price")
 
       # Fetch the store and product objects
-      store = Store.objects.get(pk=store_id)
+      store = get_object_or_404(Store, id=store_id)
       product = Product.objects.get(pk=product_id)
 
       # Check if the product pricing is valid before proceeding
