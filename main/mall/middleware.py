@@ -14,6 +14,7 @@ class DomainNameMiddleware:
 
         validated_domain_name = self._validate_domain_name(
             domain_name, request)
+        
 
         # Storing the domain name in request object for further use
         request.domain_name = validated_domain_name
@@ -28,6 +29,10 @@ class DomainNameMiddleware:
         """
         user_id = request.COOKIES.get('user_id')
         store_id = request.COOKIES.get('storeId')
+        
+        print(store_id)
+        print(user_id)
+        
 
         if user_id is None:
             # Return None or some default value to indicate that user_id is not found

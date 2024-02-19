@@ -317,11 +317,6 @@ class DropshipperDashboardCounts(APIView):
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
-   
-   # def get_store_id(self, store_id):
-   #    store_domain = request.domain_name
-
-   #    stor
 
 
 # Best Selling Product Data
