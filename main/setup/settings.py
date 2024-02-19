@@ -129,9 +129,18 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall-api-test.up.railway.app",
     "http://localhost:5174",
     "http://localhost:5173",
+    "https://rocktea-dropshippers.vercel.app"
 ]
 
 CSRF_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
+SESSION_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
+
+# Secure and HttpOnly Cookie Settings
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_HTTPONLY = True
+
 
 CORS_ALLOW_CREDENTIALS: True
 
