@@ -27,7 +27,7 @@ class DomainNameMiddleware:
         Verify that the user logged into that account is the owner of the account by matching the Store Domain name to the Registered Store Owner.
         """
         user_id = request.COOKIES.get('user_id')
-        store_id = request.COOKIES.get('StoreId')
+        store_id = request.COOKIES.get('storeId')
 
         if user_id is None:
             # Return None or some default value to indicate that user_id is not found
