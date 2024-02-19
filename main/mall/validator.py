@@ -1,4 +1,4 @@
-from django.core.exceptions import ValidationError
+from workshop.exceptions import ValidationError
 import datetime
 
 class YearValidator:

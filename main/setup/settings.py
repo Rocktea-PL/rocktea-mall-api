@@ -48,7 +48,10 @@ INSTALLED_APPS = [
     # Security
     "corsheaders",
     "order",
-    "services"
+    "services",
+    
+    # API Documentation
+    'drf_yasg',
 ]
 
 MIDDLEWARE = [
@@ -58,10 +61,10 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'mall.middleware.StoreMiddleware',
+    # 'mall.middleware.StoreMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'mall.middleware.DomainMiddleware',
+    'mall.middleware.DomainNameMiddleware',
 ]
 
 ROOT_URLCONF = 'setup.urls'
@@ -107,7 +110,6 @@ DATABASES = {
         'HOST': env('DB_HOST'),
         'PORT': env('DB_PORT'),
     },
-    
 }
 
 # CORS_ALLOWED_ORIGINS = [
@@ -156,8 +158,7 @@ CORS_ALLOW_HEADERS = [
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
-
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+DEFAULT_FILE_STORAGE = 'storages.backends.cloudinary.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
@@ -261,3 +262,7 @@ TEST_SECRET_KEY = env("TEST_SECRET_KEY")
 # Celery settings
 
 
+# SWAGGER
+# SWAGGER_SETTINGS = {
+#     'DEFAULT_INFO': os.path.join(BASE_DIR, 'setup/urls.py'),
+# }

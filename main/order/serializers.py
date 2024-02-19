@@ -1,5 +1,5 @@
 from rest_framework import serializers, status
-from .models import OrderItems, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation, StoreOrder
+from .models import OrderItems, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation, StoreOrder, AssignOrder
 from mall.models import CustomUser, Store, Product
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 import logging
 from datetime import datetime
+from django.core.cache import cache
 
 
 class OrderItemsSerializer(serializers.ModelSerializer):
@@ -21,7 +22,7 @@ class OrderItemsSerializer(serializers.ModelSerializer):
       return representation
 
 
-class OrderSerializer(serializers.ModelSerializer):
+class AssignedOrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
    order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
@@ -37,13 +38,75 @@ class OrderSerializer(serializers.ModelSerializer):
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
 
+
    def to_representation(self, instance):
+      cache_key = f"Order_Key_{instance.id}"
+      cached_data = cache.get(cache_key)
+      
+      if cached_data is not None:
+         return cached_data
+      
+      representation = super(AssignedOrderSerializer, self).to_representation(instance)
+      representation['total_price'] = '{:,.2f}'.format(instance.total_price)
+      order_items = OrderItemsSerializer(instance.items.all(), many=True).data
+      representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
+      representation['store'] = instance.store.name
+      
+      cache.set(cache_key, representation, timeout=60 * 3)
+      return representation
+
+
+class OrderSerializer(serializers.ModelSerializer):
+   buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
+   total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
+   order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
+   created_at = serializers.SerializerMethodField()
+   order_id = serializers.CharField(max_length=5, read_only=True)
+   status = serializers.CharField(max_length=9, read_only=True)
+   delivery_code = serializers.CharField(max_length=5, read_only=True)
+
+   # Logistics
+   rider_assigned = serializers.CharField(max_length=32, read_only=True)
+
+   class Meta:
+      model = StoreOrder
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status']
+      read_only_fields = ['order_items', 'order_id', 'status']
+
+   def get_created_at(self, obj):
+      return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
+   
+   # def create(self)
+
+   def to_representation(self, instance):
+      cache_key = f"order_id {instance.id}"
+      cached_data = cache.get(cache_key)
+      
+      if cached_data is not None:
+         return cached_data
+      
       representation = super(OrderSerializer, self).to_representation(instance)
       representation['total_price'] = '{:,.2f}'.format(instance.total_price)
       order_items = OrderItemsSerializer(instance.items.all(), many=True).data
-      representation['buyer'] = f"{instance.buyer.first_name} {instance.buyer.last_name}"
+      representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
       representation['store'] = instance.store.name
+      representation['rider_assigned'] = self.get_assigned_rider(instance.id)
+      cache.set(cache_key, representation, timeout=60*2)
+      
       return representation
+
+   def get_assigned_rider(self, storeorder_id):
+      try:
+         storeorders = AssignOrder.objects.filter(order=storeorder_id)
+      except AssignOrder.DoesNotExist:
+         return None
+
+      if storeorders.exists():
+         # Choose the first assigned rider or implement your own logic
+         return {"full_name": f"{storeorders.first().rider.first_name} {storeorders.first().rider.last_name}",
+               "profile_image": storeorders.first().rider.profile_image.url}
+      else:
+         return None
 
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -73,23 +136,43 @@ class CartSerializer(serializers.ModelSerializer):
 class OrderDeliverySerializer(serializers.ModelSerializer):
    class Meta:
       model = OrderDeliveryConfirmation
-      fields = ['id', 'storeorder', 'code']
+      fields = ['id', 'userorder', 'code']
       
-   # storeorder = serializers.PrimaryKeyRelatedField(queryset=StoreOrder.objects.all(), source='storeorder.id')
-   def validate(self, data):
-      store_order = data['storeorder']
-      confirmation_code = data['code']
 
-      try:
-         confirmation = OrderDeliveryConfirmation.objects.get(
-               storeorder=store_order, code=confirmation_code)
-      except OrderDeliveryConfirmation.DoesNotExist:
-         raise serializers.ValidationError("Invalid Delivery Code")
 
-      if confirmation.storeorder.delivery_code == confirmation.code:
-         confirmation.storeorder.status = "Delivered"
-         confirmation.storeorder.save()
-      else:
-         raise serializers.ValidationError("Invalid Delivery Code")
+class AssignOrderSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = AssignOrder
+      fields = ['id', 'order', 'rider']
 
-      return data
+   # def validate(self, data):
+   #    orders = data.get('order')
+   #    rider = data.get('rider')
+
+      # return data
+   def create(self, validated_data):
+      orders_data = validated_data.pop('order')
+      assign_order = AssignOrder.objects.create(**validated_data)
+
+      for order in orders_data:
+         assign_order.order.add(order)
+
+      return assign_order
+   
+   def to_representation(self, instance):
+      representation = super(AssignOrderSerializer, self).to_representation(instance)
+
+      # Retrieve the rider information
+      rider_info = {
+         "name": f"{instance.rider.first_name} {instance.rider.last_name}",
+         "profile_image": instance.rider.profile_image.url,
+         "email": instance.rider.email
+      }
+      representation['rider'] = rider_info
+
+      # Retrieve the order information
+      order_info = [{"id": order.id, "owner": f"{order.buyer.first_name} {order.buyer.last_name}", "from": order.store.name} for order in instance.order.all()]
+      representation['order'] = order_info
+
+      return representation
+

@@ -1,5 +1,13 @@
-from django.urls import path
-from .views import SignInUserView, UploadProductImage, DropshipperDashboardCounts, StoreOrdersViewSet, BestSellingProductView, StoreProductPricingAPIView
+from django.urls import path, re_path
+from .views import (
+    SignInUserView, 
+    UploadProductImage, 
+    DropshipperDashboardCounts, 
+    StoreOrdersViewSet, 
+    BestSellingProductView, 
+    StoreProductPricingAPIView, 
+    CreateAndGetStoreProductPricing
+    )
 from .payments import OTP
 from mall.store_features.product import GetVariantAndPricing
 
@@ -12,5 +20,7 @@ urlpatterns = [
     path('store_order', StoreOrdersViewSet.as_view(), name="store"),
     path('best_selling', BestSellingProductView.as_view(), name="best_selling"),
     path('variant-pricing/<str:product_id>', GetVariantAndPricing.as_view(), name="pricing"),
-    path('store-prices/<int:store_id>/', StoreProductPricingAPIView.as_view(), name='store-product-prices'),
+    path('store-prices/', StoreProductPricingAPIView.as_view(), name='store-product-prices'),
+    path('store_pricing/', CreateAndGetStoreProductPricing.as_view(),
+            name='store-price'),
 ]

@@ -8,8 +8,7 @@ from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
-from django.db.models.signals import post_save
-from django.dispatch import receiver
+
 # from services.models import ServicesCategory
 
 def generate_unique_code():
@@ -55,6 +54,8 @@ class CustomUser(AbstractUser):
    contact = PhoneNumberField()
    is_store_owner = models.BooleanField(default=False)
    is_consumer = models.BooleanField(default=False)
+   is_logistics = models.BooleanField(default=False)
+   is_operations = models.BooleanField(default=False)
    password = models.CharField(max_length=200)
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
@@ -133,7 +134,11 @@ class Store(models.Model):
    cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
-   associated_domain = models.CharField(max_length=15, null=True)
+   domain_name = models.CharField(max_length=100, null=True, unique=True)
+   
+   completed = models.BooleanField(default=False)
+   
+   # Custom Add-Ons
    theme = models.CharField(max_length=6, null=True)
    facebook = models.URLField(null=True)
    whatsapp = models.URLField(null=True)
@@ -150,11 +155,6 @@ class Store(models.Model):
 
    def __str__(self):
       return self.name
-
-@receiver(post_save, sender=Store)
-def create_wallet(sender, instance, created, **kwargs):
-   if created:
-      Wallet.objects.get_or_create(store=instance)
 
 
 class Product(models.Model):
@@ -257,7 +257,7 @@ class StoreProductPricing(models.Model):
    retail_price = models.DecimalField(max_digits=11, decimal_places=2)
 
    def __str__(self):
-      return f"{self.product_variant} - {self.store} - ${self.retail_price}"
+      return f"{self.store} - ${self.retail_price}"
 
 
 class Category(models.Model):

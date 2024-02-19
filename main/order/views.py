@@ -1,11 +1,34 @@
+
+from .models import (
+   OrderItems, 
+   Store, 
+   CustomUser, 
+   Cart, 
+   CartItem, 
+   StoreOrder, 
+   OrderDeliveryConfirmation,
+   AssignOrder
+   )
+
+from mall.models import (
+   Product, 
+   ProductVariant, 
+   CustomUser, 
+   StoreProductPricing
+   )
+
+from .serializers import (
+   OrderItemsSerializer, 
+   CartSerializer, 
+   CartItemSerializer, 
+   OrderSerializer, 
+   OrderDeliverySerializer,
+   AssignedOrderSerializer
+   )
+
 from django.http import Http404, JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from .models import OrderItems, Store, CustomUser, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation
-
-from mall.models import Product, ProductVariant, CustomUser, StoreProductPricing
-from .serializers import OrderItemsSerializer, CartSerializer, CartItemSerializer, OrderSerializer, OrderDeliverySerializer
-
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
@@ -14,7 +37,15 @@ from rest_framework import serializers, status
 import logging
 from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
-from rest_framework import viewsets
+from rest_framework import viewsets, generics
+from rest_framework.pagination import PageNumberPagination
+
+
+class OrderPagination(PageNumberPagination):
+   page_size = 5
+   page_size_query_param = 'page_size'
+   max_page_size = 1000
+
 
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
@@ -26,20 +57,19 @@ class CartViewSet(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
 
    def create(self, request):
-      user = request.query_params.get("user")
-      store = request.data.get("store")
-      # store_id = request.data.get("store")
+      user = request.user
+      store_domain = request.domain_name
+      verified_store = get_object_or_404(Store, id=store_domain)
       products = request.data.get('products', [])
 
       # Check if the user already has a cart
-      cart = Cart.objects.filter(user=user, store=store).first()
+      cart = Cart.objects.filter(user=user, store=verified_store).first()
       if not cart:
          # Get the Store instance using the store_id
-         
-         verified_store = get_object_or_404(Store, id=store)
 
          # Create a new cart if the user doesn't have a cart
          cart = Cart.objects.create(user=user, store=verified_store)
+         
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
@@ -56,7 +86,7 @@ class CartViewSet(viewsets.ViewSet):
          if existing_item:
                # If the product variant is already in the cart, update the quantity
                existing_item.quantity += quantity
-               existing_item.price = product_price
+               existing_item.price += product_price
                existing_item.save()
          else:
                # Otherwise, create a new CartItem for the product variant
@@ -70,10 +100,11 @@ class CartViewSet(viewsets.ViewSet):
       
       
    def list(self, request):
-      user = self.request.user.id
+      user = request.user
       queryset = Cart.objects.filter(user=user).select_related("user", "store")
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
+
 
    def delete(self, request):
       cart_id = self.request.query_params.get("id")
@@ -99,7 +130,7 @@ class CheckOutCart(viewsets.ViewSet):
    def create(self, request):
       # Collect Data
       user = request.user
-      store_id = request.data.get("store")
+      store_id = request.domain_name
       total_price = request.data.get("total_price")
 
       # Validate that required fields are present
@@ -174,6 +205,43 @@ class ViewOrders(viewsets.ViewSet):
       return Response(serializer.data)
 
 
+class CustomPagination(PageNumberPagination):
+   page_size = 10  # Set the number of items per page
+   page_size_query_param = 'page_size'
+   max_page_size = 1000
+
+
+class AllOrders(viewsets.ModelViewSet):
+   serializer_class = OrderSerializer
+   pagination_class = CustomPagination
+
+   def get_queryset(self):
+      queryset = StoreOrder.objects.all().select_related("buyer", "store").order_by("-created_at")
+      return queryset
+
+
 class OrderDeliverView(viewsets.ModelViewSet):
    queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
+   pagination_class = OrderPagination
+
+
+class AssignedOrders(generics.ListAPIView):
+   serializer_class = AssignedOrderSerializer
+   pagination_class = CustomPagination
+
+   def list(self, request, **kwargs):
+      rider_id = kwargs.get("rider")  # Replace with the actual rider's ID
+
+      # Assuming you have an instance of the CustomUser model for the given rider_id
+      rider_user = CustomUser.objects.get(id=rider_id)
+
+      # Query AssignOrder to get all orders associated with the rider
+      assigned_orders = AssignOrder.objects.filter(rider=rider_user)
+
+      # Now, you can access the related StoreOrder instances
+      all_orders_for_rider = StoreOrder.objects.filter(
+         assignorder__in=assigned_orders).order_by('-created_at')
+
+      serializer = self.get_serializer(all_orders_for_rider, many=True)
+      return Response({"orders": serializer.data}, status=status.HTTP_200_OK)
