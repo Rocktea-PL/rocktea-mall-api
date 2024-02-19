@@ -23,6 +23,8 @@ class StoreOrder(models.Model):
    status = models.CharField(max_length=9, choices=STATUS_CHOICES, default="Pending", null=True)
    order_sn = models.CharField(max_length=5, unique=True, null=True)
    delivery_code = models.CharField(max_length=5, null=True, unique=True)
+   delivery_location = models.CharField(max_length=200, null=True)
+   state = models.ForeignKey('State', on_delete=models.CASCADE, null=True)
    
    def save(self, *args, **kwargs):
       if not self.order_sn:
@@ -32,6 +34,66 @@ class StoreOrder(models.Model):
       if not self.delivery_code:
          self.delivery_code = "".join(rand.choices(string.ascii_uppercase + string.digits, k=5))
       return super(StoreOrder, self).save(*args, **kwargs)
+
+
+class PaymentHistory(models.Model):
+   store = models.ForeignKey(Store, on_delete=models.CASCADE)
+   order = models.ForeignKey(StoreOrder, on_delete=models.CASCADE)
+   amount = models.DecimalField(max_digits=11, decimal_places=2)
+   payment_date = models.DateTimeField(auto_now_add=True)
+
+   def __str__(self):
+      return self.order.sn
+
+
+class State(models.Model):
+   STATE_CHOICES = (
+      ('Abia', 'Abia'),
+      ('Adamawa', 'Adamawa'),
+      ('Akwa Ibom', 'Akwa Ibom'),
+      ('Anambra', 'Anambra'),
+      ('Bauchi', 'Bauchi'),
+      ('Bayelsa', 'Bayelsa'),
+      ('Benue', 'Benue'),
+      ('Borno', 'Borno'),
+      ('Cross River', 'Cross River'),
+      ('Delta', 'Delta'),
+      ('Ebonyi', 'Ebonyi'),
+      ('Edo', 'Edo'),
+      ('Ekiti', 'Ekiti'),
+      ('Enugu', 'Enugu'),
+      ('FCT (Abuja)', 'FCT (Abuja)'),
+      ('Gombe', 'Gombe'),
+      ('Imo', 'Imo'),
+      ('Jigawa', 'Jigawa'),
+      ('Kaduna', 'Kaduna'),
+      ('Kano', 'Kano'),
+      ('Katsina', 'Katsina'),
+      ('Kebbi', 'Kebbi'),
+      ('Kogi', 'Kogi'),
+      ('Kwara', 'Kwara'),
+      ('Lagos', 'Lagos'),
+      ('Nasarawa', 'Nasarawa'),
+      ('Niger', 'Niger'),
+      ('Ogun', 'Ogun'),
+      ('Ondo', 'Ondo'),
+      ('Osun', 'Osun'),
+      ('Oyo', 'Oyo'),
+      ('Plateau', 'Plateau'),
+      ('Rivers', 'Rivers'),
+      ('Sokoto', 'Sokoto'),
+      ('Taraba', 'Taraba'),
+      ('Yobe', 'Yobe'),
+      ('Zamfara', 'Zamfara')
+   )
+   
+   state = models.CharField(choices=STATE_CHOICES, max_length=11)
+   delivery_fee = models.DecimalField(max_digits=11, decimal_places=2, default=1500.00)
+   zip_code = models.BigIntegerField()
+   
+   def __str__(self):
+      return self.state
+
 
 
 class AssignOrder(models.Model):

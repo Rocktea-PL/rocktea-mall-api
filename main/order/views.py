@@ -59,17 +59,17 @@ class CartViewSet(viewsets.ViewSet):
    def create(self, request):
       user = request.user
       store_domain = request.domain_name
-      # store_id = request.data.get("store")
+      verified_store = get_object_or_404(Store, id=store_domain)
       products = request.data.get('products', [])
 
       # Check if the user already has a cart
-      cart = Cart.objects.filter(user=user, store=store).first()
+      cart = Cart.objects.filter(user=user, store=verified_store).first()
       if not cart:
          # Get the Store instance using the store_id
-         verified_store = get_object_or_404(Store, associated_domain=store_domain)
 
          # Create a new cart if the user doesn't have a cart
-         cart = Cart.objects.create(user=user, store=verified_store.id)
+         cart = Cart.objects.create(user=user, store=verified_store)
+         
       for product in products:
          product_id = product.get('id')
          quantity = product.get('quantity', 1)
@@ -130,7 +130,7 @@ class CheckOutCart(viewsets.ViewSet):
    def create(self, request):
       # Collect Data
       user = request.user
-      store_id = request.data.get("store")
+      store_id = request.domain_name
       total_price = request.data.get("total_price")
 
       # Validate that required fields are present

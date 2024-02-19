@@ -2,7 +2,13 @@ from rest_framework.serializers import (
    ModelSerializer, 
    PrimaryKeyRelatedField, 
    ReadOnlyField, 
-   ValidationError
+   # ValidationError
+   )
+
+from workshop.exceptions import (
+   ValidationError, 
+   AuthenticationFailedError, 
+   NotFoundError
    )
 
 from .models import (
@@ -129,7 +135,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       try:
          user = CustomUser.objects.get(Q(is_store_owner=True) | Q(is_logistics=True) and Q(id=user_id))
       except CustomUser.DoesNotExist:
-         raise serializers.ValidationError("User Does Not Exist")
+         raise ValidationError("User Does Not Exist")
 
       try:
          store = Store.objects.get(owner=user)
@@ -188,7 +194,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    def validate_TIN_number(self, value):
       if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
-         raise serializers.ValidationError("Invalid TIN number. It should be 9 characters long.")
+         raise ValidationError("Invalid TIN number. It should be 9 characters long.")
       return value
 
    def validate_logo(self, value):
@@ -196,7 +202,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       if value:
          file_extension = value.name.split('.')[-1].lower()
          if file_extension not in ['png']:
-               raise serializers.ValidationError("Invalid Image format. Only PNG is allowed.")
+               raise ValidationError("Invalid Image format. Only PNG is allowed.")
       return value
       
    def validate_owner(self, value):
@@ -206,7 +212,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       try:
          user = CustomUser.objects.get(is_store_owner=True, id=value)
       except CustomUser.DoesNotExist:
-         raise serializers.ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
+         raise ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
       return value
    
    def update(self, instance, validated_data):
@@ -219,30 +225,27 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    def create(self, validated_data):
       owner = self.context['request'].user
-      # host_domain = self.context['request'].domain_name
 
       try:
-         storeowner = Store.objects.create(owner=owner, **validated_data)
-         # storeowner.domain_name = host_domain
-         storeowner.save()
+            store = Store.objects.create(owner=owner, **validated_data)
       except IntegrityError as e:
-         # Catch the IntegrityError and customize the error message
          if 'duplicate key' in str(e).lower():
-               raise ValidationError("You already have a store. Only one store per user is allowed.")
+               raise ValidationError("You already have a store, Only one store per user is allowed.")
          else:
-               raise e
-      return storeowner
+               raise NotFoundError("An error occurred while creating the store. Please try again later.")
+
+      return store
    
    def get_owner(self, value):
       if value:
          try:
             owner = CustomUser.objects.get(is_store_owner=True, id=value)
          except CustomUser.DoesNotExist:
-            raise serializers.ValidationError("User Does Not Exist or Is Not a Store Owner")
+            raise ValidationError("User Does Not Exist or Is Not a Store Owner")
          return value
       if Store.objects.filter(owner=owner).exists:
-         raise serializers.ValidationError("Sorry you have a store already")
-      return serializers.ValidationError("Provide User")
+         raise ValidationError("Sorry you have a store already")
+      return ValidationError("Provide User")
 
 
 class BrandSerializer(serializers.ModelSerializer):
@@ -420,7 +423,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       try:
          store = Store.objects.get(domain_name=store_domain)
       except Store.DoesNotExist:
-         raise serializers.ValidationError("Store Does Not Exist")
+         raise ValidationError("Store Does Not Exist")
       return store
 
    # Assuming `product` is a related field
@@ -538,74 +541,3 @@ class ReportUserSerializer(serializers.ModelSerializer):
          "full_name": f"{instance.user.first_name} {instance.user.last_name}",
       }
       return representation
-   
-   
-   
-   
-   
-# LAST RESORT
-# class CreateStoreSerializer(serializers.ModelSerializer):
-#    TIN_number = serializers.IntegerField(required=False)
-#    logo = serializers.FileField(required=False)
-#    year_of_establishment = serializers.DateField(required=False)
-
-#    class Meta:
-#       model = Store
-#       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "associated_domain", "theme","facebook", "whatsapp", "twitter", "instagram")
-
-#       read_only_fields = ("owner",)
-
-#    def validate_TIN_number(self, value):
-#       if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
-#          raise serializers.ValidationError("Invalid TIN number. It should be 9 characters long.")
-#       return value
-
-#    def validate_logo(self, value):
-#       # check the file extension
-#       if value:
-#          file_extension = value.name.split('.')[-1].lower()
-#          if file_extension not in ['png']:
-#                raise serializers.ValidationError("Invalid Image format. Only PNG is allowed.")
-#       return value
-      
-#    def validate_owner(self, value):
-#       if value is None:
-#          return value  # If owner is None, no validation is needed
-
-#       try:
-#          user = CustomUser.objects.get(is_store_owner=True, id=value)
-#       except CustomUser.DoesNotExist:
-#          raise serializers.ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
-#       return value
-   
-#    def update(self, instance, validated_data):
-#       for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "facebook", "whatsapp", "twitter", "instagram"]:
-#          setattr(instance, field, validated_data.get(
-#             field, getattr(instance, field)))
-
-#       instance.save()  # Move this outside the loop to save the instance after updating all fields
-#       return instance
-
-      
-#    def create(self, validated_data):
-#       owner = self.context['request'].user
-#       try:
-#          storeowner = Store.objects.create(owner=owner, **validated_data)
-#       except IntegrityError as e:
-#          # Catch the IntegrityError and customize the error message
-#          if 'duplicate key' in str(e).lower():
-#                raise ValidationError("You already have a store. Only one store per user is allowed.")
-#          else:
-#                raise e
-#       return storeowner
-   
-#    def get_owner(self, value):
-#       if value:
-#          try:
-#             owner = CustomUser.objects.get(is_store_owner=True, id=value)
-#          except CustomUser.DoesNotExist:
-#             raise serializers.ValidationError("User Does Not Exist or Is Not a Store Owner")
-#          return value
-#       if Store.objects.filter(owner=owner).exists:
-#          raise serializers.ValidationError("Sorry you have a store already")
-#       return serializers.ValidationError("Provide User")

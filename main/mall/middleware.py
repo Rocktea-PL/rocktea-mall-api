@@ -62,3 +62,4 @@ class DomainNameMiddleware:
             store = CustomUser.objects.filter(id=user_id, domain_name=domain_name).first()
         except ObjectDoesNotExist:
             raise serializers.ValidationError("Store or User Does Not Exist")
+        return store.id

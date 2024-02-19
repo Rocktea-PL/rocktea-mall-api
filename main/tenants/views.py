@@ -7,7 +7,7 @@ from rest_framework.renderers import JSONRenderer
 
 # Create your views here.
 class TenantSignUp(viewsets.ModelViewSet):
-   queryset = CustomUser.objects.all()
+   queryset = CustomUser.objects.filter(is_consumer=True)
    serializer_class = StoreUserSignUp
    renderer_classes = [JSONRenderer]
 
