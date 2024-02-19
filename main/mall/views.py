@@ -282,9 +282,9 @@ class MarketPlaceView(viewsets.ModelViewSet):
    def get_queryset(self):
       # store_id = self.request.user.owners.id
       store_domain = self.request.domain_name
-      print(store_domain)
+      # print(store_domain)
       try:
-         store = get_object_or_404(Store, do=store_domain)
+         store = get_object_or_404(Store, id=store_domain)
          # Filter the queryset based on the specified store and list_product=True
          queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product').order_by("-id")
          # cache.set(cache_key, queryset, timeout=100)

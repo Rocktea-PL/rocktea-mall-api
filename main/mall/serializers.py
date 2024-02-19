@@ -420,7 +420,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       """ Use Store Domain Name to get the Store instance"""
       store_domain = self.context['request'].domain_name
       try:
-         store = Store.objects.get(domain_name=store_domain)
+         store = Store.objects.get(id=store_domain)
       except Store.DoesNotExist:
          raise ValidationError("Store Does Not Exist")
       return store
