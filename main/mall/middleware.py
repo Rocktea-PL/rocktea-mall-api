@@ -27,8 +27,8 @@ class DomainNameMiddleware:
         """
         Verify that the user logged into that account is the owner of the account by matching the Store Domain name to the Registered Store Owner.
         """
-        user_id = request.COOKIES.get('user_id')
-        store_id = request.COOKIES.get('storeId')
+        user_id = request.GET.get("mallcli")
+        store_id = request.GET.get("mall")
         
         print(store_id)
         print(user_id)

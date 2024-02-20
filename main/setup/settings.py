@@ -112,16 +112,6 @@ DATABASES = {
     },
 }
 
-# CORS_ALLOWED_ORIGINS = [
-#     "http://127.0.0.1:8000",
-#     "http://localhost:5173",
-#     "http://localhost:5174",
-#     "https://rocktea-mall.vercel.app",
-#     "https://rocktea-mall-api-test.up.railway.app",
-#     "https://rocktea-mall-git-test-rockteamall.vercel.app",
-#     "https://rocktea-mall-product.vercel.app"
-# ]
-
 CORS_ALLOW_ALL_ORIGINS=True
 
 CSRF_TRUSTED_ORIGINS = [
@@ -132,26 +122,19 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-dropshippers.vercel.app"
 ]
 
-CSRF_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
-SESSION_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
+# CSRF_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
+# SESSION_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
 
-# Secure and HttpOnly Cookie Settings
-# CSRF_COOKIE_SECURE = True
-# SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_HTTPONLY = False
-SESSION_COOKIE_HTTPONLY = False
+# CSRF_COOKIE_HTTPONLY = False
+# SESSION_COOKIE_HTTPONLY = False
 
-# SESSION_COOKIE_SAMESITE = 'None'
-# CSRF_COOKIE_SAMESITE = 'None'
-# CSRF_COOKIE_SECURE = True
+# CORS_ALLOW_CREDENTIALS: True
 
-CORS_ALLOW_CREDENTIALS: True
-
-CSRF_USE_SESSIONS = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_SAMESITE = None
-SESSION_COOKIE_SAMESITE = None
+# CSRF_USE_SESSIONS = False
+# SESSION_COOKIE_SECURE = False
+# CSRF_COOKIE_SECURE = False
+# CSRF_COOKIE_SAMESITE = None
+# SESSION_COOKIE_SAMESITE = None
 
 CORS_ALLOW_METHODS = [
     "DELETE",
