@@ -14,7 +14,6 @@ class TenantSignUp(viewsets.ModelViewSet):
    renderer_classes = [JSONRenderer]
 
 
-
 class LoginStoreUser(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
    serializer_class = UserLogin
