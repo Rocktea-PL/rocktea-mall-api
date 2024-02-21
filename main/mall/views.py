@@ -332,8 +332,8 @@ class StoreOrdersViewSet(ListAPIView):
    serializer_class = OrderSerializer
 
    def get_queryset(self):
-      store_id = self.request.query_params.get("store")
-      verified_store = self.get_store(store_id)
+      store_id = self.request.domain_name
+      verified_store = get_object_or_404(Store, id=store_id)
 
       # Use a try-except block to handle the case where no orders are found for the given store
       try:
@@ -342,14 +342,14 @@ class StoreOrdersViewSet(ListAPIView):
          return StoreOrder.objects.none()
       return orders
 
-   def get_store(self, store_id):
-      try:
-         store = Store.objects.get(id=store_id)
-      except Store.DoesNotExist:
-         # Instead of returning a ValidationError, raise a serializers.ValidationError
-         raise serializers.ValidationError("Store Does Not Exist")
+   # def get_store(self, store_id):
+   #    try:
+   #       store = Store.objects.get(id=store_id)
+   #    except Store.DoesNotExist:
+   #       # Instead of returning a ValidationError, raise a serializers.ValidationError
+   #       raise serializers.ValidationError("Store Does Not Exist")
 
-      return store
+   #    return store
 
 
 class BrandView(viewsets.ModelViewSet):
