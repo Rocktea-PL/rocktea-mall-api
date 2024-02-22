@@ -59,13 +59,18 @@ schema_view = get_schema_view(
 
 router = routers.DefaultRouter()
 # Store Owner
+
 router.register('storeowner', CreateStoreOwner, basename="user")
+
 router.register('categories', GetCategories, basename='categories')
+
 router.register('create/store', CreateStore, basename='create-store')
+
 router.register('signup/user', TenantSignUp, basename="signup-tenant")
 
 # Products
 router.register('products', ProductViewSet, basename='products')
+
 router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
 

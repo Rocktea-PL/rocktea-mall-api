@@ -11,7 +11,7 @@ class DomainNameMiddleware:
     def __call__(self, request):
         # Extracting the domain name from the request
         domain_name = request.META.get('HTTP_HOST', None)
-        print("Domain Name: ", domain_name)  # Add this line for debugging
+        # print("Domain Name: ", domain_name)  # Add this line for debugging
 
         validated_domain_name = self._validate_domain_name(
             domain_name, request)
@@ -24,7 +24,7 @@ class DomainNameMiddleware:
         return response
 
     def _validate_domain_name(self, domain_name, request):
-        print("DOME " + str(domain_name))
+        # print("DOME " + str(domain_name))
         """
         Verify that the user logged into that account is the owner of the account by matching the Store Domain name to the Registered Store Owner.
         """
