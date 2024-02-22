@@ -100,23 +100,24 @@ class CreateStore(viewsets.ModelViewSet):
       # Extracting the domain name from the request
       user = self.request.user
 
-      if user is None or user.is_store_owner is False:
-         domain = self.request.META.get("HTTP_ORIGIN", None)
+      # if user is None or user.is_store_owner is False:
+      domain = self.request.META.get("HTTP_ORIGIN", None)
 
-         print(domain)
-         # Filter stores based on domain_name
-         queryset = Store.objects.filter(domain_name=domain)
-         # print(queryset)
-         return queryset
-      else:
-         store_id = self.request.domain_name
+      print(domain)
+      # Filter stores based on domain_name
+      queryset = Store.objects.filter(domain_name=domain)
+      # print(queryset)
+      return queryset
+      # else:
+      #    store_id = self.request.domain_name
          
-         queryset = Store.objects.filter(id=store_id)
-         return queryset
+      #    queryset = Store.objects.filter(id=store_id)
+      #    return queryset
    
    def get_serializer_context(self):
       return {'request': self.request}
-         
+
+
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
