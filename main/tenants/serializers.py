@@ -21,9 +21,11 @@ class StoreUserSignUp(serializers.ModelSerializer):
       # Extract password from validated_data
       password = validated_data.pop("password", None)
 
-      associated_domain = self.context['request'].query_params.get("mall")
+      domain_host = self.context['request'].META.get("HTTP_ORIGIN", None)
+      
+      self.get_domain_name(domain_host)
 
-      user = CustomUser.objects.create(associated_domain=associated_domain, **validated_data)
+      user = CustomUser.objects.create(associated_domain=domain_host, **validated_data)
       
       # Confirm the user as a store owner
       user.is_consumer = True
@@ -32,8 +34,11 @@ class StoreUserSignUp(serializers.ModelSerializer):
          # Set and save the user's password only if a valid password is provided
          user.set_password(password)
          user.save()
-
       return user
+
+   def get_domain_name(self, domain_host):
+      store = get_object_or_404(Store, domain_name=domain_host)
+      return store.id
 
 
 class UserLogin(TokenObtainPairSerializer):
