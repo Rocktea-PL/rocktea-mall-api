@@ -98,7 +98,6 @@ class CreateStore(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Extracting the domain name from the request
-      user = self.request.user
 
       # if user is None or user.is_store_owner is False:
       domain = self.request.META.get("HTTP_ORIGIN", None)
