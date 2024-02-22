@@ -98,13 +98,10 @@ class CreateStore(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Extracting the domain name from the request
-
       # if user is None or user.is_store_owner is False:
       domain = self.request.META.get("HTTP_ORIGIN", None)
-
       # Filter stores based on domain_name
       queryset = Store.objects.filter(domain_name=domain)
-      # print(queryset)
       return queryset
    
    def get_serializer_context(self):
