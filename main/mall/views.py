@@ -297,7 +297,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = self.request.META.get("HTTP_HOST")
+      store_host = self.request.META.get("HTTP_ORIGIN")
       try:
          store = Store.objects.get(domain_name=store_host)
          queryset = MarketPlace.objects.filter(

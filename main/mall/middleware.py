@@ -48,9 +48,7 @@ class DomainNameMiddleware:
                 raise serializers.ValidationError("This User Does Not Own this Store")
             # print(store.id)
             return store.id
-            
 
-        # verified_user.is_consumer:
         return self.get_consumer_associated_domain(domain_name, request)
 
     def get_consumer_associated_domain(self, domain_name, request):
