@@ -98,7 +98,7 @@ class CreateStore(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Extracting the domain name from the request
-      domain = self.request.META.get("HTTP_HOST", None)
+      domain = self.request.META.get("HTTP_ORIGIN", None)
 
       print(domain)
       # Filter stores based on domain_name
