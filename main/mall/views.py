@@ -98,29 +98,25 @@ class CreateStore(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Extracting the domain name from the request
-      domain = self.request.META.get("HTTP_ORIGIN", None)
+      user = self.request.user
 
-      print(domain)
-      # Filter stores based on domain_name
-      queryset = Store.objects.filter(domain_name=domain)
-      # print(queryset)
-      return queryset
+      if user is None or user.is_store_owner is False:
+         domain = self.request.META.get("HTTP_ORIGIN", None)
 
-   # def list(self, request, *args, **kwargs):
-   #    queryset = self.get_queryset()
-
-   #    # Check if queryset is empty
-   #    if not queryset.exists():
-   #       # Return an empty response or handle the case as needed
-   #       return Response([])
-      
-   #    serializer = self.get_serializer(queryset, many=True)
-   #    return Response(serializer.data)
-      
-   # def perform_update(self, serializer):
-   #    # You can override this method to add custom logic when updating the instance
-   #    serializer.save()
-
+         print(domain)
+         # Filter stores based on domain_name
+         queryset = Store.objects.filter(domain_name=domain)
+         # print(queryset)
+         return queryset
+      else:
+         store_id = self.request.domain_name
+         
+         queryset = Store.objects.filter(id=store_id)
+         return queryset
+   
+   def get_serializer_context(self):
+      return {'request': self.request}
+         
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
