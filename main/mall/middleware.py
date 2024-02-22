@@ -11,6 +11,7 @@ class DomainNameMiddleware:
     def __call__(self, request):
         # Extracting the domain name from the request
         domain_name = request.META.get('HTTP_ORIGIN', None)
+        print(domain_name)
 
         validated_domain_name = self._validate_domain_name(
             domain_name, request)
@@ -49,17 +50,19 @@ class DomainNameMiddleware:
             return store.id
             
 
-        elif verified_user.is_consumer:
-            return self.get_consumer_associated_domain(domain_name, verified_user, request)
+        # verified_user.is_consumer:
+        return self.get_consumer_associated_domain(domain_name, request)
 
-    def get_consumer_associated_domain(self, domain_name, user_id, request):
+    def get_consumer_associated_domain(self, domain_name, request):
         """
         Match Associated Domain with user ID
         """
         try:
             associated_domain = get_object_or_404(
                 Store, domain_name=domain_name)
-            store = CustomUser.objects.filter(id=user_id, domain_name=domain_name).first()
+            # store = CustomUser.objects.filter(id=user_id,domain_name=domain_name).first()
         except ObjectDoesNotExist:
             raise serializers.ValidationError("Store or User Does Not Exist")
-        return store.id
+            print("Store: " + store.id)
+            return store.id
+    
