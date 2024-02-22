@@ -66,7 +66,8 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
-
+   # http_method_names = ['post', 'patch']
+   
    def get_queryset(self):
       # Get the user_id from cookies
       user_id = self.request.query_params.get('mallcli')
@@ -375,12 +376,7 @@ class ProductDetails(viewsets.ModelViewSet):
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
-   lookup_field = 'store_id'  # Change the lookup field
-
-   # def get_object(self):
-   #    queryset = self.filter_queryset(self.get_queryset())
-   #    filter_kwargs = {self.lookup_field: self.kwargs[self.lookup_url_kwarg]}
-   #    return get_object_or_404(queryset, **filter_kwargs) 
+   lookup_field = 'store_id'  # Disable the default lookup field
 
 
 class ServicesBusinessInformationView(viewsets.ModelViewSet):

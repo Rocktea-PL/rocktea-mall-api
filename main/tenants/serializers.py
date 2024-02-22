@@ -5,7 +5,6 @@ import re
 from django.shortcuts import get_object_or_404
 
 
-
 class StoreUserSignUp(serializers.ModelSerializer):
    associated_domain = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), required=True)
    class Meta:
@@ -21,9 +20,10 @@ class StoreUserSignUp(serializers.ModelSerializer):
    def create(self, validated_data):
       # Extract password from validated_data
       password = validated_data.pop("password", None)
-      # associated_domain = request
 
-      user = CustomUser.objects.create(**validated_data)
+      associated_domain = self.context['request'].query_params.get("mall")
+
+      user = CustomUser.objects.create(associated_domain=associated_domain, **validated_data)
       
       # Confirm the user as a store owner
       user.is_consumer = True

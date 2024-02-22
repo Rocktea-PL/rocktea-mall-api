@@ -27,12 +27,9 @@ class DomainNameMiddleware:
         """
         Verify that the user logged into that account is the owner of the account by matching the Store Domain name to the Registered Store Owner.
         """
+        
         user_id = request.GET.get("mallcli")
         store_id = request.GET.get("mall")
-        
-        print(store_id)
-        print(user_id)
-        
 
         if user_id is None:
             # Return None or some default value to indicate that user_id is not found
