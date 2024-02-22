@@ -15,8 +15,10 @@ from mall.views import (
         ProductTypeView,
         WalletView,
         # StoreProductPricing, 
-        ServicesBusinessInformationView, CreateLogisticsAccount,
-        CreateOperationsAccount
+        ServicesBusinessInformationView, 
+        CreateLogisticsAccount,
+        CreateOperationsAccount,
+        GetStoreDropshippers
 )
 from mall.custom_view.reportuser import ReportUserView
 
@@ -61,6 +63,7 @@ router = routers.DefaultRouter()
 # Store Owner
 
 router.register('storeowner', CreateStoreOwner, basename="user")
+router.register('dropshippers/store', GetStoreDropshippers, basename="dropship")
 
 router.register('categories', GetCategories, basename='categories')
 
