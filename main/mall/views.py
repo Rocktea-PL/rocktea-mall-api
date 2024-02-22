@@ -282,18 +282,14 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      # store_id = self.request.user.owners.id
-      store_domain = self.request.domain_name
-      print(store_domain)
+      store_host = self.request.META.get("HTTP_HOST")
       try:
-         # store = get_object_or_404(Store, id=store_domain)
-         # print("Store" + store)
-         
-         queryset = MarketPlace.objects.filter(store=store_domain, list_product=True).select_related('product').order_by("-id")
-         # cache.set(cache_key, queryset, timeout=100)
+         store = Store.objects.get(domain_name=store_host)
+         queryset = MarketPlace.objects.filter(
+               store=store, list_product=True).select_related('product').order_by("-id")
          return queryset
       except Store.DoesNotExist:
-         logging.error("An error unexpected occured!")
+         logging.error("Store with ID %s does not exist." % store_id)
          return MarketPlace.objects.none()
 
 
