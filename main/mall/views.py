@@ -163,7 +163,7 @@ class ProductVariantView(viewsets.ModelViewSet):
 class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
       collect = request.data
-      store_id = request.domain_name
+      store_id = request.domain_name  
       product_id = collect.get("product")
       retail_price = collect.get("retail_price")
 

@@ -51,12 +51,15 @@ class DomainNameMiddleware:
 
         return self.get_consumer_associated_domain(domain_name, request)
 
-    def get_consumer_associated_domain(self, domain_name, request):
+    def get_consumer_associated_domain(self, domain_name, user_id, request):
         """
         Match Associated Domain with user ID
         """
         try:
-            associated_domain = Store.objects.get(domain_name=domain_name)
-            return associated_domain.id
-        except Store.DoesNotExist:
-            raise serializers.ValidationError("Store Does Not Exist for this Domain")
+            associated_domain = get_object_or_404(
+                Store, domain_name=domain_name)
+            store = CustomUser.objects.filter(
+                id=user_id, domain_name=domain_name).first()
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError("Store or User Does Not Exist")
+        return store.id
