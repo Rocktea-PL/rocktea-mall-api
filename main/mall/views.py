@@ -66,11 +66,11 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
-   # http_method_names = ['post', 'patch']
    
    def get_queryset(self):
       # Get the user_id from cookies
       user_id = self.request.query_params.get('mallcli')
+
 
       # If user_id is present in cookies, filter the queryset by it
       if user_id:
@@ -163,7 +163,7 @@ class ProductVariantView(viewsets.ModelViewSet):
 class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
       collect = request.data
-      store_id = request.domain_name  
+      store_id = request.store_domain  
       product_id = collect.get("product")
       retail_price = collect.get("retail_price")
 
@@ -197,26 +197,27 @@ class CreateAndGetStoreProductPricing(APIView):
       return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
 class StoreProductPricingAPIView(APIView):
    def get(self, request):
-      # store_id = request.query_params.get("store")
+      store_id = request.store_domain
+      print(store_id)
+      
+      # Get the store instance based on the provided store_id
+      store = get_object_or_404(Store, id=store_id)
+      
       try:
          # Retrieve all store prices related to the specified store
-         store_prices = StoreProductPricing.objects.filter(
-               store_id=get_store_instance(request))
+         store_prices = StoreProductPricing.objects.filter(store=store)
          
          # Serialize the data
-         store_prices_serializer = StoreProductPricingSerializer(
-               store_prices, many=True)
-
+         store_prices_serializer = StoreProductPricingSerializer(store_prices, many=True)
+         
          # Return the serialized data as the API response
          return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
-
+      
       except Exception as e:
          # Handle exceptions, you might want to log the error or return a different response
          return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-   
 
    def delete(self, request, store_id):
       try:
