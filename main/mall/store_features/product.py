@@ -5,7 +5,9 @@ from mall.models import CustomUser, Store, Product, Category, SubCategories, Sto
 
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import JSONParser
+from workshop.processor import DomainNameHandler
 
+handler = DomainNameHandler()
 
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN")
