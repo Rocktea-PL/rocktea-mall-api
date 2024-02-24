@@ -57,6 +57,10 @@ from django.db.models import Count
 from django.core.cache import cache
 import logging
 from .store_features.get_store_id import get_store_instance
+# from django.utils.decorators import method_decorator
+# from django.views.decorators.csrf import csrf_exempt
+
+
 
 # Create your views here.
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -69,7 +73,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    
    def get_queryset(self):
       # Get the user_id from cookies
-      user_id = self.request.query_params.get('mallcli')
+      user_id = self.request.user_id
 
 
       # If user_id is present in cookies, filter the queryset by it
@@ -306,7 +310,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
-      store_id = request.query_params.get("mall")
+      store_id = request.mall
       store = get_object_or_404(Store, id=store_id)
 
       # Get Number of Listed Products
