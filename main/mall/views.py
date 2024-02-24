@@ -57,12 +57,18 @@ from django.db.models import Count
 from django.core.cache import cache
 import logging
 from .store_features.get_store_id import get_store_instance
+from workshop.processor import DomainNameHandler
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
 
 
+handler = DomainNameHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_HOST")
 
 # Create your views here.
+# TODO DONE
 class CreateStoreOwner(viewsets.ModelViewSet):
    """
    Sign Up Store Owners Feature
@@ -72,9 +78,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    renderer_classes= [JSONRenderer]
    
    def get_queryset(self):
-      # Get the user_id from cookies
-      user_id = self.request.user_id
-
+      user_id =  self.request.query_params.get("mallcli")
 
       # If user_id is present in cookies, filter the queryset by it
       if user_id:
@@ -103,7 +107,7 @@ class CreateStore(viewsets.ModelViewSet):
    def get_queryset(self):
       # Extracting the domain name from the request
       # if user is None or user.is_store_owner is False:
-      domain = self.request.store_domain
+      domain = handler.process_request(store_domain=get_store_domain(self.request))
       # Filter stores based on domain_name
       queryset = Store.objects.filter(id=domain)
       return queryset
@@ -167,7 +171,7 @@ class ProductVariantView(viewsets.ModelViewSet):
 class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
       collect = request.data
-      store_id = request.store_domain  
+      store_id = request.query_params.get("mall")
       product_id = collect.get("product")
       retail_price = collect.get("retail_price")
 
@@ -203,7 +207,7 @@ class CreateAndGetStoreProductPricing(APIView):
 
 class StoreProductPricingAPIView(APIView):
    def get(self, request):
-      store_id = request.store_domain
+      store_id = handler.process_request(store_domain=get_store_domain(request))
       print(store_id)
       
       # Get the store instance based on the provided store_id
@@ -294,7 +298,8 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = self.request.query_params.get("mall")
+      store_host = handler.process_request(store_domain=get_store_domain(self.request))
+      
       store = Store.objects.get(id=store_host)
       try:
          
@@ -311,6 +316,7 @@ class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
       store_id = request.query_params.get("mall")
+
       store = get_object_or_404(Store, id=store_id)
 
       # Get Number of Listed Products
@@ -344,7 +350,7 @@ class StoreOrdersViewSet(ListAPIView):
    serializer_class = OrderSerializer
 
    def get_queryset(self):
-      store_id = self.request.store_domain
+      store_id = handler.process_request(store_domain=get_store_domain(self.request))
       verified_store = get_object_or_404(Store, id=store_id)
 
       # Use a try-except block to handle the case where no orders are found for the given store
@@ -353,15 +359,6 @@ class StoreOrdersViewSet(ListAPIView):
       except StoreOrder.DoesNotExist:
          return StoreOrder.objects.none()
       return orders
-
-   # def get_store(self, store_id):
-   #    try:
-   #       store = Store.objects.get(id=store_id)
-   #    except Store.DoesNotExist:
-   #       # Instead of returning a ValidationError, raise a serializers.ValidationError
-   #       raise serializers.ValidationError("Store Does Not Exist")
-
-   #    return store
 
 
 class BrandView(viewsets.ModelViewSet):

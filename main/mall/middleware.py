@@ -25,12 +25,13 @@ class DomainNameMiddleware:
             store = self.get_store_id_by_params(mall_id, user_id)
             request.mall_id = store
             
-        elif store_domain:
-            store_id = self.get_store_id_by_domain_name(store_domain)
-            request.store_domain = store_id
+        elif mall_id is not None and user_id is None:
+            mall = self.get_store(mall_id)
+            request.mall = mall
             
         else:
-            pass
+            store_id = self.get_store_id_by_domain_name(store_domain)
+            request.store_domain = store_id
 
         return self.get_response(request)
 

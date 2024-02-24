@@ -6,6 +6,10 @@ from mall.models import CustomUser, Store, Product, Category, SubCategories, Sto
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import JSONParser
 
+
+def get_store_domain(request):
+   return request.META.get("HTTP_HOST")
+
 class MyProducts(APIView):
    """
    This API is to get specific products for StoreOwners based on the Category of Products they chose
@@ -25,7 +29,8 @@ class GetVariantAndPricing(APIView):
 
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
-      store_id = request.store_domain
+      store_id = handler.process_request(domain_name=get_domain_name(request))
+      
       verified_product = get_object_or_404(Product, id=product_id)
       verified_store = get_object_or_404(Store, id=store_id)
 

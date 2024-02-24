@@ -39,7 +39,13 @@ from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
+from workshop.processor import DomainNameHandler
 
+
+handler = DomainNameHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_HOST", None)
 
 class OrderPagination(PageNumberPagination):
    page_size = 5
@@ -58,7 +64,8 @@ class CartViewSet(viewsets.ViewSet):
 
    def create(self, request):
       user = request.user
-      store_domain = request.domain_name
+      store_domain = handler.process_request(store_domain=get_store_domain(request))
+      
       verified_store = get_object_or_404(Store, id=store_domain)
       products = request.data.get('products', [])
 
@@ -86,7 +93,7 @@ class CartViewSet(viewsets.ViewSet):
          if existing_item:
                # If the product variant is already in the cart, update the quantity
                existing_item.quantity += quantity
-               existing_item.price += product_price
+               existing_item.price += Decimal(str(product_price))
                existing_item.save()
          else:
                # Otherwise, create a new CartItem for the product variant
@@ -130,7 +137,7 @@ class CheckOutCart(viewsets.ViewSet):
    def create(self, request):
       # Collect Data
       user = request.user
-      store_id = request.store_domain
+      store_id = handler.process_request(store_domain=get_store_domain(request))
       total_price = request.data.get("total_price")
 
       # Validate that required fields are present
