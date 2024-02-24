@@ -8,7 +8,7 @@ from rest_framework.parsers import JSONParser
 
 
 def get_store_domain(request):
-   return request.META.get("HTTP_HOST")
+   return request.META.get("HTTP_ORIGIN")
 
 class MyProducts(APIView):
    """
