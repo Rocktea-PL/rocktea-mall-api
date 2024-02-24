@@ -6,11 +6,11 @@ from django.shortcuts import get_object_or_404
 
 
 class StoreUserSignUp(serializers.ModelSerializer):
-   associated_domain = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), required=True)
+   # associated_domain = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), required=True)
    class Meta:
       model = CustomUser
-      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "associated_domain", "is_consumer", "password")
-      read_only_fields = ("username", "is_consumer")
+      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_consumer", "password")
+      read_only_fields = ("username", "is_consumer", "associated_domain")
 
    def validate_password(self, value):
       if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', value):
@@ -21,11 +21,11 @@ class StoreUserSignUp(serializers.ModelSerializer):
       # Extract password from validated_data
       password = validated_data.pop("password", None)
 
-      domain_host = self.context['request'].META.get("HTTP_ORIGIN", None)
+      domain_host = self.context['request'].store_domain
       
-      self.get_domain_name(domain_host)
-
-      user = CustomUser.objects.create(associated_domain=domain_host, **validated_data)
+      store_instance = self.get_store_instance(domain_host)
+      
+      user = CustomUser.objects.create(associated_domain=store_instance, **validated_data)
       
       # Confirm the user as a store owner
       user.is_consumer = True
@@ -36,9 +36,12 @@ class StoreUserSignUp(serializers.ModelSerializer):
          user.save()
       return user
 
-   def get_domain_name(self, domain_host):
-      store = get_object_or_404(Store, domain_name=domain_host)
-      return store.id
+   def get_store_instance(self, host):
+      try:
+         store_instance = Store.objects.get(id=host)
+         return store_instance
+      except Store.DoesNotExist:
+         raise serializers.ValidationError("Store does not exist")
 
 
 class UserLogin(TokenObtainPairSerializer):

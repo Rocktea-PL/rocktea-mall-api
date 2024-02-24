@@ -99,9 +99,9 @@ class CreateStore(viewsets.ModelViewSet):
    def get_queryset(self):
       # Extracting the domain name from the request
       # if user is None or user.is_store_owner is False:
-      domain = self.request.META.get("HTTP_ORIGIN", None)
+      domain = self.request.store_domain
       # Filter stores based on domain_name
-      queryset = Store.objects.filter(domain_name=domain)
+      queryset = Store.objects.filter(id=domain)
       return queryset
    
    def get_serializer_context(self):
@@ -289,14 +289,15 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = self.request.META.get("HTTP_ORIGIN")
+      store_host = self.request.store_domain
+      print(store_host)
       try:
-         store = Store.objects.get(domain_name=store_host)
+         store = Store.objects.get(id=store_host)
          queryset = MarketPlace.objects.filter(
                store=store, list_product=True).select_related('product').order_by("-id")
          return queryset
       except Store.DoesNotExist:
-         logging.error("Store with ID %s does not exist." % store_id)
+         logging.error("Store with ID %s does not exist.", store_host)
          return MarketPlace.objects.none()
 
 
