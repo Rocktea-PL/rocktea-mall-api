@@ -310,7 +310,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
-      store_id = request.mall
+      store_id = request.query_params.get("mall")
       store = get_object_or_404(Store, id=store_id)
 
       # Get Number of Listed Products
