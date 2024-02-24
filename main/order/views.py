@@ -45,7 +45,7 @@ from workshop.processor import DomainNameHandler
 handler = DomainNameHandler()
 
 def get_store_domain(request):
-   return request.META.get("HTTP_HOST", None)
+   return request.META.get("HTTP_ORIGIN", None)
 
 class OrderPagination(PageNumberPagination):
    page_size = 5

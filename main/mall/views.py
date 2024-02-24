@@ -65,7 +65,7 @@ from workshop.processor import DomainNameHandler
 handler = DomainNameHandler()
 
 def get_store_domain(request):
-   return request.META.get("HTTP_HOST")
+   return request.META.get("HTTP_ORIGIN")
 
 # Create your views here.
 # TODO DONE
