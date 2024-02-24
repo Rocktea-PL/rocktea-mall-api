@@ -25,7 +25,7 @@ class GetVariantAndPricing(APIView):
 
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
-      store_id = self.request.query_params.get("store")
+      store_id = request.store_domain
       verified_product = get_object_or_404(Product, id=product_id)
       verified_store = get_object_or_404(Store, id=store_id)
 
