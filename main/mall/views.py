@@ -294,10 +294,10 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = self.request.store_domain
-      print(store_host)
+      store_host = self.request.query_params.get("mall")
+      store = Store.objects.get(id=store_host)
       try:
-         store = Store.objects.get(id=store_host)
+         
          queryset = MarketPlace.objects.filter(
                store=store, list_product=True).select_related('product').order_by("-id")
          return queryset
