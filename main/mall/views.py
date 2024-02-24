@@ -107,7 +107,7 @@ class CreateStore(viewsets.ModelViewSet):
    def get_queryset(self):
       # Extracting the domain name from the request
       # if user is None or user.is_store_owner is False:
-      domain = handler.process_request(store_domain=get_store_domain(self.request))
+      domain = self.request.query_params.get("mall")
       # Filter stores based on domain_name
       queryset = Store.objects.filter(id=domain)
       return queryset
@@ -298,7 +298,7 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = handler.process_request(store_domain=get_store_domain(self.request))
+      store_host = self.request.query_params.get("mall")
       
       store = Store.objects.get(id=store_host)
       try:
