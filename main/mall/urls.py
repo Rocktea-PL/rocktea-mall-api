@@ -21,6 +21,5 @@ urlpatterns = [
     path('best_selling', BestSellingProductView.as_view(), name="best_selling"),
     path('variant-pricing/<str:product_id>', GetVariantAndPricing.as_view(), name="pricing"),
     path('store-prices/', StoreProductPricingAPIView.as_view(), name='store-product-prices'),
-    path('store_pricing/', CreateAndGetStoreProductPricing.as_view(),
-            name='store-price'),
+    path('store_pricing/', CreateAndGetStoreProductPricing.as_view(),name='store-price'),
 ]

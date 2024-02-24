@@ -213,7 +213,7 @@ class StoreProductPricingAPIView(APIView):
          store_prices_serializer = StoreProductPricingSerializer(store_prices, many=True)
          
          # Return the serialized data as the API response
-         return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
+         return Response(store_prices, status=status.HTTP_200_OK)
       
       except Exception as e:
          # Handle exceptions, you might want to log the error or return a different response
@@ -340,7 +340,7 @@ class StoreOrdersViewSet(ListAPIView):
    serializer_class = OrderSerializer
 
    def get_queryset(self):
-      store_id = self.request.domain_name
+      store_id = self.request.store_domain
       verified_store = get_object_or_404(Store, id=store_id)
 
       # Use a try-except block to handle the case where no orders are found for the given store

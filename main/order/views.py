@@ -130,7 +130,7 @@ class CheckOutCart(viewsets.ViewSet):
    def create(self, request):
       # Collect Data
       user = request.user
-      store_id = request.domain_name
+      store_id = request.store_domain
       total_price = request.data.get("total_price")
 
       # Validate that required fields are present
