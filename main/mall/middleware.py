@@ -13,7 +13,7 @@ class DomainNameMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        store_domain = request.META.get('HTTP_HOST', None)
+        store_domain = request.META.get('HTTP_ORIGIN', None)
         logger.debug("Domain Name: %s", store_domain)
 
         # Extracting parameters from the request
