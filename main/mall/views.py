@@ -350,7 +350,7 @@ class StoreOrdersViewSet(ListAPIView):
    serializer_class = OrderSerializer
 
    def get_queryset(self):
-      store_id = handler.process_request(store_domain=get_store_domain(self.request))
+      store_id = self.request.query_params.get("mall")
       verified_store = get_object_or_404(Store, id=store_id)
 
       # Use a try-except block to handle the case where no orders are found for the given store
