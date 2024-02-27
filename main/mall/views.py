@@ -16,7 +16,8 @@ from .serializers import (
    StoreProductPricingSerializer, 
    ServicesBusinessInformationSerializer, 
    LogisticSerializer,
-   OperationsSerializer
+   OperationsSerializer,
+   NotificationSerializer
 )
 
 from .models import (
@@ -33,7 +34,8 @@ from .models import (
    Wallet, 
    ServicesBusinessInformation, 
    StoreProductPricing,
-   Wallet
+   Wallet,
+   Notification
 )
 
 from order.models import StoreOrder
@@ -390,3 +392,33 @@ class WalletView(viewsets.ModelViewSet):
 class ServicesBusinessInformationView(viewsets.ModelViewSet):
    queryset = ServicesBusinessInformation.objects.select_related('user')
    serializer_class = ServicesBusinessInformationSerializer
+
+
+class NotificationView(viewsets.ModelViewSet):
+   serializer_class = NotificationSerializer
+
+   def get_queryset(self):
+      queryset = Notification.objects.select_related('recipient', 'store')
+
+      store_id = self.request.query_params.get('mall')
+      recipient_id = self.request.query_params.get('mall_cli')
+
+      if store_id:
+         queryset = queryset.filter(store_id=store_id)
+      elif recipient_id:
+         queryset = queryset.filter(recipient_id=recipient_id)
+
+      try:
+         if queryset.exists():
+               return queryset
+         else:
+               return None
+      except Exception as e:
+         return None
+
+   def list(self, request, *args, **kwargs):
+      queryset = self.get_queryset()
+      if queryset is None:
+         return Response(status=status.HTTP_204_NO_CONTENT)
+      serializer = self.get_serializer(queryset, many=True)
+      return Response(serializer.data)

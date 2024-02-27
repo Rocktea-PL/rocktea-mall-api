@@ -377,3 +377,11 @@ class ReportUser(models.Model):
       if not self.support_code:
          self.support_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
       return super().save(*args, **kwargs)
+   
+
+class Notification(models.Model):
+   recipient = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)
+   message = models.TextField()
+   created_at = models.DateTimeField(auto_now_add=True)
+   read = models.BooleanField(default=False)

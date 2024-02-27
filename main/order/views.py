@@ -7,7 +7,8 @@ from .models import (
    CartItem, 
    StoreOrder, 
    OrderDeliveryConfirmation,
-   AssignOrder
+   AssignOrder,
+   PaymentHistory
    )
 
 from mall.models import (
@@ -23,7 +24,8 @@ from .serializers import (
    CartItemSerializer, 
    OrderSerializer, 
    OrderDeliverySerializer,
-   AssignedOrderSerializer
+   AssignedOrderSerializer,
+   PaymentHistorySerializers
    )
 
 from django.http import Http404, JsonResponse
@@ -40,12 +42,14 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
+# from workshop.decorators import store_domain_required
 
 
 handler = DomainNameHandler()
 
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN", None)
+
 
 class OrderPagination(PageNumberPagination):
    page_size = 5
@@ -252,3 +256,25 @@ class AssignedOrders(generics.ListAPIView):
 
       serializer = self.get_serializer(all_orders_for_rider, many=True)
       return Response({"orders": serializer.data}, status=status.HTTP_200_OK)
+
+
+class PaymentHistoryView(viewsets.ModelViewSet):
+   queryset = PaymentHistory.objects.select_related('store', 'order')
+   serializer_class = PaymentHistorySerializers
+   
+   def get_queryset(self):
+      store_id = handler.process_request(store_domain=get_store_domain(self.request))
+      
+      verified_store = get_object_or_404(Store, id=store_id)
+      
+      try:
+         queryset = PaymentHistory.objects.filter(store=verified_store).order_by("payment_date")
+         return queryset
+      except PaymentHistory.DoesNotExist:
+         return PaymentHistory.objects.none()
+      
+      # https://rocktea-users.vercel.app
+      
+      
+      
+   

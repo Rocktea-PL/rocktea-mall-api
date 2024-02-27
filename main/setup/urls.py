@@ -18,7 +18,8 @@ from mall.views import (
         ServicesBusinessInformationView, 
         CreateLogisticsAccount,
         CreateOperationsAccount,
-        GetStoreDropshippers
+        GetStoreDropshippers,
+        NotificationView
 )
 from mall.custom_view.reportuser import ReportUserView
 
@@ -29,7 +30,9 @@ from order.views import (
     CheckOutCart, 
     ViewOrders, 
     OrderDeliverView, 
-    AllOrders)
+    AllOrders,
+    PaymentHistoryView
+    )
 
 from order.logistics.assign_order import AssignOrderView
 from services.views import (
@@ -80,14 +83,14 @@ router.register('product-variant', ProductVariantView, basename='productvariant'
 # router.register('store_pricing', StoreProductPricing, basename='storeprice')
 
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
-
 router.register('order-delivery/confirmation', OrderDeliverView, basename='confirmation')
+router.register('my-orders', ViewOrders, basename="view-orders")
 
-# router.register('orders', OrderViewSet, basename='orders')
+
 router.register('product-details', ProductDetails, basename='product-details')
 router.register('cart', CartViewSet, basename="add-to-cart")
 router.register('cart-item', CartItemModifyView, basename="cartitem")
-router.register('my-orders', ViewOrders, basename="view-orders")
+
 router.register('brand', BrandView, basename='brands')
 router.register('subcategory', SubCategoryView, basename='subcategory')
 router.register('product-type', ProductTypeView, basename='product-type')
@@ -96,11 +99,15 @@ router.register('checkout', CheckOutCart, basename='checkout')
 
 # Payments
 router.register(r'wallet', WalletView, basename='wallets')
+router.register('payment/history', PaymentHistoryView, basename='payment')
 
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
 router.register('services-category', ServicesCategoryView,basename='service-cat')
 router.register('report/user', ReportUserView, basename='report-user')
+
+# Notification
+router.register("notifications", NotificationView, basename='notifications')
 
 
 # Logistics & Operations

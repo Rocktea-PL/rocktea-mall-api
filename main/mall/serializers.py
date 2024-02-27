@@ -24,7 +24,8 @@ from .models import (
    Wallet, 
    StoreProductPricing, 
    ServicesBusinessInformation, 
-   ReportUser
+   ReportUser,
+   Notification
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -541,3 +542,9 @@ class ReportUserSerializer(serializers.ModelSerializer):
          "full_name": f"{instance.user.first_name} {instance.user.last_name}",
       }
       return representation
+   
+
+class NotificationSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = Notification
+      fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']

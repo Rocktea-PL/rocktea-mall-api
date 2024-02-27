@@ -32,19 +32,3 @@ class DomainNameHandler:
       except Store.DoesNotExist:
          logger.exception("Store Does Not Exist")
          raise NotFoundError("Store Does Not Exist")
-
-   # def get_store(self, store_id):
-   #    try:
-   #       store = Store.objects.get(id=store_id)
-   #       return store.id
-   #    except Store.DoesNotExist:
-   #       logger.exception("Store Does Not Exist")
-   #       raise NotFoundError("Store Does Not Exist")
-
-   # def get_user(self, user_id):
-   #    try:
-   #       user = CustomUser.objects.get(id=user_id)
-   #       return user.id
-   #    except CustomUser.DoesNotExist:
-   #       logger.exception("User Does Not Exist")
-   #       raise NotFoundError("User Does Not Exist")
