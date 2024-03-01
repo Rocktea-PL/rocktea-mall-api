@@ -273,8 +273,3 @@ class PaymentHistoryView(viewsets.ModelViewSet):
       except PaymentHistory.DoesNotExist:
          return PaymentHistory.objects.none()
       
-      # https://rocktea-users.vercel.app
-      
-      
-      
-   

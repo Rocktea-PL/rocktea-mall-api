@@ -3,6 +3,12 @@ from rest_framework import serializers, status
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from django.shortcuts import get_object_or_404
+from workshop.processor import DomainHandler
+
+handler = DomainHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_ORIGIN")
 
 
 class StoreUserSignUpSerializer(serializers.ModelSerializer):
@@ -21,9 +27,9 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
       # Extract password from validated_data
       password = validated_data.pop("password", None)
 
-      domain_host = self.context['request'].store_domain
+      domain_host = handler.process_request(store_domain=get_store_domain(self.context['request']))
       
-      store_instance = self.get_store_instance(domain_host)
+      # store_instance = self.get_store_instance(domain_host)
       
       user = CustomUser.objects.create(associated_domain=store_instance, **validated_data)
       
