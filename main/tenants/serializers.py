@@ -3,9 +3,9 @@ from rest_framework import serializers, status
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from django.shortcuts import get_object_or_404
-from workshop.processor import DomainHandler
+from workshop.processor import DomainNameHandler
 
-handler = DomainHandler()
+handler = DomainNameHandler()
 
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN")
@@ -31,7 +31,7 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
       
       # store_instance = self.get_store_instance(domain_host)
       
-      user = CustomUser.objects.create(associated_domain=store_instance, **validated_data)
+      user = CustomUser.objects.create(associated_domain=domain_host, **validated_data)
       
       # Confirm the user as a store owner
       user.is_consumer = True
@@ -42,12 +42,6 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
          user.save()
       return user
 
-   def get_store_instance(self, host):
-      try:
-         store_instance = Store.objects.get(id=host)
-         return store_instance
-      except Store.DoesNotExist:
-         raise serializers.ValidationError("Store does not exist")
 
 
 class UserLogin(TokenObtainPairSerializer):
