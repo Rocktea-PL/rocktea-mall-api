@@ -426,6 +426,6 @@ class NotificationView(viewsets.ModelViewSet):
       return Response(serializer.data)
 
 
-class PromoPlansView(viewsets.ModelViewset):
+class PromoPlansView(viewsets.ModelViewSet):
    queryset = PromoPlans.objects.select_related('store', 'category')
    serializer_class =PromoPlanSerializer
