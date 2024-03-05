@@ -25,7 +25,8 @@ from .models import (
    StoreProductPricing, 
    ServicesBusinessInformation, 
    ReportUser,
-   Notification
+   Notification,
+   PromoPlans
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -548,3 +549,9 @@ class NotificationSerializer(serializers.ModelSerializer):
    class Meta:
       model = Notification
       fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']
+      
+
+class PromoPlanSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PromoPlans
+      fields = ['id', 'purpose', 'store', 'category', 'code']

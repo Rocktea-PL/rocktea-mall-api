@@ -16,8 +16,13 @@ environ.Env.read_env()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY')
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'staticfiles/'),
+    # Add other paths to app-specific static directories if needed
+]
+
 # Static Files
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -52,11 +57,15 @@ INSTALLED_APPS = [
     
     # API Documentation
     'drf_yasg',
+    
+    # Storage
+    "whitenoise.runserver_nostatic",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -65,6 +74,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     # 'mall.middleware.DomainNameMiddleware',
 ]
+
 
 ROOT_URLCONF = 'setup.urls'
 
@@ -83,6 +93,20 @@ TEMPLATES = [
         },
     },
 ]
+
+# Storage
+
+STORAGES = {
+    # ...
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+WHITENOISE_ALLOW_ALL_ORIGINS = True
+WHITENOISE_AUTOREFRESH = True
+
+
 
 WSGI_APPLICATION = 'setup.wsgi.application'
 

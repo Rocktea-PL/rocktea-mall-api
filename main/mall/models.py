@@ -385,3 +385,20 @@ class Notification(models.Model):
    message = models.TextField()
    created_at = models.DateTimeField(auto_now_add=True)
    read = models.BooleanField(default=False)
+   
+   
+class PromoPlans(models.Model):
+   purpose = models.CharField(max_length=200)
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)
+   category = models.ForeignKey(Category, on_delete=models.CASCADE)
+   code = models.CharField(max_length=10)
+   validity_period = models.DateTimeField()
+   
+   def __str__(self):
+      return self.code
+
+   def save(self, *args, **kwargs):
+      if self.purpose:
+         promo_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+         self.code = promo_code
+      super(PromoPlans, self).save(*args, **kwargs)

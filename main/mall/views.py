@@ -17,7 +17,8 @@ from .serializers import (
    ServicesBusinessInformationSerializer, 
    LogisticSerializer,
    OperationsSerializer,
-   NotificationSerializer
+   NotificationSerializer,
+   PromoPlanSerializer
 )
 
 from .models import (
@@ -35,7 +36,8 @@ from .models import (
    ServicesBusinessInformation, 
    StoreProductPricing,
    Wallet,
-   Notification
+   Notification,
+   PromoPlans
 )
 
 from order.models import StoreOrder
@@ -422,3 +424,8 @@ class NotificationView(viewsets.ModelViewSet):
          return Response(status=status.HTTP_204_NO_CONTENT)
       serializer = self.get_serializer(queryset, many=True)
       return Response(serializer.data)
+
+
+class PromoPlansView(viewsets.ModelViewset):
+   queryset = PromoPlans.objects.select_related('store', 'category')
+   serializer_class =PromoPlanSerializer

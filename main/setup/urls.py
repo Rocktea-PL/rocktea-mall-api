@@ -19,10 +19,11 @@ from mall.views import (
         CreateLogisticsAccount,
         CreateOperationsAccount,
         GetStoreDropshippers,
-        NotificationView
+        NotificationView,
+        PromoPlansView
 )
-from mall.custom_view.reportuser import ReportUserView
 
+from mall.custom_view.reportuser import ReportUserView
 from order.views import (
     OrderItemsViewSet, 
     CartViewSet, 
@@ -59,7 +60,6 @@ schema_view = get_schema_view(
     public=True,
     permission_classes=(permissions.AllowAny,),
 )
-
 
 
 router = routers.DefaultRouter()
@@ -115,6 +115,7 @@ router.register('signup/logistics', CreateLogisticsAccount, basename='logistics'
 router.register('assign-order', AssignOrderView, basename='assigned_orders')
 router.register('all-orders', AllOrders, basename='allorders')
 router.register('signup/operations', CreateOperationsAccount, basename='operations')
+router.register('promo/', PromoPlansView, basename='promos')
 
 
 
