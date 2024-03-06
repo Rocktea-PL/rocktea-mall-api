@@ -248,7 +248,7 @@ class ProductVariant(models.Model):
    wholesale_price = models.DecimalField(max_digits=11, decimal_places=2)
 
    def __str__(self):
-      return self.size
+      return self.product.name
 
 
 class StoreProductPricing(models.Model):
