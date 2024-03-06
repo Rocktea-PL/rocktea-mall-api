@@ -20,7 +20,7 @@ def create_marketplace(sender, instance, created, **kwargs):
          store=related_store, product=related_product)
       
       # Create Notification
-      notification_message = f"{related_store.name} you just added a new product {product.name} from your Marketplace."
+      notification_message = f"{related_store.name} you just added a new product {related_product.name} from your Marketplace."
       
       store = get_object_or_404(Store, id=related_store)
       
