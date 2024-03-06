@@ -29,9 +29,9 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
       domain_host = handler.process_request(store_domain=get_store_domain(self.context['request']))
       
-      # store_instance = self.get_store_instance(domain_host)
+      store_instance = get_object_or_404(Store, id=domain_host)
       
-      user = CustomUser.objects.create(associated_domain=domain_host, **validated_data)
+      user = CustomUser.objects.create(associated_domain=store_instance, **validated_data)
       
       # Confirm the user as a store owner
       user.is_consumer = True
