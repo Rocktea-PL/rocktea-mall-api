@@ -291,6 +291,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
+   size = serializers.CharField(required=False)
    
    class Meta:
       model = ProductVariant
@@ -329,7 +330,7 @@ class ProductSerializer(serializers.ModelSerializer):
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
    # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
-   size = serializers.CharField(required=False)
+
    
    class Meta:
       model = Product
