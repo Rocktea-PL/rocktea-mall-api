@@ -329,12 +329,16 @@ class ProductSerializer(serializers.ModelSerializer):
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
    # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
+   size = serializers.CharField(required=False)
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
                'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', "product_variants"]
       read_only_fields = ('id', "sku")
+      extra_kwargs = {
+         'size': {'required': False}
+      }
    
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
