@@ -247,8 +247,10 @@ class ProductVariant(models.Model):
    colors = ArrayField(models.CharField(max_length=20, choices=COLOR_CHOICES, null=True, blank=True))
    wholesale_price = models.DecimalField(max_digits=11, decimal_places=2)
 
+
    def __str__(self):
-      return self.product.name
+      return ', '.join(product.name for product in self.product.all())
+
 
 
 class StoreProductPricing(models.Model):
@@ -274,7 +276,6 @@ class Category(models.Model):
       ("Groceries", "Groceries"),
       ("Video Games", "Video Games"),
       ("Home & Office", "Home & Office"),
-      
    )
    name = models.CharField(choices=CHOICES, unique=True, max_length=18)
    
