@@ -185,7 +185,7 @@ class CheckOutCart(viewsets.ViewSet):
                   logging.error("Order Item ERROR")
                   return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-         # Clear the user's cart after a successful checkout
+         # CClear the user's cart after a successful checkout
          cart.items.all().delete()
 
          return Response(order_serializer.data, status=status.HTTP_201_CREATED)

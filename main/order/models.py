@@ -12,7 +12,7 @@ from django.db.models.signals import post_save
 class StoreOrder(models.Model):
    STATUS_CHOICES = (
       ("Pending", "Pending"),
-      ("Completed", "Completed"),
+      ("nmpleted", "Completed"),
       ("Enroute", "Enroute"),
       ("Delivered", "Delivered"),
       ("Returned", "Returned")

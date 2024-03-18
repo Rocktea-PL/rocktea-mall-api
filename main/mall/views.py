@@ -21,7 +21,7 @@ from .serializers import (
    PromoPlanSerializer,
    BuyerBehaviourSerializer
 )
-
+from django.http import Http404
 from .models import (
    CustomUser, 
    Category, 
@@ -53,7 +53,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from helpers.views import BaseView
@@ -347,9 +347,27 @@ class DropshipperDashboardCounts(APIView):
 # Best Selling Product Data
 class BestSellingProductView(ListAPIView):
    serializer_class = ProductSerializer
-   
+
    def get_queryset(self):
       return Product.objects.all().order_by('-sales_count')[:3]
+
+
+class SalesCountView(APIView):
+   def get_object(self, product_id):
+      try:
+         return Product.objects.get(pk=product_id)
+      except Product.DoesNotExist:
+         raise Http404
+
+   def get(self, request, *args, **kwargs):
+      product_id = request.query_params.get('id')  # Retrieving product_id from query parameters
+      try:
+         product = self.get_object(product_id)
+      except Http404:
+         return Response({"message": "Product does not exist"}, status=404)
+      
+      sales_count = product.sales_count
+      return Response({"sales_count": sales_count})
 
 
 class StoreOrdersViewSet(ListAPIView):
