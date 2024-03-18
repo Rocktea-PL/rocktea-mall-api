@@ -433,6 +433,6 @@ class PromoPlansView(viewsets.ModelViewSet):
    serializer_class = PromoPlanSerializer
    
    
-class BuyerBehaviorView(viewsets.ModelViewSet):
+class BuyerBehaviourView(viewsets.ModelViewSet):
    queryset = BuyerBehaviour.objects.select_related('user')
    serializer_class = BuyerBehaviourSerializer
