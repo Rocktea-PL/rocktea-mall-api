@@ -26,7 +26,8 @@ from .models import (
    ServicesBusinessInformation, 
    ReportUser,
    Notification,
-   PromoPlans
+   PromoPlans,
+   BuyerBehaviour
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -335,7 +336,8 @@ class ProductSerializer(serializers.ModelSerializer):
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', "product_variants"]
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 
+               'brand', "producttype",'images', "product_variants"]
       read_only_fields = ('id', "sku")
       extra_kwargs = {
          'size': {'required': False}
@@ -548,7 +550,7 @@ class ReportUserSerializer(serializers.ModelSerializer):
          "full_name": f"{instance.user.first_name} {instance.user.last_name}",
       }
       return representation
-   
+
 
 class NotificationSerializer(serializers.ModelSerializer):
    class Meta:
@@ -560,3 +562,9 @@ class PromoPlanSerializer(serializers.ModelSerializer):
    class Meta:
       model = PromoPlans
       fields = ['id', 'purpose', 'store', 'category', 'code']
+
+
+class BuyerBehaviourSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = BuyerBehaviour
+      fields = "__all__"

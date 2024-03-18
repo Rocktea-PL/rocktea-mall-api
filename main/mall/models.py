@@ -9,7 +9,6 @@ from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 
-# from services.models import ServicesCategory
 
 def generate_unique_code():
    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -403,3 +402,9 @@ class PromoPlans(models.Model):
          promo_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
          self.code = promo_code
       super(PromoPlans, self).save(*args, **kwargs)
+      
+      
+class BuyerBehaviour(models.Model):
+   question = models.CharField(max_length=200, unique=True)
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer":True})
+   answer = models.TextField()

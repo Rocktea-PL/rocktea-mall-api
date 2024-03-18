@@ -146,20 +146,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-users.vercel.app"
 ]
 
-# CSRF_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
-# SESSION_COOKIE_DOMAIN = 'rocktea-dropshippers.vercel.app'
-
-# CSRF_COOKIE_HTTPONLY = False
-# SESSION_COOKIE_HTTPONLY = False
-
-# CORS_ALLOW_CREDENTIALS: True
-
-# CSRF_USE_SESSIONS = False
-# SESSION_COOKIE_SECURE = False
-# CSRF_COOKIE_SECURE = False
-# CSRF_COOKIE_SAMESITE = None
-# SESSION_COOKIE_SAMESITE = None
-
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
@@ -185,6 +171,7 @@ CORS_ALLOW_HEADERS = [
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
+
 DEFAULT_FILE_STORAGE = 'storages.backends.cloudinary.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {

@@ -20,7 +20,8 @@ from mall.views import (
         CreateOperationsAccount,
         GetStoreDropshippers,
         NotificationView,
-        PromoPlansView
+        PromoPlansView,
+        BuyerBehaviour
 )
 
 from mall.custom_view.reportuser import ReportUserView
@@ -96,6 +97,7 @@ router.register('subcategory', SubCategoryView, basename='subcategory')
 router.register('product-type', ProductTypeView, basename='product-type')
 router.register('business_info', ServicesBusinessInformationView, basename='business')
 router.register('checkout', CheckOutCart, basename='checkout')
+router.register('buyer-behaviour', BuyerBehaviour, basename='buyerbehavior')
 
 # Payments
 router.register(r'wallet', WalletView, basename='wallets')

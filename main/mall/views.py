@@ -18,7 +18,8 @@ from .serializers import (
    LogisticSerializer,
    OperationsSerializer,
    NotificationSerializer,
-   PromoPlanSerializer
+   PromoPlanSerializer,
+   BuyerBehaviourSerializer
 )
 
 from .models import (
@@ -37,7 +38,8 @@ from .models import (
    StoreProductPricing,
    Wallet,
    Notification,
-   PromoPlans
+   PromoPlans,
+   BuyerBehaviour
 )
 
 from order.models import StoreOrder
@@ -428,4 +430,9 @@ class NotificationView(viewsets.ModelViewSet):
 
 class PromoPlansView(viewsets.ModelViewSet):
    queryset = PromoPlans.objects.select_related('store', 'category')
-   serializer_class =PromoPlanSerializer
+   serializer_class = PromoPlanSerializer
+   
+   
+class BuyerBehaviorView(viewsets.ModelViewSet):
+   queryset = BuyerBehaviour.objects.select_related('user')
+   serializer_class = BuyerBehaviourSerializer

@@ -38,7 +38,7 @@ def upload_image(self, product_id, file_content, file_name, content_type):
             resource_type='image',
             public_id=f"product_image/{uuid.uuid4()}",
             content_type=content_type,
-            chunk_size=1500000,  # Adjust the chunk size as needed
+            chunk_size=1600000,  # Adjust the chunk size as needed
             eager_async=True,
             eager=[{'url': transformed_url}],
          )
