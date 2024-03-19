@@ -34,7 +34,7 @@ class CustomUserManager(BaseUserManager):
       if extra_fields.get('is_superuser') is not True:
          raise ValueError('Superuser must have is_superuser=True.')
 
-      return self.create_user(email, password, **extra_fields)
+      return self.create_user(email, password=password, **extra_fields)
 
 
 # StoreOwner models
@@ -128,9 +128,9 @@ class Store(models.Model):
    owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
    name = models.CharField(max_length=150, unique=True)
    email = models.EmailField(unique=True)
-   TIN_number = models.BigIntegerField(null=True)
+   TIN_number = models.BigIntegerField(null=True, blank=True)
    logo = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
-   cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+   cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True, blank=True)
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
    domain_name = models.CharField(max_length=100, null=True, unique=True)
@@ -138,11 +138,11 @@ class Store(models.Model):
    completed = models.BooleanField(default=False)
    
    # Custom Add-Ons
-   theme = models.CharField(max_length=6, null=True)
-   facebook = models.URLField(null=True)
-   whatsapp = models.URLField(null=True)
-   instagram = models.URLField(null=True)
-   twitter = models.URLField(null=True)
+   theme = models.CharField(max_length=6, null=True, blank=True)
+   facebook = models.URLField(null=True, blank=True)
+   whatsapp = models.URLField(null=True, blank=True)
+   instagram = models.URLField(null=True, blank=True)
+   twitter = models.URLField(null=True, blank=True)
    
    class Meta:
       # Add an index for the 'uid' field
