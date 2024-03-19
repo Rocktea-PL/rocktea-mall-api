@@ -405,6 +405,6 @@ class PromoPlans(models.Model):
       
       
 class BuyerBehaviour(models.Model):
-   question = models.CharField(max_length=200, unique=True)
+   question = models.CharField(max_length=200, unique=True, default="How satisfied are you with our services ?")
    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer":True})
-   answer = models.TextField()
+   answer = models.IntegerField(null=True)
