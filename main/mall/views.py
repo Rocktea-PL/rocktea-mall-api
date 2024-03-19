@@ -183,7 +183,7 @@ class CreateAndGetStoreProductPricing(APIView):
 
       # Fetch the store and product objects
       store = get_object_or_404(Store, id=store_id)
-      product = Product.objects.get(pk=product_id)
+      product = get_object_or_404(Product, id=product_id)
 
       # Check if the product pricing is valid before proceeding
       self.validate_product_pricing(store, product)
@@ -207,14 +207,26 @@ class CreateAndGetStoreProductPricing(APIView):
    def get(self, request):
       # Retrieve all StoreProductPricing instances
       store_product_prices = StoreProductPricing.objects.all()
-      serializer = StoreProductPricingSerializer(store_product_prices,many=True)
+      serializer = StoreProductPricingSerializer(store_product_prices, many=True)
       return Response(serializer.data, status=status.HTTP_200_OK)
+   
+   def delete(self, request):
+      store_id = request.query_params.get("mall")
+      product_id = collect.get("product")
+
+      # Validate data
+      store = get_object_or_404(StoreProductPricing, id=store_id)
+      product = get_object_or_404(Product, id=product_id)
+      
+      store_product_price = StoreProductPricing.objects.get(store=store, product=product)
+      store_product_price.delete()
+      return Response({"message": "Store product pricing deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
 class StoreProductPricingAPIView(APIView):
    def get(self, request):
       store_id = handler.process_request(store_domain=get_store_domain(request))
-      print(store_id)
+      # print(store_id)
       
       # Get the store instance based on the provided store_id
       store = get_object_or_404(Store, id=store_id)
