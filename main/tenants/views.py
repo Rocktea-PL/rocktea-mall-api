@@ -28,7 +28,7 @@ class TenantSignUp(viewsets.ModelViewSet):
       if not queryset.exists():
          raise ValidationError("User is Not a Store User")
       
-      return queryset
+      # return set(queryset)
 
 class LoginStoreUser(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)

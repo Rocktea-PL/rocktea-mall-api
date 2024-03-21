@@ -27,7 +27,7 @@ class CustomUserManager(BaseUserManager):
    def create_superuser(self, email, password=None, **extra_fields):
       # Create a superuser
       extra_fields.setdefault('is_staff', True)
-      extra_fields.setdefault('is_superuser', True)
+      extra_fields.setdefault('is_superuser', False)
 
       if extra_fields.get('is_staff') is not True:
          raise ValueError('Superuser must have is_staff=True.')
@@ -136,6 +136,7 @@ class Store(models.Model):
    domain_name = models.CharField(max_length=100, null=True, unique=True)
    
    completed = models.BooleanField(default=False)
+   created_at = models.DateTimeField(auto_now_add=True)
    
    # Custom Add-Ons
    theme = models.CharField(max_length=6, null=True, blank=True)
@@ -227,7 +228,7 @@ class ProductVariant(models.Model):
    ('Purple', 'Purple'),
    ('Pink', 'Pink'),
    ('Brown', 'Brown'),
-   ('Gray', 'Gray'),
+   ('Grey', 'Grey'),
    ('Black', 'Black'),
    ('White', 'White'),
    ('Cyan', 'Cyan'),

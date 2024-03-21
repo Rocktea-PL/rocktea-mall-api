@@ -307,6 +307,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
       return representation
 
+
 class StoreProductPricingSerializer(serializers.ModelSerializer):
    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
