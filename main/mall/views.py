@@ -215,7 +215,7 @@ class CreateAndGetStoreProductPricing(APIView):
       product_id = collect.get("product")
 
       # Validate data
-      store = get_object_or_404(StoreProductPricing, id=store_id)
+      store = get_object_or_404(Store, id=store_id)
       product = get_object_or_404(Product, id=product_id)
       
       store_product_price = StoreProductPricing.objects.get(store=store, product=product)
