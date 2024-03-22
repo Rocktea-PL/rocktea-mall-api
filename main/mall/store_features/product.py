@@ -10,7 +10,7 @@ from workshop.processor import DomainNameHandler
 handler = DomainNameHandler()
 
 def get_store_domain(request):
-   return request.META.get("HTTP_HOST")
+   return request.META.get("HTTP_ORIGIN")
 
 class MyProducts(APIView):
    """
@@ -31,8 +31,7 @@ class GetVariantAndPricing(APIView):
 
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
-      store_id = handler.process_request(domain_name=get_store_domain(request))
-      
+      store_id = handler.process_request(store_domain=get_store_domain(request))
       
       verified_product = get_object_or_404(Product, id=product_id)
       verified_store = get_object_or_404(Store, id=store_id)
