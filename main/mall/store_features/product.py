@@ -31,8 +31,16 @@ class GetVariantAndPricing(APIView):
 
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
-      store_id = handler.process_request(store_domain=get_store_domain(request))
       
+      try:
+         # Attempt to get the store_id using the domain name
+         store_id = handler.process_request(domain_name=get_store_domain(request))
+      except Exception as e:
+         # If an error occurs, fallback to getting the store_id from query parameters
+         store_id = request.query_params.get("store")
+         if not store_id:
+               raise Http404("Store not found")  # or return a more suitable error response
+
       verified_product = get_object_or_404(Product, id=product_id)
       verified_store = get_object_or_404(Store, id=store_id)
 
@@ -56,11 +64,10 @@ class GetVariantAndPricing(APIView):
       return Response(data)
 
    def get_store_pricing(self, product, store):
-      # store_id = get_object_or_404(Store, id=store)
       try:
-         store_product = StoreProductPricing.objects.get(product=product, store=store)
+         store_product = StoreProductPricing.objects.get(
+               product=product, store=store)
       except StoreProductPricing.DoesNotExist:
-         return None  
-      # Handle the case when pricing information is not available
+         return None  # Handle the case when pricing information is not available
 
       return store_product.retail_price
