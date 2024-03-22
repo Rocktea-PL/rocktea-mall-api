@@ -19,6 +19,7 @@ class DomainNameHandler:
    def get_store_id_by_domain_name(self, domain_name):
       try:
          store = Store.objects.get(domain_name=domain_name)
+         # print(store)
          return store.id
       except Store.DoesNotExist:
          logger.exception("Store Does Not Exist")

@@ -10,7 +10,7 @@ from workshop.processor import DomainNameHandler
 handler = DomainNameHandler()
 
 def get_store_domain(request):
-   return request.META.get("HTTP_ORIGIN")
+   return request.META.get("HTTP_HOST")
 
 class MyProducts(APIView):
    """
@@ -24,14 +24,15 @@ class MyProducts(APIView):
       except CustomUser.DoesNotExist:
          raise ValueError("Sorry you need to Sign Up or Login first")
       return owner
-   
-   
+
+
 class GetVariantAndPricing(APIView):
    parser_classes = [JSONParser]
 
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
       store_id = handler.process_request(store_domain=get_store_domain(request))
+      
       
       verified_product = get_object_or_404(Product, id=product_id)
       verified_store = get_object_or_404(Store, id=store_id)
@@ -56,10 +57,11 @@ class GetVariantAndPricing(APIView):
       return Response(data)
 
    def get_store_pricing(self, product, store):
+      # store_id = get_object_or_404(Store, id=store)
       try:
-         store_product = StoreProductPricing.objects.get(
-               product=product, store=store)
+         store_product = StoreProductPricing.objects.get(product=product, store=store)
       except StoreProductPricing.DoesNotExist:
-         return None  # Handle the case when pricing information is not available
+         return None  
+      # Handle the case when pricing information is not available
 
       return store_product.retail_price
