@@ -73,6 +73,9 @@ handler = DomainNameHandler()
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN")
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 # Create your views here.
 # TODO DONE
 class CreateStoreOwner(viewsets.ModelViewSet):
@@ -174,53 +177,69 @@ class ProductVariantView(viewsets.ModelViewSet):
          return ProductVariant.objects.none()
 
 
+# import logging
 class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
-      collect = request.data
-      store_id = request.query_params.get("mall")
-      product_id = collect.get("product")
-      retail_price = collect.get("retail_price")
+      try:
+         collect = request.data
+         store_id = request.query_params.get("mall")
+         product_id = collect.get("product")
+         retail_price = collect.get("retail_price")
 
-      # Fetch the store and product objects
-      store = get_object_or_404(Store, id=store_id)
-      product = get_object_or_404(Product, id=product_id)
+         # Log the incoming data
+         logger.info(f"Creating StoreProductPricing for store: {store_id}, product: {product_id}")
 
-      # Check if the product pricing is valid before proceeding
-      self.validate_product_pricing(store, product)
+         # Fetch the store and product objects
+         store = get_object_or_404(Store, id=store_id)
+         product = get_object_or_404(Product, id=product_id)
 
-      # Create the StoreProductPricing instance
-      store_product_price = StoreProductPricing.objects.create(
-         store=store,
-         product=product,
-         retail_price=retail_price
-      )
-      store_product_price.save()  # Call the save method
+         # Check if the product pricing is valid before proceeding
+         self.validate_product_pricing(store, product)
 
-      serializer = StoreProductPricingSerializer(store_product_price)
-      return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
+         # Create the StoreProductPricing instance
+         store_product_price = StoreProductPricing.objects.create(
+               store=store,
+               product=product,
+               retail_price=retail_price
+         )
+
+         serializer = StoreProductPricingSerializer(store_product_price)
+         return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
+      except Exception as e:
+         # Log the exception
+         logger.error(f"Error creating StoreProductPricing: {e}", exc_info=True)
+         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
    def validate_product_pricing(self, store, product):
-      existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=None).first()
-      if existing_pricing:
-         raise serializers.ValidationError("Pricing for this product in this store already exists.")
+      try:
+         existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=None).first()
+         if existing_pricing:
+               raise serializers.ValidationError("Pricing for this product in this store already exists.")
+      except serializers.ValidationError as e:
+         # Log the validation error
+         logger.warning(f"Validation error in product pricing: {e}")
+         raise
 
    def get(self, request):
-      # Retrieve all StoreProductPricing instances
       store_product_prices = StoreProductPricing.objects.all()
       serializer = StoreProductPricingSerializer(store_product_prices, many=True)
       return Response(serializer.data, status=status.HTTP_200_OK)
-   
-   def delete(self, request):
-      store_id = request.query_params.get("mall")
-      product_id = collect.get("product")
 
-      # Validate data
-      store = get_object_or_404(Store, id=store_id)
-      product = get_object_or_404(Product, id=product_id)
-      
-      store_product_price = StoreProductPricing.objects.get(store=store, product=product)
-      store_product_price.delete()
-      return Response({"message": "Store product pricing deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+   # Assuming you have fixed the delete method as well to use request.data properly for product_id
+   def delete(self, request):
+      try:
+         store_id = request.query_params.get("mall")
+         product_id = request.data.get("product")  # Make sure this line is corrected to use request.data
+
+         store = get_object_or_404(Store, id=store_id)
+         product = get_object_or_404(Product, id=product_id)
+         
+         store_product_price = StoreProductPricing.objects.get(store=store, product=product)
+         store_product_price.delete()
+         return Response({"message": "Store product pricing deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+      except Exception as e:
+         logger.error(f"Error deleting StoreProductPricing: {e}", exc_info=True)
+         return Response({"error": "An error occurred while deleting the store product pricing."}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StoreProductPricingAPIView(APIView):

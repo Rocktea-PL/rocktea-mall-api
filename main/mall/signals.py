@@ -15,17 +15,19 @@ def create_wallet(sender, instance, created, **kwargs):
 def create_marketplace(sender, instance, created, **kwargs):
    if created:
       related_product = instance.product
-      related_store = instance.store
-      MarketPlace.objects.get_or_create(
-         store=related_store, product=related_product)
-      
-      # Create Notification
-      notification_message = f"{related_store.name} you just added a new product {related_product.name} from your Marketplace."
-      
-      store = get_object_or_404(Store, id=related_store)
-      
-      Notification.objects.create(store=store, message=notification_message)
+      related_store_id = instance.store.id
 
+      # Fetch the store object first
+      store = get_object_or_404(Store, id=related_store_id)
+
+      # Now we can create the MarketPlace object
+      MarketPlace.objects.get_or_create(
+         store=store, product=related_product)
+      
+      # Create Notification with the correct store name
+      notification_message = f"{store.name} you just added a new product to your Marketplace."
+
+      Notification.objects.create(store=store, message=notification_message)
 
 
 
