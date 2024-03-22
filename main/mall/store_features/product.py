@@ -5,6 +5,12 @@ from mall.models import CustomUser, Store, Product, Category, SubCategories, Sto
 
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import JSONParser
+from workshop.processor import DomainNameHandler
+
+handler = DomainNameHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_ORIGIN")
 
 class MyProducts(APIView):
    """
@@ -18,14 +24,23 @@ class MyProducts(APIView):
       except CustomUser.DoesNotExist:
          raise ValueError("Sorry you need to Sign Up or Login first")
       return owner
-   
-   
+
+
 class GetVariantAndPricing(APIView):
    parser_classes = [JSONParser]
 
    def get(self, request, **kwargs):
       product_id = kwargs.get('product_id')
-      store_id = self.request.query_params.get("store")
+      
+      try:
+         # Attempt to get the store_id using the domain name
+         store_id = handler.process_request(domain_name=get_store_domain(request))
+      except Exception as e:
+         # If an error occurs, fallback to getting the store_id from query parameters
+         store_id = request.query_params.get("store")
+         if not store_id:
+               raise Http404("Store not found")  # or return a more suitable error response
+
       verified_product = get_object_or_404(Product, id=product_id)
       verified_store = get_object_or_404(Store, id=store_id)
 

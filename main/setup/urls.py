@@ -15,11 +15,16 @@ from mall.views import (
         ProductTypeView,
         WalletView,
         # StoreProductPricing, 
-        ServicesBusinessInformationView, CreateLogisticsAccount,
-        CreateOperationsAccount
+        ServicesBusinessInformationView, 
+        CreateLogisticsAccount,
+        CreateOperationsAccount,
+        GetStoreDropshippers,
+        NotificationView,
+        PromoPlansView,
+        BuyerBehaviourView
 )
-from mall.custom_view.reportuser import ReportUserView
 
+from mall.custom_view.reportuser import ReportUserView
 from order.views import (
     OrderItemsViewSet, 
     CartViewSet, 
@@ -27,7 +32,9 @@ from order.views import (
     CheckOutCart, 
     ViewOrders, 
     OrderDeliverView, 
-    AllOrders)
+    AllOrders,
+    PaymentHistoryView
+    )
 
 from order.logistics.assign_order import AssignOrderView
 from services.views import (
@@ -56,40 +63,53 @@ schema_view = get_schema_view(
 )
 
 
-
 router = routers.DefaultRouter()
 # Store Owner
+
 router.register('storeowner', CreateStoreOwner, basename="user")
+router.register('dropshippers/store', GetStoreDropshippers, basename="dropship")
+
 router.register('categories', GetCategories, basename='categories')
+
 router.register('create/store', CreateStore, basename='create-store')
+
 router.register('signup/user', TenantSignUp, basename="signup-tenant")
 
 # Products
 router.register('products', ProductViewSet, basename='products')
+
 router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
+
 # router.register('store_pricing', StoreProductPricing, basename='storeprice')
+
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('order-delivery/confirmation', OrderDeliverView, basename='confirmation')
+router.register('my-orders', ViewOrders, basename="view-orders")
 
-# router.register('orders', OrderViewSet, basename='orders')
+
 router.register('product-details', ProductDetails, basename='product-details')
 router.register('cart', CartViewSet, basename="add-to-cart")
 router.register('cart-item', CartItemModifyView, basename="cartitem")
-router.register('my-orders', ViewOrders, basename="view-orders")
+
 router.register('brand', BrandView, basename='brands')
 router.register('subcategory', SubCategoryView, basename='subcategory')
 router.register('product-type', ProductTypeView, basename='product-type')
 router.register('business_info', ServicesBusinessInformationView, basename='business')
 router.register('checkout', CheckOutCart, basename='checkout')
+router.register('buyer-behaviour', BuyerBehaviourView, basename='buyerbehavior')
 
 # Payments
 router.register(r'wallet', WalletView, basename='wallets')
+router.register('payment/history', PaymentHistoryView, basename='payment')
 
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
 router.register('services-category', ServicesCategoryView,basename='service-cat')
 router.register('report/user', ReportUserView, basename='report-user')
+
+# Notification
+router.register("notifications", NotificationView, basename='notifications')
 
 
 # Logistics & Operations
@@ -97,6 +117,7 @@ router.register('signup/logistics', CreateLogisticsAccount, basename='logistics'
 router.register('assign-order', AssignOrderView, basename='assigned_orders')
 router.register('all-orders', AllOrders, basename='allorders')
 router.register('signup/operations', CreateOperationsAccount, basename='operations')
+router.register('promo/', PromoPlansView, basename='promos')
 
 
 

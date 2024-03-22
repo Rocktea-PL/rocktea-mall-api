@@ -1,6 +1,19 @@
 from rest_framework import serializers, status
-from .models import OrderItems, Cart, CartItem, StoreOrder, OrderDeliveryConfirmation, StoreOrder, AssignOrder
-from mall.models import CustomUser, Store, Product
+from .models import (
+   OrderItems, 
+   Cart, 
+   CartItem, 
+   StoreOrder, 
+   OrderDeliveryConfirmation, 
+   StoreOrder, 
+   AssignOrder,
+   PaymentHistory
+   )
+from mall.models import (
+   CustomUser, 
+   Store, 
+   Product
+   )
 from mall.serializers import ProductSerializer
 from decimal import Decimal
 from rest_framework.views import APIView
@@ -176,3 +189,16 @@ class AssignOrderSerializer(serializers.ModelSerializer):
 
       return representation
 
+
+class PaymentHistorySerializers(serializers.ModelSerializer):
+   class Meta:
+      model = PaymentHistory
+      fields = ["store", "order", "amount", "payment_date"]
+      
+   def to_representation(self, instance):
+      representation = super(PaymentHistorySerializers, self).to_representation(instance)
+      
+      representation['order'] = {"status": instance.order.status, "buyer": f"{instance.order.buyer.first_name} {instance.order.buyer.last_name}"}
+      
+      representation['payment_date'] = instance.payment_date.strftime("%Y-%m-%d")
+      return representation

@@ -1,8 +1,7 @@
 from rest_framework.serializers import (
    ModelSerializer, 
    PrimaryKeyRelatedField, 
-   ReadOnlyField, 
-   # ValidationError
+   ReadOnlyField,
    )
 
 from workshop.exceptions import (
@@ -25,7 +24,10 @@ from .models import (
    Wallet, 
    StoreProductPricing, 
    ServicesBusinessInformation, 
-   ReportUser
+   ReportUser,
+   Notification,
+   PromoPlans,
+   BuyerBehaviour
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -290,6 +292,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
+   size = serializers.CharField(required=False)
    
    class Meta:
       model = ProductVariant
@@ -303,6 +306,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
 
       return representation
+
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
@@ -328,12 +332,17 @@ class ProductSerializer(serializers.ModelSerializer):
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
    # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
+
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
-               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 'brand', "producttype",'images', "product_variants"]
+               'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 
+               'brand', "producttype",'images', "product_variants"]
       read_only_fields = ('id', "sku")
+      extra_kwargs = {
+         'size': {'required': False}
+      }
    
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -416,12 +425,12 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          # Create a new Marketplace instance if it doesn't exist
          instance = MarketPlace.objects.create(**validated_data, list_product=True)
          return instance
-      
+
    def get_store_instance(self):
       """ Use Store Domain Name to get the Store instance"""
       store_domain = self.context['request'].domain_name
       try:
-         store = Store.objects.get(domain_name=store_domain)
+         store = Store.objects.get(id=store_domain)
       except Store.DoesNotExist:
          raise ValidationError("Store Does Not Exist")
       return store
@@ -433,7 +442,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       
       if cached_data is not None:
          return cached_data
-      
+
       representation = super().to_representation(instance)
 
       # Assuming `store` is a related field
@@ -519,6 +528,7 @@ class WalletSerializer(serializers.ModelSerializer):
    class Meta:
       model = Wallet
       fields = ['id', 'store', 'balance', 'account_name', 'pending_balance', 'balance', 'nuban', 'bank_code']
+      
 
    def to_representation(self, instance):
       representation = super(WalletSerializer, self).to_representation(instance)
@@ -541,3 +551,21 @@ class ReportUserSerializer(serializers.ModelSerializer):
          "full_name": f"{instance.user.first_name} {instance.user.last_name}",
       }
       return representation
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = Notification
+      fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']
+      
+
+class PromoPlanSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = PromoPlans
+      fields = ['id', 'purpose', 'store', 'category', 'code']
+
+
+class BuyerBehaviourSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = BuyerBehaviour
+      fields = "__all__"

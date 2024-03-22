@@ -16,8 +16,13 @@ environ.Env.read_env()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env('SECRET_KEY')
 
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'staticfiles/'),
+    # Add other paths to app-specific static directories if needed
+]
+
 # Static Files
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -52,20 +57,24 @@ INSTALLED_APPS = [
     
     # API Documentation
     'drf_yasg',
+    
+    # Storage
+    "whitenoise.runserver_nostatic",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # 'mall.middleware.StoreMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'mall.middleware.DomainNameMiddleware',
+    # 'mall.middleware.DomainNameMiddleware',
 ]
+
 
 ROOT_URLCONF = 'setup.urls'
 
@@ -84,6 +93,20 @@ TEMPLATES = [
         },
     },
 ]
+
+# Storage
+
+STORAGES = {
+    # ...
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+WHITENOISE_ALLOW_ALL_ORIGINS = True
+WHITENOISE_AUTOREFRESH = True
+
+
 
 WSGI_APPLICATION = 'setup.wsgi.application'
 
@@ -112,16 +135,6 @@ DATABASES = {
     },
 }
 
-# CORS_ALLOWED_ORIGINS = [
-#     "http://127.0.0.1:8000",
-#     "http://localhost:5173",
-#     "http://localhost:5174",
-#     "https://rocktea-mall.vercel.app",
-#     "https://rocktea-mall-api-test.up.railway.app",
-#     "https://rocktea-mall-git-test-rockteamall.vercel.app",
-#     "https://rocktea-mall-product.vercel.app"
-# ]
-
 CORS_ALLOW_ALL_ORIGINS=True
 
 CSRF_TRUSTED_ORIGINS = [
@@ -129,9 +142,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall-api-test.up.railway.app",
     "http://localhost:5174",
     "http://localhost:5173",
+    "https://rocktea-dropshippers.vercel.app",
+    "https://rocktea-users.vercel.app"
 ]
-
-CORS_ALLOW_CREDENTIALS: True
 
 CORS_ALLOW_METHODS = [
     "DELETE",
@@ -158,6 +171,7 @@ CORS_ALLOW_HEADERS = [
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
+
 DEFAULT_FILE_STORAGE = 'storages.backends.cloudinary.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {

@@ -1,7 +1,11 @@
-from .models import PaymentHistory, StoreOrder, OrderItems, StoreProductPricing
-from mall.models import Wallet
+from .models import (
+   PaymentHistory, StoreOrder, 
+   OrderItems, StoreProductPricing
+   )
+from mall.models import Wallet, Notification, Store
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.shortcuts import get_object_or_404
 
 
 @receiver(post_save, sender=OrderItems)
@@ -10,8 +14,8 @@ def create_payment_history(sender, instance, created, **kwargs):
       order = instance.userorder  # Get the related StoreOrder instance
       store_id = order.store.id
       order_id = order.id
-
       total_amount = 0
+
       for item in order.items.all():  # Iterate over all items in the order
          # Fetch the retail price from StoreProductPricing model
          product = item.product
@@ -27,3 +31,9 @@ def create_payment_history(sender, instance, created, **kwargs):
       # Create PaymentHistory object with the calculated total amount
       PaymentHistory.objects.create(
          store_id=store_id, order_id=order_id, amount=total_amount)
+      
+      # Create Notification
+      notification_message = f"Your customer {order.buyer.first_name} {order.buyer.last_name} just made an order, you earned NGN {total_amount}."
+      store = get_object_or_404(Store, id=store_id)
+      
+      Notification.objects.create(store=store, message=notification_message)

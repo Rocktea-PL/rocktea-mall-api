@@ -7,7 +7,8 @@ from .models import (
    CartItem, 
    StoreOrder, 
    OrderDeliveryConfirmation,
-   AssignOrder
+   AssignOrder,
+   PaymentHistory
    )
 
 from mall.models import (
@@ -23,7 +24,8 @@ from .serializers import (
    CartItemSerializer, 
    OrderSerializer, 
    OrderDeliverySerializer,
-   AssignedOrderSerializer
+   AssignedOrderSerializer,
+   PaymentHistorySerializers
    )
 
 from django.http import Http404, JsonResponse
@@ -39,6 +41,14 @@ from decimal import Decimal
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
+from workshop.processor import DomainNameHandler
+# from workshop.decorators import store_domain_required
+
+
+handler = DomainNameHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_ORIGIN", None)
 
 
 class OrderPagination(PageNumberPagination):
@@ -58,7 +68,8 @@ class CartViewSet(viewsets.ViewSet):
 
    def create(self, request):
       user = request.user
-      store_domain = request.domain_name
+      store_domain = handler.process_request(store_domain=get_store_domain(request))
+      
       verified_store = get_object_or_404(Store, id=store_domain)
       products = request.data.get('products', [])
 
@@ -86,7 +97,7 @@ class CartViewSet(viewsets.ViewSet):
          if existing_item:
                # If the product variant is already in the cart, update the quantity
                existing_item.quantity += quantity
-               existing_item.price += product_price
+               existing_item.price += Decimal(str(product_price))
                existing_item.save()
          else:
                # Otherwise, create a new CartItem for the product variant
@@ -130,7 +141,7 @@ class CheckOutCart(viewsets.ViewSet):
    def create(self, request):
       # Collect Data
       user = request.user
-      store_id = request.domain_name
+      store_id = handler.process_request(store_domain=get_store_domain(request))
       total_price = request.data.get("total_price")
 
       # Validate that required fields are present
@@ -174,7 +185,7 @@ class CheckOutCart(viewsets.ViewSet):
                   logging.error("Order Item ERROR")
                   return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-         # Clear the user's cart after a successful checkout
+         # CClear the user's cart after a successful checkout
          cart.items.all().delete()
 
          return Response(order_serializer.data, status=status.HTTP_201_CREATED)
@@ -245,3 +256,20 @@ class AssignedOrders(generics.ListAPIView):
 
       serializer = self.get_serializer(all_orders_for_rider, many=True)
       return Response({"orders": serializer.data}, status=status.HTTP_200_OK)
+
+
+class PaymentHistoryView(viewsets.ModelViewSet):
+   queryset = PaymentHistory.objects.select_related('store', 'order')
+   serializer_class = PaymentHistorySerializers
+   
+   def get_queryset(self):
+      store_id = handler.process_request(store_domain=get_store_domain(self.request))
+      
+      verified_store = get_object_or_404(Store, id=store_id)
+      
+      try:
+         queryset = PaymentHistory.objects.filter(store=verified_store).order_by("payment_date")
+         return queryset
+      except PaymentHistory.DoesNotExist:
+         return PaymentHistory.objects.none()
+      

@@ -9,7 +9,6 @@ from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 
-# from services.models import ServicesCategory
 
 def generate_unique_code():
    return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -28,14 +27,14 @@ class CustomUserManager(BaseUserManager):
    def create_superuser(self, email, password=None, **extra_fields):
       # Create a superuser
       extra_fields.setdefault('is_staff', True)
-      extra_fields.setdefault('is_superuser', True)
+      extra_fields.setdefault('is_superuser', False)
 
       if extra_fields.get('is_staff') is not True:
          raise ValueError('Superuser must have is_staff=True.')
       if extra_fields.get('is_superuser') is not True:
          raise ValueError('Superuser must have is_superuser=True.')
 
-      return self.create_user(email, password, **extra_fields)
+      return self.create_user(email, password=password, **extra_fields)
 
 
 # StoreOwner models
@@ -129,21 +128,22 @@ class Store(models.Model):
    owner = models.OneToOneField(CustomUser, related_name="owners", on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
    name = models.CharField(max_length=150, unique=True)
    email = models.EmailField(unique=True)
-   TIN_number = models.BigIntegerField(null=True)
+   TIN_number = models.BigIntegerField(null=True, blank=True)
    logo = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
-   cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+   cover_image = models.FileField(storage=RawMediaCloudinaryStorage, null=True, blank=True)
    year_of_establishment = models.DateField(validators=[YearValidator], null=True)
    category = models.ForeignKey('Category', on_delete=models.CASCADE, null=True)
    domain_name = models.CharField(max_length=100, null=True, unique=True)
    
    completed = models.BooleanField(default=False)
+   created_at = models.DateTimeField(auto_now_add=True)
    
    # Custom Add-Ons
-   theme = models.CharField(max_length=6, null=True)
-   facebook = models.URLField(null=True)
-   whatsapp = models.URLField(null=True)
-   instagram = models.URLField(null=True)
-   twitter = models.URLField(null=True)
+   theme = models.CharField(max_length=6, null=True, blank=True)
+   facebook = models.URLField(null=True, blank=True)
+   whatsapp = models.URLField(null=True, blank=True)
+   instagram = models.URLField(null=True, blank=True)
+   twitter = models.URLField(null=True, blank=True)
    
    class Meta:
       # Add an index for the 'uid' field
@@ -228,7 +228,7 @@ class ProductVariant(models.Model):
    ('Purple', 'Purple'),
    ('Pink', 'Pink'),
    ('Brown', 'Brown'),
-   ('Gray', 'Gray'),
+   ('Grey', 'Grey'),
    ('Black', 'Black'),
    ('White', 'White'),
    ('Cyan', 'Cyan'),
@@ -243,12 +243,14 @@ class ProductVariant(models.Model):
    ]
    
    product = models.ManyToManyField('Product', related_name='product_variants')
-   size = models.CharField(max_length=50, null=True)
-   colors = ArrayField(models.CharField(max_length=20, choices=COLOR_CHOICES))
+   size = models.CharField(max_length=50, null=True, blank=True)
+   colors = ArrayField(models.CharField(max_length=20, choices=COLOR_CHOICES, null=True, blank=True))
    wholesale_price = models.DecimalField(max_digits=11, decimal_places=2)
 
+
    def __str__(self):
-      return self.size
+      return ', '.join(product.name for product in self.product.all())
+
 
 
 class StoreProductPricing(models.Model):
@@ -274,7 +276,6 @@ class Category(models.Model):
       ("Groceries", "Groceries"),
       ("Video Games", "Video Games"),
       ("Home & Office", "Home & Office"),
-      
    )
    name = models.CharField(choices=CHOICES, unique=True, max_length=18)
    
@@ -377,3 +378,34 @@ class ReportUser(models.Model):
       if not self.support_code:
          self.support_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=10))
       return super().save(*args, **kwargs)
+   
+
+class Notification(models.Model):
+   recipient = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)
+   message = models.TextField()
+   created_at = models.DateTimeField(auto_now_add=True)
+   read = models.BooleanField(default=False)
+   
+   
+class PromoPlans(models.Model):
+   purpose = models.CharField(max_length=200)
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)
+   category = models.ForeignKey(Category, on_delete=models.CASCADE)
+   code = models.CharField(max_length=10)
+   validity_period = models.DateTimeField()
+   
+   def __str__(self):
+      return self.code
+
+   def save(self, *args, **kwargs):
+      if self.purpose:
+         promo_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+         self.code = promo_code
+      super(PromoPlans, self).save(*args, **kwargs)
+      
+      
+class BuyerBehaviour(models.Model):
+   question = models.CharField(max_length=200, default="How satisfied are you with our services?")
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer":True})
+   answer = models.IntegerField(null=True)

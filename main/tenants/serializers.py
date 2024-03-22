@@ -3,14 +3,20 @@ from rest_framework import serializers, status
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re
 from django.shortcuts import get_object_or_404
+from workshop.processor import DomainNameHandler
+
+handler = DomainNameHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_ORIGIN")
 
 
-class StoreUserSignUp(serializers.ModelSerializer):
-   associated_domain = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), required=True)
+class StoreUserSignUpSerializer(serializers.ModelSerializer):
+   # associated_domain = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), required=True)
    class Meta:
       model = CustomUser
-      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "associated_domain", "is_consumer", "password")
-      read_only_fields = ("username", "is_consumer")
+      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_consumer", "associated_domain", "password")
+      read_only_fields = ("username", "is_consumer", "associated_domain")
 
    def validate_password(self, value):
       if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', value):
@@ -21,7 +27,11 @@ class StoreUserSignUp(serializers.ModelSerializer):
       # Extract password from validated_data
       password = validated_data.pop("password", None)
 
-      user = CustomUser.objects.create(**validated_data)
+      domain_host = handler.process_request(store_domain=get_store_domain(self.context['request']))
+      
+      store_instance = get_object_or_404(Store, id=domain_host)
+      
+      user = CustomUser.objects.create(associated_domain=store_instance, **validated_data)
       
       # Confirm the user as a store owner
       user.is_consumer = True
@@ -30,8 +40,8 @@ class StoreUserSignUp(serializers.ModelSerializer):
          # Set and save the user's password only if a valid password is provided
          user.set_password(password)
          user.save()
-
       return user
+
 
 
 class UserLogin(TokenObtainPairSerializer):

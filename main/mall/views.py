@@ -16,9 +16,12 @@ from .serializers import (
    StoreProductPricingSerializer, 
    ServicesBusinessInformationSerializer, 
    LogisticSerializer,
-   OperationsSerializer
+   OperationsSerializer,
+   NotificationSerializer,
+   PromoPlanSerializer,
+   BuyerBehaviourSerializer
 )
-
+from django.http import Http404
 from .models import (
    CustomUser, 
    Category, 
@@ -33,7 +36,10 @@ from .models import (
    Wallet, 
    ServicesBusinessInformation, 
    StoreProductPricing,
-   Wallet
+   Wallet,
+   Notification,
+   PromoPlans,
+   BuyerBehaviour
 )
 
 from order.models import StoreOrder
@@ -47,7 +53,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from helpers.views import BaseView
@@ -57,8 +63,18 @@ from django.db.models import Count
 from django.core.cache import cache
 import logging
 from .store_features.get_store_id import get_store_instance
+from workshop.processor import DomainNameHandler
+# from django.utils.decorators import method_decorator
+# from django.views.decorators.csrf import csrf_exempt
+
+
+handler = DomainNameHandler()
+
+def get_store_domain(request):
+   return request.META.get("HTTP_ORIGIN")
 
 # Create your views here.
+# TODO DONE
 class CreateStoreOwner(viewsets.ModelViewSet):
    """
    Sign Up Store Owners Feature
@@ -66,6 +82,17 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
+   
+   def get_queryset(self):
+      user_id =  self.request.query_params.get("mallcli")
+
+      # If user_id is present in cookies, filter the queryset by it
+      if user_id:
+            queryset = CustomUser.objects.filter(id=user_id)
+      else:
+         # If user_id is not present, return an empty queryset or handle it as per your requirement
+         queryset = CustomUser.objects.none()
+      return queryset
 
 
 class CreateLogisticsAccount(viewsets.ModelViewSet):
@@ -79,20 +106,27 @@ class CreateOperationsAccount(viewsets.ModelViewSet):
 
 
 class CreateStore(viewsets.ModelViewSet):
-   """
-   Create Store Feature 
-   """
-   queryset = Store.objects.all()
+   # queryset = Store.objects.all()  # You can uncomment this if you want to retrieve all stores
+
    serializer_class = CreateStoreSerializer
+
+   def get_queryset(self):
+      # Extracting the domain name from the request
+      # if user is None or user.is_store_owner is False:
+      domain = handler.process_request(store_domain=get_store_domain(self.request))
+      # Filter stores based on domain_name
+      queryset = Store.objects.filter(id=domain)
+      return queryset
    
    def get_serializer_context(self):
       return {'request': self.request}
-      
-   def perform_update(self, serializer):
-      # You can override this method to add custom logic when updating the instance
-      serializer.save()
 
 
+class GetStoreDropshippers(viewsets.ModelViewSet):
+   queryset = Store.objects.all() 
+   serializer_class = CreateStoreSerializer
+   
+   
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
@@ -143,13 +177,13 @@ class ProductVariantView(viewsets.ModelViewSet):
 class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
       collect = request.data
-      store_id = request.domain_name
+      store_id = request.query_params.get("mall")
       product_id = collect.get("product")
       retail_price = collect.get("retail_price")
 
       # Fetch the store and product objects
       store = get_object_or_404(Store, id=store_id)
-      product = Product.objects.get(pk=product_id)
+      product = get_object_or_404(Product, id=product_id)
 
       # Check if the product pricing is valid before proceeding
       self.validate_product_pricing(store, product)
@@ -173,30 +207,43 @@ class CreateAndGetStoreProductPricing(APIView):
    def get(self, request):
       # Retrieve all StoreProductPricing instances
       store_product_prices = StoreProductPricing.objects.all()
-      serializer = StoreProductPricingSerializer(store_product_prices,many=True)
+      serializer = StoreProductPricingSerializer(store_product_prices, many=True)
       return Response(serializer.data, status=status.HTTP_200_OK)
+   
+   def delete(self, request):
+      store_id = request.query_params.get("mall")
+      product_id = collect.get("product")
 
+      # Validate data
+      store = get_object_or_404(StoreProductPricing, id=store_id)
+      product = get_object_or_404(Product, id=product_id)
+      
+      store_product_price = StoreProductPricing.objects.get(store=store, product=product)
+      store_product_price.delete()
+      return Response({"message": "Store product pricing deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
 class StoreProductPricingAPIView(APIView):
    def get(self, request):
-      # store_id = request.query_params.get("store")
+      store_id = handler.process_request(store_domain=get_store_domain(request))
+      # print(store_id)
+      
+      # Get the store instance based on the provided store_id
+      store = get_object_or_404(Store, id=store_id)
+      
       try:
          # Retrieve all store prices related to the specified store
-         store_prices = StoreProductPricing.objects.filter(
-               store_id=get_store_instance(request))
+         store_prices = StoreProductPricing.objects.filter(store=store)
          
          # Serialize the data
-         store_prices_serializer = StoreProductPricingSerializer(
-               store_prices, many=True)
-
+         store_prices_serializer = StoreProductPricingSerializer(store_prices, many=True)
+         
          # Return the serialized data as the API response
-         return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
-
+         return Response(store_prices, status=status.HTTP_200_OK)
+      
       except Exception as e:
          # Handle exceptions, you might want to log the error or return a different response
          return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-   
 
    def delete(self, request, store_id):
       try:
@@ -269,16 +316,16 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      # store_id = self.request.user.owners.id
-      store_domain = self.request.domain_name
-      print(store_domain)
+      store_host = handler.process_request(store_domain=get_store_domain(self.request))
+      
+      store = Store.objects.get(id=store_host)
       try:
-         store = get_object_or_404(Store, do=store_domain)
-         # Filter the queryset based on the specified store and list_product=True
-         queryset = MarketPlace.objects.filter(store=store, list_product=True).select_related('product').order_by("-id")
-         # cache.set(cache_key, queryset, timeout=100)
+         
+         queryset = MarketPlace.objects.filter(
+               store=store, list_product=True).select_related('product').order_by("-id")
          return queryset
       except Store.DoesNotExist:
+         logging.error("Store with ID %s does not exist.", store_host)
          return MarketPlace.objects.none()
 
 
@@ -286,7 +333,8 @@ class MarketPlaceView(viewsets.ModelViewSet):
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
       # Get Store
-      store_id = request.domain_name
+      store_id = request.query_params.get("mall")
+
       store = get_object_or_404(Store, id=store_id)
 
       # Get Number of Listed Products
@@ -306,27 +354,40 @@ class DropshipperDashboardCounts(APIView):
          "Customers": customer_count
       }
       return Response(data, status=status.HTTP_200_OK)
-   
-   # def get_store_id(self, store_id):
-   #    store_domain = request.domain_name
-
-   #    stor
 
 
 # Best Selling Product Data
 class BestSellingProductView(ListAPIView):
    serializer_class = ProductSerializer
-   
+
    def get_queryset(self):
       return Product.objects.all().order_by('-sales_count')[:3]
+
+
+class SalesCountView(APIView):
+   def get_object(self, product_id):
+      try:
+         return Product.objects.get(pk=product_id)
+      except Product.DoesNotExist:
+         raise Http404
+
+   def get(self, request, *args, **kwargs):
+      product_id = request.query_params.get('id')  # Retrieving product_id from query parameters
+      try:
+         product = self.get_object(product_id)
+      except Http404:
+         return Response({"message": "Product does not exist"}, status=404)
+      
+      sales_count = product.sales_count
+      return Response({"sales_count": sales_count})
 
 
 class StoreOrdersViewSet(ListAPIView):
    serializer_class = OrderSerializer
 
    def get_queryset(self):
-      store_id = self.request.query_params.get("store")
-      verified_store = self.get_store(store_id)
+      store_id = self.request.query_params.get("mall")
+      verified_store = get_object_or_404(Store, id=store_id)
 
       # Use a try-except block to handle the case where no orders are found for the given store
       try:
@@ -334,15 +395,6 @@ class StoreOrdersViewSet(ListAPIView):
       except StoreOrder.DoesNotExist:
          return StoreOrder.objects.none()
       return orders
-
-   def get_store(self, store_id):
-      try:
-         store = Store.objects.get(id=store_id)
-      except Store.DoesNotExist:
-         # Instead of returning a ValidationError, raise a serializers.ValidationError
-         raise serializers.ValidationError("Store Does Not Exist")
-
-      return store
 
 
 class BrandView(viewsets.ModelViewSet):
@@ -368,14 +420,49 @@ class ProductDetails(viewsets.ModelViewSet):
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
-   lookup_field = 'store_id'  # Change the lookup field
-
-   # def get_object(self):
-   #    queryset = self.filter_queryset(self.get_queryset())
-   #    filter_kwargs = {self.lookup_field: self.kwargs[self.lookup_url_kwarg]}
-   #    return get_object_or_404(queryset, **filter_kwargs) 
+   lookup_field = 'store_id'  # Disable the default lookup field
 
 
 class ServicesBusinessInformationView(viewsets.ModelViewSet):
    queryset = ServicesBusinessInformation.objects.select_related('user')
    serializer_class = ServicesBusinessInformationSerializer
+
+
+class NotificationView(viewsets.ModelViewSet):
+   serializer_class = NotificationSerializer
+
+   def get_queryset(self):
+      queryset = Notification.objects.select_related('recipient', 'store')
+
+      store_id = self.request.query_params.get('mall')
+      recipient_id = self.request.query_params.get('mall_cli')
+
+      if store_id:
+         queryset = queryset.filter(store_id=store_id)
+      elif recipient_id:
+         queryset = queryset.filter(recipient_id=recipient_id)
+
+      try:
+         if queryset.exists():
+               return queryset
+         else:
+               return None
+      except Exception as e:
+         return None
+
+   def list(self, request, *args, **kwargs):
+      queryset = self.get_queryset()
+      if queryset is None:
+         return Response(status=status.HTTP_204_NO_CONTENT)
+      serializer = self.get_serializer(queryset, many=True)
+      return Response(serializer.data)
+
+
+class PromoPlansView(viewsets.ModelViewSet):
+   queryset = PromoPlans.objects.select_related('store', 'category')
+   serializer_class = PromoPlanSerializer
+   
+   
+class BuyerBehaviourView(viewsets.ModelViewSet):
+   queryset = BuyerBehaviour.objects.select_related('user')
+   serializer_class = BuyerBehaviourSerializer

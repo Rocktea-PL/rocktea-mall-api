@@ -25,3 +25,8 @@ class AuthenticationFailedError(CustomException):
 class NotFoundError(CustomException):
    status_code = 404
    default_detail = 'Not Found'
+   
+
+class InternalServerError(CustomException):
+   status_code = 500
+   default_detail = 'Internal Server Error'
