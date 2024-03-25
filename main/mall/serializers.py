@@ -370,6 +370,8 @@ class ProductSerializer(serializers.ModelSerializer):
 
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
+      
+      representation['producttype'] = instance.producttype.name
 
       representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
 

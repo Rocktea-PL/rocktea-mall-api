@@ -352,7 +352,8 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = handler.process_request(store_domain=get_store_domain(self.request)) 
+      store_host = self.request.query_params.get("mall")
+      # handler.process_request(store_domain=get_store_domain(self.request)) 
       
       store = Store.objects.get(id=store_host)
       try:
