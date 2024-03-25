@@ -462,6 +462,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
                "category": instance.product.category.name,
                "subcategory": instance.product.subcategory.name,
+               "producttype": instance.product.producttype.name,
                "upload_status": instance.product.upload_status
          }
       else:
