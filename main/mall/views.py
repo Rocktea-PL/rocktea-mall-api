@@ -64,6 +64,8 @@ from django.core.cache import cache
 import logging
 from .store_features.get_store_id import get_store_instance
 from workshop.processor import DomainNameHandler
+from django_filters.rest_framework import DjangoFilterBackend
+
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
 
@@ -139,6 +141,7 @@ class SignInUserView(TokenObtainPairView):
 class ProductViewSet(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
+
    
    def get_queryset(self):
       category_id = self.request.query_params.get('category')
@@ -154,6 +157,20 @@ class ProductViewSet(viewsets.ModelViewSet):
       except Product.DoesNotExist:
          return []
       return product
+   
+   
+class ProductFilter(ListAPIView):
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
+   serializer_class = ProductSerializer
+   filter_backends = [DjangoFilterBackend]
+   filterset_fields = ["category", "producttype", "subcategory"]
+
+   # def get_queryset(self):
+   #    queryset = super().get_queryset()
+   #    print("Original queryset:", queryset)  # Inspect original queryset
+   #    filtered_queryset = self.filter_queryset(queryset)
+   #    print("Filtered queryset:", filtered_queryset)  # Inspect filtered queryset
+   #    return filtered_queryset
 
 
 class ProductVariantView(viewsets.ModelViewSet):

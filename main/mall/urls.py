@@ -7,7 +7,8 @@ from .views import (
     BestSellingProductView, 
     StoreProductPricingAPIView, 
     CreateAndGetStoreProductPricing,
-    SalesCountView
+    SalesCountView,
+    ProductFilter
     )
 from .payments import OTP
 from mall.store_features.product import GetVariantAndPricing
@@ -23,5 +24,6 @@ urlpatterns = [
     path('variant-pricing/<str:product_id>', GetVariantAndPricing.as_view(), name="pricing"),
     path('store-prices/', StoreProductPricingAPIView.as_view(), name='store-product-prices'),
     path('store_pricing/', CreateAndGetStoreProductPricing.as_view(),name='store-price'),
-    path('sales_count', SalesCountView.as_view(), name='product-sales-count')
+    path('sales_count', SalesCountView.as_view(), name='product-sales-count'),
+    path('filter', ProductFilter.as_view(), name='product-filter')
 ]
