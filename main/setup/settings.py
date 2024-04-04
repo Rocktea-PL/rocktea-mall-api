@@ -177,7 +177,6 @@ CLOUDINARY_STORAGE = {
 }
 
 
-
 SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
     "ACCESS_TOKEN_LIFETIME": timedelta(days=14),

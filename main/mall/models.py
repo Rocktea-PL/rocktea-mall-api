@@ -58,7 +58,6 @@ class CustomUser(AbstractUser):
    password = models.CharField(max_length=200)
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
-   shipping_address = models.CharField(max_length=500, null=True)
 
    # Services Extension
    type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
@@ -409,3 +408,96 @@ class BuyerBehaviour(models.Model):
    question = models.CharField(max_length=200, default="How satisfied are you with our services?")
    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer":True})
    answer = models.IntegerField(null=True)
+   
+   
+class ShippingData(models.Model):
+   STATE_CHOICES = (
+   ('ABIA', 'ABIA'),
+   ('ADAMAWA', 'ADAMAWA'),
+   ('AKWA IBOM', 'AKWA IBOM'),
+   ('ANAMBRA', 'ANAMBRA'),
+   ('BAUCHI', 'BAUCHI'),
+   ('BAYELSA', 'BAYELSA'),
+   ('BENUE', 'BENUE'),
+   ('BORNO', 'BORNO'),
+   ('CROSS RIVER', 'CROSS RIVER'),
+   ('DELTA', 'DELTA'),
+   ('EBONYI', 'EBONYI'),
+   ('EDO', 'EDO'),
+   ('EKITI', 'EKITI'),
+   ('ENUGU', 'ENUGU'),
+   ('FCT (ABUJA)', 'FCT (ABUJA)'),
+   ('GOMBE', 'GOMBE'),
+   ('IMO', 'IMO'),
+   ('JIGAWA', 'JIGAWA'),
+   ('KADUNA', 'KADUNA'),
+   ('KANO', 'KANO'),
+   ('KATSINA', 'KATSINA'),
+   ('KEBBI', 'KEBBI'),
+   ('KOGI', 'KOGI'),
+   ('KWARA', 'KWARA'),
+   ('LAGOS', 'LAGOS'),
+   ('NASARAWA', 'NASARAWA'),
+   ('NIGER', 'NIGER'),
+   ('OGUN', 'OGUN'),
+   ('ONDO', 'ONDO'),
+   ('OSUN', 'OSUN'),
+   ('OYO', 'OYO'),
+   ('PLATEAU', 'PLATEAU'),
+   ('RIVERS', 'RIVERS'),
+   ('SOKOTO', 'SOKOTO'),
+   ('TARABA', 'TARABA'),
+   ('YOBE', 'YOBE'),
+   ('ZAMFARA', 'ZAMFARA')
+)
+
+   LGA_CHOICES = (
+   ('FCT', 'Abaji'),
+   ('Lagos', 'Agege'),
+   ('Lagos', 'Alimosho'),
+   ('FCT', 'Bwari'),
+   ('Kano', 'Dala'),
+   ('Edo', 'Egor'),
+   ('Rivers', 'Eleme'),
+   ('Enugu', 'Enugu East'),
+   ('Enugu', 'Enugu North'),
+   ('Enugu', 'Enugu South'),
+   ('Lagos', 'Eti Osa'),
+   ('Kano', 'Fagge'),
+   ('FCT', 'Gwagwalada'),
+   ('Kano', 'Gwale'),
+   ('Oyo', 'Ibadan North'),
+   ('Oyo', 'Ibadan North East'),
+   ('Oyo', 'Ibadan South East'),
+   ('Oyo', 'Ibadan South West'),
+   ('Oyo', 'Ido'),
+   ('Lagos', 'Ifako Ijaye'),
+   ('Lagos', 'Ikeja'),
+   ('Kano', 'Kano Municipal'),
+   ('Lagos', 'Kosofe'),
+   ('FCT', 'Kuje'),
+   ('Kano', 'Kumbotso'),
+   ('FCT', 'Kwali'),
+   ('Lagos', 'Lagos Mainland'),
+   ('Lagos', 'Mushin'),
+   ('Lagos', 'Oshodi Isolo'),
+   ('Imo', 'Owerri Municipal'),
+   ('Imo', 'Owerri North'),
+   ('Rivers', 'Port Harcourt'),
+   ('Lagos', 'Shomolu'),
+   ('Lagos', 'Surulere'),
+   ('Kano', 'Tarauni'),
+   ('Kano', 'Ungogo'),
+   ('Rivers', 'Obio/Akpor'),
+   ('Rivers', 'Port-Harcourt'),
+   ('FCT', 'Abuja Municipal Area Council'),
+   ('FCT', 'AMAC')
+   )
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+   address = models.CharField(max_length=400)
+   state = models.CharField(choices=STATE_CHOICES, max_length=37)
+   lga = models.CharField(choices=LGA_CHOICES, max_length=39)
+   country = models.CharField(max_length=50)
+   
+   def __str__(self):
+      return self.address
