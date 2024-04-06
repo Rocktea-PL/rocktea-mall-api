@@ -21,7 +21,8 @@ from mall.views import (
         GetStoreDropshippers,
         NotificationView,
         PromoPlansView,
-        BuyerBehaviourView
+        BuyerBehaviourView,
+        ShippingDataView
 )
 
 from mall.custom_view.reportuser import ReportUserView
@@ -120,11 +121,13 @@ router.register('signup/operations', CreateOperationsAccount, basename='operatio
 router.register('promo/', PromoPlansView, basename='promos')
 
 
+# ShippingData
+router.register('shipping-data', ShippingDataView, basename='shipping_data')
+
 
 
 urlpatterns = [
     path('swagger/', schema_view.with_ui('swagger',cache_timeout=0), name='schema-swagger-ui'),
-    # path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
     path('admin/', admin.site.urls),
     path('rocktea/', include(router.urls)),
     path('mall/', include("mall.urls")),
@@ -133,4 +136,5 @@ urlpatterns = [
     path('order/', include('order.urls')),
     path('service/', include('services.urls'))
 ]
+
 urlpatterns += router.urls

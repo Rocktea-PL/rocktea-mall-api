@@ -19,7 +19,8 @@ from .serializers import (
    OperationsSerializer,
    NotificationSerializer,
    PromoPlanSerializer,
-   BuyerBehaviourSerializer
+   BuyerBehaviourSerializer,
+   ShippingDataSerializer
 )
 from django.http import Http404
 from .models import (
@@ -39,7 +40,8 @@ from .models import (
    Wallet,
    Notification,
    PromoPlans,
-   BuyerBehaviour
+   BuyerBehaviour,
+   ShippingData
 )
 
 from order.models import StoreOrder
@@ -502,3 +504,8 @@ class PromoPlansView(viewsets.ModelViewSet):
 class BuyerBehaviourView(viewsets.ModelViewSet):
    queryset = BuyerBehaviour.objects.select_related('user')
    serializer_class = BuyerBehaviourSerializer
+   
+   
+class ShippingDataView(viewsets.ModelViewSet):
+   queryset = ShippingData.objects.select_related('user')
+   serializer_class = ShippingDataSerializer

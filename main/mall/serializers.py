@@ -27,7 +27,8 @@ from .models import (
    ReportUser,
    Notification,
    PromoPlans,
-   BuyerBehaviour
+   BuyerBehaviour,
+   ShippingData
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -568,7 +569,14 @@ class PromoPlanSerializer(serializers.ModelSerializer):
       fields = ['id', 'purpose', 'store', 'category', 'code']
 
 
+# Pre-Structure for Data Analyst
 class BuyerBehaviourSerializer(serializers.ModelSerializer):
    class Meta:
       model = BuyerBehaviour
+      fields = "__all__"
+      
+      
+class ShippingDataSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ShippingData
       fields = "__all__"
