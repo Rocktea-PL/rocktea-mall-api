@@ -412,44 +412,44 @@ class BuyerBehaviour(models.Model):
    
 class ShippingData(models.Model):
    STATE_CHOICES = (
-   ('ABIA', 'ABIA'),
-   ('ADAMAWA', 'ADAMAWA'),
-   ('AKWA IBOM', 'AKWA IBOM'),
-   ('ANAMBRA', 'ANAMBRA'),
-   ('BAUCHI', 'BAUCHI'),
-   ('BAYELSA', 'BAYELSA'),
-   ('BENUE', 'BENUE'),
-   ('BORNO', 'BORNO'),
-   ('CROSS RIVER', 'CROSS RIVER'),
-   ('DELTA', 'DELTA'),
-   ('EBONYI', 'EBONYI'),
-   ('EDO', 'EDO'),
-   ('EKITI', 'EKITI'),
-   ('ENUGU', 'ENUGU'),
-   ('FCT (ABUJA)', 'FCT (ABUJA)'),
-   ('GOMBE', 'GOMBE'),
-   ('IMO', 'IMO'),
-   ('JIGAWA', 'JIGAWA'),
-   ('KADUNA', 'KADUNA'),
-   ('KANO', 'KANO'),
-   ('KATSINA', 'KATSINA'),
-   ('KEBBI', 'KEBBI'),
-   ('KOGI', 'KOGI'),
-   ('KWARA', 'KWARA'),
-   ('LAGOS', 'LAGOS'),
-   ('NASARAWA', 'NASARAWA'),
-   ('NIGER', 'NIGER'),
-   ('OGUN', 'OGUN'),
-   ('ONDO', 'ONDO'),
-   ('OSUN', 'OSUN'),
-   ('OYO', 'OYO'),
-   ('PLATEAU', 'PLATEAU'),
-   ('RIVERS', 'RIVERS'),
-   ('SOKOTO', 'SOKOTO'),
-   ('TARABA', 'TARABA'),
-   ('YOBE', 'YOBE'),
-   ('ZAMFARA', 'ZAMFARA')
-)
+      ('ABIA', 'ABIA'),
+      ('ADAMAWA', 'ADAMAWA'),
+      ('AKWA IBOM', 'AKWA IBOM'),
+      ('ANAMBRA', 'ANAMBRA'),
+      ('BAUCHI', 'BAUCHI'),
+      ('BAYELSA', 'BAYELSA'),
+      ('BENUE', 'BENUE'),
+      ('BORNO', 'BORNO'),
+      ('CROSS RIVER', 'CROSS RIVER'),
+      ('DELTA', 'DELTA'),
+      ('EBONYI', 'EBONYI'),
+      ('EDO', 'EDO'),
+      ('EKITI', 'EKITI'),
+      ('ENUGU', 'ENUGU'),
+      ('FCT (ABUJA)', 'FCT (ABUJA)'),
+      ('GOMBE', 'GOMBE'),
+      ('IMO', 'IMO'),
+      ('JIGAWA', 'JIGAWA'),
+      ('KADUNA', 'KADUNA'),
+      ('KANO', 'KANO'),
+      ('KATSINA', 'KATSINA'),
+      ('KEBBI', 'KEBBI'),
+      ('KOGI', 'KOGI'),
+      ('KWARA', 'KWARA'),
+      ('LAGOS', 'LAGOS'),
+      ('NASARAWA', 'NASARAWA'),
+      ('NIGER', 'NIGER'),
+      ('OGUN', 'OGUN'),
+      ('ONDO', 'ONDO'),
+      ('OSUN', 'OSUN'),
+      ('OYO', 'OYO'),
+      ('PLATEAU', 'PLATEAU'),
+      ('RIVERS', 'RIVERS'),
+      ('SOKOTO', 'SOKOTO'),
+      ('TARABA', 'TARABA'),
+      ('YOBE', 'YOBE'),
+      ('ZAMFARA', 'ZAMFARA')
+   )
 
    LGA_CHOICES = (
    ('Abaji', 'Abaji'),
@@ -498,6 +498,14 @@ class ShippingData(models.Model):
    state = models.CharField(choices=STATE_CHOICES, max_length=37)
    lga = models.CharField(choices=LGA_CHOICES, max_length=39)
    country = models.CharField(max_length=50)
-   
+   longitude = models.CharField(max_length=20, null=True)
+   latitude = models.CharField(max_length=20, null=True)
+   delivery_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
+
+
    def __str__(self):
       return self.address
+
+
+class ProductReview(models.Model):
+   pass

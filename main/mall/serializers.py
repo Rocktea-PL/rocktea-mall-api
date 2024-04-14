@@ -59,7 +59,7 @@ class LogisticSerializer(ModelSerializer):
             raise ValidationError(
                {"error": "Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
 
-      user=CustomUser.objects.create(**validated_data)
+      user = CustomUser.objects.create(**validated_data)
       
       # Confirm the user as a store owner
       user.is_logistics = True
@@ -521,7 +521,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             # "producttype": getattr(instance.producttypes, 'name', None),
             "upload_status": instance.upload_status
          }
-      cache.set(cache_key, representation, timeout=20)
+      cache.set(cache_key, representation, timeout=60 * 5)
       return representation
 
    def serialize_product_variants(self, variants):
