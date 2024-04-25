@@ -139,6 +139,14 @@ class Store(models.Model):
    
    # Custom Add-Ons
    theme = models.CharField(max_length=6, null=True, blank=True)
+   background_color = models.CharField(max_length=30, null=True)
+   patterns = models.CharField(max_length=30, null=True)
+   color_gradient = models.CharField(max_length=30, null=True)
+   button_color = models.CharField(max_length=30, null=True)
+   card_elevation = models.CharField(max_length=30, null=True)
+   card_view = models.CharField(max_length=30, null=True)
+   
+   # Socials
    facebook = models.URLField(null=True, blank=True)
    whatsapp = models.URLField(null=True, blank=True)
    instagram = models.URLField(null=True, blank=True)
@@ -282,7 +290,7 @@ class Category(models.Model):
       indexes = [
          models.Index(fields=['name'], name='category_name_namex')
       ]
-   
+
    def __str__(self):
       return self.name
 
@@ -402,14 +410,14 @@ class PromoPlans(models.Model):
          promo_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
          self.code = promo_code
       super(PromoPlans, self).save(*args, **kwargs)
-      
-      
+
+
 class BuyerBehaviour(models.Model):
    question = models.CharField(max_length=200, default="How satisfied are you with our services?")
    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer":True})
    answer = models.IntegerField(null=True)
-   
-   
+
+
 class ShippingData(models.Model):
    STATE_CHOICES = (
       ('ABIA', 'ABIA'),

@@ -191,7 +191,8 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "domain_name", "theme","facebook", "whatsapp", "twitter", "instagram")
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
+               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view", "facebook", "whatsapp", "twitter", "instagram")
 
       read_only_fields = ("owner",)
 
@@ -219,7 +220,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "facebook", "whatsapp", "twitter", "instagram"]:
+      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view","facebook", "whatsapp", "twitter", "instagram"]:
          setattr(instance, field, validated_data.get(
             field, getattr(instance, field)))
 
