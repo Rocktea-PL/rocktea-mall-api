@@ -276,10 +276,4 @@ AUTH_USER_MODEL="mall.CustomUser"
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
 
-# Celery settings
-
-
-# SWAGGER
-# SWAGGER_SETTINGS = {
-#     'DEFAULT_INFO': os.path.join(BASE_DIR, 'setup/urls.py'),
-# }
+TEST_KEY = env("TEST_KEY")
