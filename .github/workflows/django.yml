@@ -73,6 +73,9 @@ jobs:
           echo "PGPORT=${{ secrets.PGPORT }}" >> $GITHUB_ENV
           echo "PGPASSWORD=${{ secrets.PGPASSWORD }}" >> $GITHUB_ENV
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> $GITHUB_ENV
+    - name: Flutterwave
+      run: |
+          echo "TEST_KEY=${{ secrets.TEST_KEY }}" >> $GITHUB_ENV
 
 
     - name: Sentry
