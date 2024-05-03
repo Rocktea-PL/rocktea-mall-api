@@ -193,7 +193,14 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       model = Store
       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
                "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view", "facebook", "whatsapp", "twitter", "instagram")
-
+      extra_kwargs = {
+               "background_color": {"required":False},
+               "patterns": {"required":False},
+               "color_gradient": {"required":False},
+               "button_color": {"required":False},
+               "card_elevation": {"required":False},
+               "card_view": {"required":False},
+                     }
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):

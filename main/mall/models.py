@@ -139,12 +139,12 @@ class Store(models.Model):
    
    # Custom Add-Ons
    theme = models.CharField(max_length=6, null=True, blank=True)
-   background_color = models.CharField(max_length=30, null=True)
-   patterns = models.CharField(max_length=30, null=True)
-   color_gradient = models.CharField(max_length=30, null=True)
-   button_color = models.CharField(max_length=30, null=True)
-   card_elevation = models.CharField(max_length=30, null=True)
-   card_view = models.CharField(max_length=30, null=True)
+   background_color = models.CharField(max_length=30, null=True, blank=True)
+   patterns = models.CharField(max_length=30, null=True, blank=True)
+   color_gradient = models.CharField(max_length=30, null=True, blank=True)
+   button_color = models.CharField(max_length=30, null=True, blank=True)
+   card_elevation = models.CharField(max_length=30, null=True, blank=True)
+   card_view = models.CharField(max_length=30, null=True, blank=True)
    
    # Socials
    facebook = models.URLField(null=True, blank=True)
