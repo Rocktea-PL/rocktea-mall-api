@@ -78,7 +78,11 @@ jobs:
 
     - name: Sentry
       run:  echo "DSN=${{ secrets.DSN }}" >> $GITHUB_ENV
-        
+    
+    - name:  flutterwave Config
+      run: |
+        echo "TEST_KEY=${{ secrets.TEST_KEY }}" >> $GITHUB_ENV  
+    
     - name: Run Tests
       run: |
         python manage.py test
