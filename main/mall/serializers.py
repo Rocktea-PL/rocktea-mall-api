@@ -192,7 +192,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
    class Meta:
       model = Store
       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
-               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view", "facebook", "whatsapp", "twitter", "instagram")
+               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view", "card_color", "facebook", "whatsapp", "twitter", "instagram")
       extra_kwargs = {
                "background_color": {"required":False},
                "patterns": {"required":False},
@@ -384,7 +384,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
       representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
 
-      cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 5 mins
       return representation
 
 
@@ -481,7 +481,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          representation['product'] = None
 
       representation['listed'] = instance.list_product
-      cache.set(cache_key, representation, timeout=5)
+      cache.set(cache_key, representation, timeout=60 * 5)
       return representation
 
    def serialize_product_images(self, images):

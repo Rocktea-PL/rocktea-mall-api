@@ -59,6 +59,10 @@ class CustomUser(AbstractUser):
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
 
+
+   # Registration Progress: This Records the User registration stage
+   completed_steps = models.IntegerField(default=0)
+   
    # Services Extension
    type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
    is_services = models.BooleanField(default=False)
@@ -145,6 +149,7 @@ class Store(models.Model):
    button_color = models.CharField(max_length=30, null=True, blank=True)
    card_elevation = models.CharField(max_length=30, null=True, blank=True)
    card_view = models.CharField(max_length=30, null=True, blank=True)
+   card_color = models.CharField(max_length=30, null=True, blank=True)
    
    # Socials
    facebook = models.URLField(null=True, blank=True)
