@@ -192,7 +192,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
    class Meta:
       model = Store
       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
-               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view", "card_color", "facebook", "whatsapp", "twitter", "instagram")
+               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view","card_color", "facebook", "whatsapp", "twitter", "instagram", "completed_steps")
       extra_kwargs = {
                "background_color": {"required":False},
                "patterns": {"required":False},
