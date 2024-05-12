@@ -150,6 +150,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-users.vercel.app"
 ]
 
+
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",

@@ -102,7 +102,7 @@ class StoreOwnerSerializer(ModelSerializer):
    
    class Meta:
       model=CustomUser
-      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password", "shipping_address")
+      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner", "completed_steps", "password", "shipping_address")
       read_only_fields = ("username", "is_store_owner")
       
    def create(self, validated_data):
@@ -192,7 +192,9 @@ class CreateStoreSerializer(serializers.ModelSerializer):
    class Meta:
       model = Store
       fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
-               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view","card_color", "facebook", "whatsapp", "twitter", "instagram", "completed_steps")
+               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", 
+               "button_color", "card_elevation", "card_view","card_color", "facebook", "whatsapp", "twitter", 
+               "instagram")
       extra_kwargs = {
                "background_color": {"required":False},
                "patterns": {"required":False},
