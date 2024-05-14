@@ -178,7 +178,7 @@ class Product(models.Model):
 
    id = models.CharField(max_length=36, default=uuid4, unique=True, primary_key=True)
    sku = models.CharField(max_length=8, unique=True, blank=True)
-   name = models.CharField(max_length=50)
+   name = models.CharField(max_length=50, unique=True)
    description = models.TextField(null=True)
    quantity = models.IntegerField()
    category = models.ForeignKey('Category', related_name="category", on_delete=models.CASCADE, null=True)
