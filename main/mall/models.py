@@ -326,6 +326,23 @@ class ProductTypes(models.Model):
       return self.name
 
 
+class ProductReview(models.Model):
+   product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+   review = models.TextField(null=True, blank=False)
+   
+   def __str__(self):
+         return self.user.first_name
+      
+
+class DropshipperReview(models.Model):
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+   review = models.TextField(null=True, blank=False)
+   
+   def __str__(self):
+         return self.user.first_name
+      
+
 class Brand(models.Model):
    producttype = models.ManyToManyField(ProductTypes)
    name = models.CharField(max_length=25, unique=True)
@@ -518,7 +535,3 @@ class ShippingData(models.Model):
 
    def __str__(self):
       return self.address
-
-
-class ProductReview(models.Model):
-   pass

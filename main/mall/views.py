@@ -20,7 +20,9 @@ from .serializers import (
    NotificationSerializer,
    PromoPlanSerializer,
    BuyerBehaviourSerializer,
-   ShippingDataSerializer
+   ShippingDataSerializer,
+   ProductReviewSerializer,
+   DropshipperReviewSerializer
 )
 from django.http import Http404
 from .models import (
@@ -41,7 +43,9 @@ from .models import (
    Notification,
    PromoPlans,
    BuyerBehaviour,
-   ShippingData
+   ShippingData,
+   ProductReview,
+   DropshipperReview
 )
 
 from order.models import StoreOrder
@@ -415,6 +419,15 @@ class SalesCountView(APIView):
       
       sales_count = product.sales_count
       return Response({"sales_count": sales_count})
+
+
+class ProductReviewViewSet(viewsets.ModelViewSet):
+   queryset = ProductReview.objects.select_related("user", "product")
+   serializer_class = ProductReviewSerializer
+
+class DropshipperReviewViewSet(viewsets.ModelViewSet):
+   queryset = DropshipperReview.objects.select_related("user")
+   serializer_class = DropshipperReviewSerializer
 
 
 class StoreOrdersViewSet(ListAPIView):

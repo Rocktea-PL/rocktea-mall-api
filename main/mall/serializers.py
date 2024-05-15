@@ -28,7 +28,9 @@ from .models import (
    Notification,
    PromoPlans,
    BuyerBehaviour,
-   ShippingData
+   ShippingData,
+   ProductReview,
+   DropshipperReview
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -590,3 +592,27 @@ class ShippingDataSerializer(serializers.ModelSerializer):
    class Meta:
       model = ShippingData
       fields = "__all__"
+      
+      
+class ProductReviewSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductReview
+      fields = "__all__"
+      
+   def to_representation(self, instance):
+      representation = super(ProductReviewSerializer, self).to_representation(instance)
+      representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
+      representation['product'] = instance.product.name
+      return representation
+   
+   
+class DropshipperReviewSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = DropshipperReview
+      fields = "__all__"
+      
+   def to_representation(self, instance):
+      representation = super(DropshipperReviewSerializer, self).to_representation(instance)
+      representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
+      return representation
+   

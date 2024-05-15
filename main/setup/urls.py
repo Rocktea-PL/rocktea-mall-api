@@ -22,7 +22,9 @@ from mall.views import (
         NotificationView,
         PromoPlansView,
         BuyerBehaviourView,
-        ShippingDataView
+        ShippingDataView,
+        ProductReviewViewSet,
+        DropshipperReviewViewSet
 )
 
 from mall.custom_view.reportuser import ReportUserView
@@ -90,6 +92,9 @@ router.register('my-orders', ViewOrders, basename="view-orders")
 
 
 router.register('product-details', ProductDetails, basename='product-details')
+router.register('product-reviews', ProductReviewViewSet, basename='reviews')
+router.register('dropshipper-review', DropshipperReviewViewSet, basename='dropshipper-reviews')
+
 router.register('cart', CartViewSet, basename="add-to-cart")
 router.register('cart-item', CartItemModifyView, basename="cartitem")
 
