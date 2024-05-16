@@ -7,7 +7,6 @@ from rest_framework.renderers import JSONRenderer
 from workshop.exceptions import ValidationError
 from workshop.processor import DomainNameHandler
 from django.shortcuts import get_object_or_404
-
 # Create your views here.
 
 handler = DomainNameHandler()
@@ -28,7 +27,8 @@ class TenantSignUp(viewsets.ModelViewSet):
       if not queryset.exists():
          raise ValidationError("User is Not a Store User")
       
-      # return set(queryset)
+      return queryset
+
 
 class LoginStoreUser(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)

@@ -27,7 +27,10 @@ from .models import (
    ReportUser,
    Notification,
    PromoPlans,
-   BuyerBehaviour
+   BuyerBehaviour,
+   ShippingData,
+   ProductReview,
+   DropshipperReview
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -58,7 +61,7 @@ class LogisticSerializer(ModelSerializer):
             raise ValidationError(
                {"error": "Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
 
-      user=CustomUser.objects.create(**validated_data)
+      user = CustomUser.objects.create(**validated_data)
       
       # Confirm the user as a store owner
       user.is_logistics = True
@@ -101,7 +104,7 @@ class StoreOwnerSerializer(ModelSerializer):
    
    class Meta:
       model=CustomUser
-      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner","password", "shipping_address")
+      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner", "completed_steps", "password", "shipping_address")
       read_only_fields = ("username", "is_store_owner")
       
    def create(self, validated_data):
@@ -190,8 +193,18 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", "domain_name", "theme","facebook", "whatsapp", "twitter", "instagram")
-
+      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
+               "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", 
+               "button_color", "card_elevation", "card_view","card_color", "facebook", "whatsapp", "twitter", 
+               "instagram")
+      extra_kwargs = {
+               "background_color": {"required":False},
+               "patterns": {"required":False},
+               "color_gradient": {"required":False},
+               "button_color": {"required":False},
+               "card_elevation": {"required":False},
+               "card_view": {"required":False},
+                     }
       read_only_fields = ("owner",)
 
    def validate_TIN_number(self, value):
@@ -218,7 +231,7 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "facebook", "whatsapp", "twitter", "instagram"]:
+      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view","facebook", "whatsapp", "twitter", "instagram"]:
          setattr(instance, field, validated_data.get(
             field, getattr(instance, field)))
 
@@ -370,10 +383,12 @@ class ProductSerializer(serializers.ModelSerializer):
 
       representation['subcategory'] = {"id": instance.subcategory.id,
                                        "name": instance.subcategory.name}
+      
+      representation['producttype'] = instance.producttype.name
 
       representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
 
-      cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 10 mins
+      cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 5 mins
       return representation
 
 
@@ -462,6 +477,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
                "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
                "category": instance.product.category.name,
                "subcategory": instance.product.subcategory.name,
+               "producttype": instance.product.producttype.name,
                "upload_status": instance.product.upload_status
          }
       else:
@@ -469,7 +485,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
          representation['product'] = None
 
       representation['listed'] = instance.list_product
-      cache.set(cache_key, representation, timeout=5)
+      cache.set(cache_key, representation, timeout=60 * 5)
       return representation
 
    def serialize_product_images(self, images):
@@ -517,7 +533,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             # "producttype": getattr(instance.producttypes, 'name', None),
             "upload_status": instance.upload_status
          }
-      cache.set(cache_key, representation, timeout=20)
+      cache.set(cache_key, representation, timeout=60 * 5)
       return representation
 
    def serialize_product_variants(self, variants):
@@ -565,7 +581,38 @@ class PromoPlanSerializer(serializers.ModelSerializer):
       fields = ['id', 'purpose', 'store', 'category', 'code']
 
 
+# Pre-Structure for Data Analyst
 class BuyerBehaviourSerializer(serializers.ModelSerializer):
    class Meta:
       model = BuyerBehaviour
       fields = "__all__"
+      
+      
+class ShippingDataSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ShippingData
+      fields = "__all__"
+      
+      
+class ProductReviewSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductReview
+      fields = "__all__"
+      
+   def to_representation(self, instance):
+      representation = super(ProductReviewSerializer, self).to_representation(instance)
+      representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
+      representation['product'] = instance.product.name
+      return representation
+   
+   
+class DropshipperReviewSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = DropshipperReview
+      fields = "__all__"
+      
+   def to_representation(self, instance):
+      representation = super(DropshipperReviewSerializer, self).to_representation(instance)
+      representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
+      return representation
+   

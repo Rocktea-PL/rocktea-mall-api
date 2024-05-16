@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'multiselectfield',
     'rest_framework_simplejwt',
     'rest_framework',
+    'django_filters',
     
     # Caution
     'django_extensions',
@@ -97,11 +98,14 @@ TEMPLATES = [
 # Storage
 
 STORAGES = {
-    # ...
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
+    "media": {
+        "BACKEND": "storages.backends.cloudinary.MediaCloudinaryStorage",
+    }
 }
+
 
 WHITENOISE_ALLOW_ALL_ORIGINS = True
 WHITENOISE_AUTOREFRESH = True
@@ -146,6 +150,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-users.vercel.app"
 ]
 
+
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
@@ -172,7 +177,6 @@ CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
 
-DEFAULT_FILE_STORAGE = 'storages.backends.cloudinary.MediaCloudinaryStorage'
 
 SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
@@ -180,17 +184,17 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
 }
 
-
 REST_FRAMEWORK = {
-'DEFAULT_AUTHENTICATION_CLASSES': [
-    'rest_framework_simplejwt.authentication.JWTAuthentication',
-    'rest_framework.authentication.BasicAuthentication',
-    'rest_framework.authentication.SessionAuthentication',
-],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
     'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ]
+            'rest_framework.renderers.JSONRenderer',
+            'rest_framework.renderers.BrowsableAPIRenderer',
+        ],
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
 }
 
 REDIS_HOST=env("REDISHOST")
@@ -273,10 +277,4 @@ AUTH_USER_MODEL="mall.CustomUser"
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
 
-# Celery settings
-
-
-# SWAGGER
-# SWAGGER_SETTINGS = {
-#     'DEFAULT_INFO': os.path.join(BASE_DIR, 'setup/urls.py'),
-# }
+TEST_KEY = env("TEST_KEY")

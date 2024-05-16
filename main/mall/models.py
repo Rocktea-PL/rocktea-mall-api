@@ -58,8 +58,11 @@ class CustomUser(AbstractUser):
    password = models.CharField(max_length=200)
    associated_domain = models.ForeignKey("Store", on_delete=models.CASCADE, null=True)
    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
-   shipping_address = models.CharField(max_length=500, null=True)
 
+
+   # Registration Progress: This Records the User registration stage
+   completed_steps = models.IntegerField(default=0)
+   
    # Services Extension
    type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
    is_services = models.BooleanField(default=False)
@@ -140,6 +143,15 @@ class Store(models.Model):
    
    # Custom Add-Ons
    theme = models.CharField(max_length=6, null=True, blank=True)
+   background_color = models.CharField(max_length=30, null=True, blank=True)
+   patterns = models.CharField(max_length=30, null=True, blank=True)
+   color_gradient = models.CharField(max_length=30, null=True, blank=True)
+   button_color = models.CharField(max_length=30, null=True, blank=True)
+   card_elevation = models.CharField(max_length=30, null=True, blank=True)
+   card_view = models.CharField(max_length=30, null=True, blank=True)
+   card_color = models.CharField(max_length=30, null=True, blank=True)
+   
+   # Socials
    facebook = models.URLField(null=True, blank=True)
    whatsapp = models.URLField(null=True, blank=True)
    instagram = models.URLField(null=True, blank=True)
@@ -166,7 +178,7 @@ class Product(models.Model):
 
    id = models.CharField(max_length=36, default=uuid4, unique=True, primary_key=True)
    sku = models.CharField(max_length=8, unique=True, blank=True)
-   name = models.CharField(max_length=50)
+   name = models.CharField(max_length=50, unique=True)
    description = models.TextField(null=True)
    quantity = models.IntegerField()
    category = models.ForeignKey('Category', related_name="category", on_delete=models.CASCADE, null=True)
@@ -283,7 +295,7 @@ class Category(models.Model):
       indexes = [
          models.Index(fields=['name'], name='category_name_namex')
       ]
-   
+
    def __str__(self):
       return self.name
 
@@ -313,6 +325,23 @@ class ProductTypes(models.Model):
    def __str__(self):
       return self.name
 
+
+class ProductReview(models.Model):
+   product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+   review = models.TextField(null=True, blank=False)
+   
+   def __str__(self):
+         return self.user.first_name
+      
+
+class DropshipperReview(models.Model):
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
+   review = models.TextField(null=True, blank=False)
+   
+   def __str__(self):
+         return self.user.first_name
+      
 
 class Brand(models.Model):
    producttype = models.ManyToManyField(ProductTypes)
@@ -403,9 +432,106 @@ class PromoPlans(models.Model):
          promo_code = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
          self.code = promo_code
       super(PromoPlans, self).save(*args, **kwargs)
-      
-      
+
+
 class BuyerBehaviour(models.Model):
    question = models.CharField(max_length=200, default="How satisfied are you with our services?")
    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer":True})
    answer = models.IntegerField(null=True)
+
+
+class ShippingData(models.Model):
+   STATE_CHOICES = (
+      ('ABIA', 'ABIA'),
+      ('ADAMAWA', 'ADAMAWA'),
+      ('AKWA IBOM', 'AKWA IBOM'),
+      ('ANAMBRA', 'ANAMBRA'),
+      ('BAUCHI', 'BAUCHI'),
+      ('BAYELSA', 'BAYELSA'),
+      ('BENUE', 'BENUE'),
+      ('BORNO', 'BORNO'),
+      ('CROSS RIVER', 'CROSS RIVER'),
+      ('DELTA', 'DELTA'),
+      ('EBONYI', 'EBONYI'),
+      ('EDO', 'EDO'),
+      ('EKITI', 'EKITI'),
+      ('ENUGU', 'ENUGU'),
+      ('FCT (ABUJA)', 'FCT (ABUJA)'),
+      ('GOMBE', 'GOMBE'),
+      ('IMO', 'IMO'),
+      ('JIGAWA', 'JIGAWA'),
+      ('KADUNA', 'KADUNA'),
+      ('KANO', 'KANO'),
+      ('KATSINA', 'KATSINA'),
+      ('KEBBI', 'KEBBI'),
+      ('KOGI', 'KOGI'),
+      ('KWARA', 'KWARA'),
+      ('LAGOS', 'LAGOS'),
+      ('NASARAWA', 'NASARAWA'),
+      ('NIGER', 'NIGER'),
+      ('OGUN', 'OGUN'),
+      ('ONDO', 'ONDO'),
+      ('OSUN', 'OSUN'),
+      ('OYO', 'OYO'),
+      ('PLATEAU', 'PLATEAU'),
+      ('RIVERS', 'RIVERS'),
+      ('SOKOTO', 'SOKOTO'),
+      ('TARABA', 'TARABA'),
+      ('YOBE', 'YOBE'),
+      ('ZAMFARA', 'ZAMFARA')
+   )
+
+   LGA_CHOICES = (
+   ('Abaji', 'Abaji'),
+   ('Abaji', 'Abaji'),
+   ('Alimosho', 'Alimosho'),
+   ('Bwari', 'Bwari'),
+   ('Dala', 'Dala'),
+   ('Egor', 'Egor'),
+   ('Eleme', 'Eleme'),
+   ('Enugu East', 'Enugu East'),
+   ('Enugu North', 'Enugu North'),
+   ('Enugu South', 'Enugu South'),
+   ('Eti Osa', 'Eti Osa'),
+   ('Fagge', 'Fagge'),
+   ('Gwagwalada', 'Gwagwalada'),
+   ('Gwale', 'Gwale'),
+   ('Ibadan North', 'Ibadan North'),
+   ('Ibadan North East', 'Ibadan North East'),
+   ('Ibadan South East', 'Ibadan South East'),
+   ('Ibadan South West', 'Ibadan South West'),
+   ('Ido', 'Ido'),
+   ('Ifako Ijaye', 'Ifako Ijaye'),
+   ('Ikeja', 'Ikeja'),
+   ('Kano Municipal', 'Kano Municipal'),
+   ('Kosofe', 'Kosofe'),
+   ('Kuje', 'Kuje'),
+   ('Kumbotso', 'Kumbotso'),
+   ('Kwali', 'Kwali'),
+   ('Lagos Mainland', 'Lagos Mainland'),
+   ('Mushin', 'Mushin'),
+   ('Oshodi Isolo', 'Oshodi Isolo'),
+   ('Owerri Municipal', 'Owerri Municipal'),
+   ('Owerri North', 'Owerri North'),
+   ('Port Harcourt', 'Port Harcourt'),
+   ('Shomolu', 'Shomolu'),
+   ('Surulere', 'Surulere'),
+   ('Tarauni', 'Tarauni'),
+   ('Ungogo', 'Ungogo'),
+   ('Obio/Akpor', 'Obio/Akpor'),
+   ('Port-Harcourt', 'Port-Harcourt'),
+   ('Abuja Municipal Area Council', 'Abuja Municipal Area Council'),
+   ('AMAC', 'AMAC')
+   )
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+   address = models.CharField(max_length=400)
+   state = models.CharField(choices=STATE_CHOICES, max_length=37)
+   lga = models.CharField(choices=LGA_CHOICES, max_length=39)
+   country = models.CharField(max_length=50)
+   longitude = models.CharField(max_length=20, null=True)
+   latitude = models.CharField(max_length=20, null=True)
+   delivery_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
+
+
+   def __str__(self):
+      return self.address

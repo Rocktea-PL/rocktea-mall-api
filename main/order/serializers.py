@@ -12,7 +12,8 @@ from .models import (
 from mall.models import (
    CustomUser, 
    Store, 
-   Product
+   Product,
+   ProductVariant
    )
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -31,8 +32,9 @@ class OrderItemsSerializer(serializers.ModelSerializer):
    
    def to_representation(self, instance):
       representation=super(OrderItemsSerializer, self).to_representation(instance)
-      representation["product"]= [{"name": instance.product.name, "sku": instance.product.sku}]
+      representation["product"]= [{"name": instance.product.name, "sku": instance.product.sku, "size": instance.product_variant.size, "color": instance.product_variant.colors}]
       return representation
+
 
 
 class AssignedOrderSerializer(serializers.ModelSerializer):
@@ -107,6 +109,7 @@ class OrderSerializer(serializers.ModelSerializer):
       cache.set(cache_key, representation, timeout=60*2)
       
       return representation
+
 
    def get_assigned_rider(self, storeorder_id):
       try:
