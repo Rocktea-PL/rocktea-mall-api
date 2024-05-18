@@ -84,8 +84,6 @@ router.register('products', ProductViewSet, basename='products')
 router.register('marketplace', MarketPlaceView, basename='marketplace')
 router.register('product-variant', ProductVariantView, basename='productvariant')
 
-# router.register('store_pricing', StoreProductPricing, basename='storeprice')
-
 router.register(r'orderitems', OrderItemsViewSet, basename='orderitems')
 router.register('order-delivery/confirmation', OrderDeliverView, basename='confirmation')
 router.register('my-orders', ViewOrders, basename="view-orders")
