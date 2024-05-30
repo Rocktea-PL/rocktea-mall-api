@@ -325,7 +325,7 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
          'category': category_serializer.data,
          'subcategories': subcategories_serializer.data,
          'product_types': product_types_serializer.data,
-         'brand': brand_serializer.data
+         # 'brand': brand_serializer.data
       })
 
 
