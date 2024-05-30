@@ -30,7 +30,8 @@ from .models import (
    BuyerBehaviour,
    ShippingData,
    ProductReview,
-   DropshipperReview
+   DropshipperReview,
+   ProductRating
    )
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -176,7 +177,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          data['user_data']['category'] = self.user.owners.category.id
          data['user_data']['domain_name'] = getattr(self.user.owners, 'domain_name', None)
          data['user_data']['completed'] = self.user.owners.completed
-
+      
       if data['user_data']['is_services']:
          data['user_data']['type'] = self.user.type
 
@@ -261,6 +262,17 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       if Store.objects.filter(owner=owner).exists:
          raise ValidationError("Sorry you have a store already")
       return ValidationError("Provide User")
+
+
+class ProductRatingSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = ProductRating
+      fields = ("product", "star")
+      
+   def to_representation(self, instance):
+      representation = super(ProductRatingSerializer, self).to_representation(instance)
+      representation["product"] = instance.product.name
+      return representation
 
 
 class BrandSerializer(serializers.ModelSerializer):
