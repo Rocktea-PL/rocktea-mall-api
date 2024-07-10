@@ -1,5 +1,7 @@
 from pathlib import Path
-import environ, datetime, os
+import environ
+import datetime
+import os
 from datetime import timedelta
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
@@ -39,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # third-parties
     "django_phonenumbers",
     "cloudinary_storage",
@@ -47,18 +49,18 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'rest_framework',
     'django_filters',
-    
+
     # Caution
     'django_extensions',
-    
+
     # Security
     "corsheaders",
     "order",
     "services",
-    
+
     # API Documentation
     'drf_yasg',
-    
+
     # Storage
     "whitenoise.runserver_nostatic",
 ]
@@ -111,7 +113,6 @@ WHITENOISE_ALLOW_ALL_ORIGINS = True
 WHITENOISE_AUTOREFRESH = True
 
 
-
 WSGI_APPLICATION = 'setup.wsgi.application'
 
 
@@ -121,25 +122,27 @@ WSGI_APPLICATION = 'setup.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'PGUSER': env('PGUSER'),
-        'PGHOST': env('PGHOST'),
         'NAME': env('PGDATABASE'),
-        'PGPORT': env('PGPORT'),
-        'PGPASSWORD': env('PGPASSWORD'),
-        
+        'USER': env('PGUSER'),
+        'PASSWORD': env('PGPASSWORD'),
+        'HOST': env('PGHOST'),
+        'PORT': env('PGPORT'),
+
+
     },
-    
-    'production': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST'),
-        'PORT': env('DB_PORT'),
-    },
+
+    #     'production': {
+    #         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+    #         'NAME': env('DB_NAME'),
+    #         'USER': env('DB_USER'),
+    #         'PASSWORD': env('DB_PASSWORD'),
+    #         'HOST': env('DB_HOST'),
+    #         'PORT': env('DB_PORT'),
+    #     },
+    # }
 }
 
-CORS_ALLOW_ALL_ORIGINS=True
+CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall.vercel.app",
@@ -191,16 +194,16 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
-            'rest_framework.renderers.JSONRenderer',
-            'rest_framework.renderers.BrowsableAPIRenderer',
-        ],
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
 }
 
-REDIS_HOST=env("REDISHOST")
-REDIS_PORT=env("REDISPORT")
-REDIS_PASSWORD=env("REDISPASSWORD")
-REDIS_URL=env("REDIS_URL")
+REDIS_HOST = env("REDISHOST")
+REDIS_PORT = env("REDISPORT")
+REDIS_PASSWORD = env("REDISPASSWORD")
+REDIS_URL = env("REDIS_URL")
 
 # settings.py
 CACHES = {
@@ -215,7 +218,7 @@ CACHES = {
 }
 
 sentry_sdk.init(
-    dsn= env("DSN"),
+    dsn=env("DSN"),
     traces_sample_rate=100,
     profiles_sample_rate=100,
     integrations=[
@@ -271,7 +274,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # AbstractUser
-AUTH_USER_MODEL="mall.CustomUser"
+AUTH_USER_MODEL = "mall.CustomUser"
 
 # Paystack
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
