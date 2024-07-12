@@ -34,9 +34,9 @@ def verify_bvn(bvn):
         return None
 
 
-def verify_nin(bvn):
+def verify_nin(nin):
     try:
-        url = "https://api.dojah.io/api/v1/kyc/bvn/full"
+        url = "https://api.dojah.io/api/v1/kyc/nin"
         
         # Fetch the API key from environment variables
         api_key = os.getenv('DOJAH_API_KEY')
@@ -50,7 +50,7 @@ def verify_nin(bvn):
 
         # Set the query parameters
         params = {
-            "bvn": bvn
+            "bvn": nin
         }
 
         response = requests.get(url, headers=headers, params=params)
@@ -60,7 +60,7 @@ def verify_nin(bvn):
         return response
 
     except Exception as e:
-        logger.error('verify_bvn@error')
+        logger.error('verify_nin@error')
         logger.error(e)
         return None
 
