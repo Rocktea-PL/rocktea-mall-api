@@ -24,6 +24,7 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
       return value
 
    def create(self, validated_data):
+      print("about to create")
       # Extract password from validated_data
       password = validated_data.pop("password", None)
 
