@@ -26,7 +26,7 @@ class ProductList(admin.ModelAdmin):
         return format_html('<br>'.join('<a href="{0}">{0}</a>'.format(url) for url in image_urls))
 
     # Double-underscore is used to notation to specify the related field's attribute to search
-    search_fields = ["name", "brand__name", "subcategory__name", "product_type__name"]
+    search_fields = ["name", "brand__name", "subcategory__name", "producttype__name"]
 
     # actions = [approve_products, reject_product]
     

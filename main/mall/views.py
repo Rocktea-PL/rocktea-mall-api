@@ -22,6 +22,7 @@ from .serializers import (
    BuyerBehaviourSerializer,
    ShippingDataSerializer,
    ProductReviewSerializer,
+   ProductRatingSerializer,
    DropshipperReviewSerializer
 )
 from django.http import Http404
@@ -45,7 +46,8 @@ from .models import (
    BuyerBehaviour,
    ShippingData,
    ProductReview,
-   DropshipperReview
+   DropshipperReview,
+   ProductRating
 )
 
 from order.models import StoreOrder
@@ -160,6 +162,11 @@ class ProductViewSet(viewsets.ModelViewSet):
    def perform_create(self, serializer):
       product = serializer.save()
       return Response({"message": "Product Created Successfully"}, status=status.HTTP_201_CREATED)
+   
+
+class ProductRatingViewSet(viewsets.ModelViewSet):
+   queryset = ProductRating.objects.select_related("product")
+   serializer_class = ProductRatingSerializer
 
 
 class ProductFilter(ListAPIView):
@@ -317,7 +324,8 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
       return Response({
          'category': category_serializer.data,
          'subcategories': subcategories_serializer.data,
-         'product_types': product_types_serializer.data
+         'product_types': product_types_serializer.data,
+         # 'brand': brand_serializer.data
       })
 
 
@@ -355,7 +363,8 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = MarketPlacePagination
 
    def get_queryset(self):
-      store_host = handler.process_request(store_domain=get_store_domain(self.request)) 
+      store_host = self.request.query_params.get("mall")
+      # handler.process_request(store_domain=get_store_domain(self.request)) 
       # self.request.query_params.get("mall")
       store = Store.objects.get(id=store_host)
       try:
@@ -424,6 +433,7 @@ class SalesCountView(APIView):
 class ProductReviewViewSet(viewsets.ModelViewSet):
    queryset = ProductReview.objects.select_related("user", "product")
    serializer_class = ProductReviewSerializer
+   
 
 class DropshipperReviewViewSet(viewsets.ModelViewSet):
    queryset = DropshipperReview.objects.select_related("user")
