@@ -46,6 +46,7 @@ from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
 from django.db.models import Q
+from django.conf import settings
 # from .store_features.get_store_id import get_store_instance
 
 class LogisticSerializer(ModelSerializer):
@@ -111,6 +112,7 @@ class StoreOwnerSerializer(ModelSerializer):
    def create(self, validated_data):
       # Extract password from validated_data
       password = validated_data.pop("password", None)
+      print(f'Cloudinary cloud_name: {settings.CLOUDINARY_URL}')
       if password:
          # Validate the password using regular expressions
          if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):

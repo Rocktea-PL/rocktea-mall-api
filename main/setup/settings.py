@@ -4,6 +4,7 @@ import datetime
 import os
 from datetime import timedelta
 import sentry_sdk
+import logging
 from sentry_sdk.integrations.django import DjangoIntegration
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -175,10 +176,25 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+# import cloudinary
+# import cloudinary.uploader
+# import cloudinary.api
+
+# cloudinary.config(
+#     cloud_name='your_cloud_name',  # Replace with your cloud name
+#     api_key='your_api_key',         # Replace with your API key
+#     api_secret='your_api_secret'    # Replace with your API secret
+# )
+
+# Use cloudinary_storage for media file uploads
+# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 # File Storage
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
+
+CLOUDINARY_URL =  env("CLOUDINARY_URL")
 
 
 SIMPLE_JWT = {
