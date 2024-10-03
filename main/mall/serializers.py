@@ -51,9 +51,9 @@ import cloudinary
 import cloudinary.uploader
 
 cloudinary.config(
-    cloud_name="dvpdrysdy",  # Ensure this is correct
-    api_key="313295887281861",         # Ensure this is correct
-    api_secret="RNhuG1wUTwcwRWKeaXgpuG7aZEc"    # Ensure this is correct
+    cloud_name=settings.CLOUDINARY_NAME,  # Ensure this is correct
+    api_key=settings.CLOUDINARY_API_KEY,         # Ensure this is correct
+    api_secret=settings.CLOUDINARY_API_SECRET    # Ensure this is correct
 )
 # from .store_features.get_store_id import get_store_instance
 
