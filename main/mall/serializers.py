@@ -122,6 +122,7 @@ class StoreOwnerSerializer(ModelSerializer):
         # Extract password from validated_data
         password = validated_data.pop("password", None)
 
+
         if password:
             # Validate the password using regular expressions
             if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
