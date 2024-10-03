@@ -56,6 +56,7 @@ cloudinary.config(
     api_secret=settings.CLOUDINARY_API_SECRET    # Ensure this is correct
 )
 # from .store_features.get_store_id import get_store_instance
+#Push
 
 class LogisticSerializer(ModelSerializer):
    class Meta:
