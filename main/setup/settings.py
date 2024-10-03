@@ -4,19 +4,26 @@ import datetime
 import os
 from datetime import timedelta
 import sentry_sdk
+import logging
 from sentry_sdk.integrations.django import DjangoIntegration
+from dotenv import load_dotenv
+BASE_DIR = Path(__file__).resolve(strict=True).parent.parent
+
+ENV_PATH = BASE_DIR / '.env'
+
+load_dotenv(ENV_PATH)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# BASE_DIR = Path(__file__).resolve().parent.parent
 
-env = environ.Env()
-environ.Env.read_env()
+# env = environ.os.getenv()
+# environ.Env.read_env()
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'staticfiles/'),
@@ -122,22 +129,22 @@ WSGI_APPLICATION = 'setup.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': env('PGDATABASE'),
-        'USER': env('PGUSER'),
-        'PASSWORD': env('PGPASSWORD'),
-        'HOST': env('PGHOST'),
-        'PORT': env('PGPORT'),
+        'NAME': os.getenv('PGDATABASE'),
+        'USER': os.getenv('PGUSER'),
+        'PASSWORD': os.getenv('PGPASSWORD'),
+        'HOST': os.getenv('PGHOST'),
+        'PORT': os.getenv('PGPORT'),
 
 
     },
 
     #     'production': {
     #         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    #         'NAME': env('DB_NAME'),
-    #         'USER': env('DB_USER'),
-    #         'PASSWORD': env('DB_PASSWORD'),
-    #         'HOST': env('DB_HOST'),
-    #         'PORT': env('DB_PORT'),
+    #         'NAME': os.getenv('DB_NAME'),
+    #         'USER': os.getenv('DB_USER'),
+    #         'PASSWORD': os.getenv('DB_PASSWORD'),
+    #         'HOST': os.getenv('DB_HOST'),
+    #         'PORT': os.getenv('DB_PORT'),
     #     },
     # }
 }
@@ -175,10 +182,28 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
+# import cloudinary
+# import cloudinary.uploader
+# import cloudinary.api
+
+# cloudinary.config(
+#     cloud_name='your_cloud_name',  # Replace with your cloud name
+#     api_key='your_api_key',         # Replace with your API key
+#     api_secret='your_api_secret'    # Replace with your API secret
+# )
+
+# Use cloudinary_storage for media file uploads
+# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
 # File Storage
 CLOUDINARY_STORAGE = {
-    "CLOUDINARY_URL": env("CLOUDINARY_URL")
+    "CLOUDINARY_URL": os.getenv("CLOUDINARY_URL")
 }
+
+CLOUDINARY_URL =  os.getenv("CLOUDINARY_URL")
+CLOUDINARY_NAME = os.getenv("CLOUDINARY_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
 
 
 SIMPLE_JWT = {
@@ -200,10 +225,10 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend']
 }
 
-REDIS_HOST = env("REDISHOST")
-REDIS_PORT = env("REDISPORT")
-REDIS_PASSWORD = env("REDISPASSWORD")
-REDIS_URL = env("REDIS_URL")
+REDIS_HOST = os.getenv("REDISHOST")
+REDIS_PORT = os.getenv("REDISPORT")
+REDIS_PASSWORD = os.getenv("REDISPASSWORD")
+REDIS_URL = os.getenv("REDIS_URL")
 
 # settings.py
 CACHES = {
@@ -218,7 +243,7 @@ CACHES = {
 }
 
 sentry_sdk.init(
-    dsn=env("DSN"),
+    dsn=os.getenv("DSN"),
     traces_sample_rate=100,
     profiles_sample_rate=100,
     integrations=[
@@ -277,7 +302,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "mall.CustomUser"
 
 # Paystack
-TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
-TEST_SECRET_KEY = env("TEST_SECRET_KEY")
+TEST_PUBLIC_KEY = os.getenv("TEST_PUBLIC_KEY")
+TEST_SECRET_KEY = os.getenv("TEST_SECRET_KEY")
 
-TEST_KEY = env("TEST_KEY")
+TEST_KEY = os.getenv("TEST_KEY")

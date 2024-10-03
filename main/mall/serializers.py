@@ -46,7 +46,17 @@ from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
 from django.db.models import Q
+from django.conf import settings
+import cloudinary
+import cloudinary.uploader
+
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_NAME,  # Ensure this is correct
+    api_key=settings.CLOUDINARY_API_KEY,         # Ensure this is correct
+    api_secret=settings.CLOUDINARY_API_SECRET    # Ensure this is correct
+)
 # from .store_features.get_store_id import get_store_instance
+#Push
 
 class LogisticSerializer(ModelSerializer):
    class Meta:
@@ -100,31 +110,43 @@ class OperationsSerializer(ModelSerializer):
 
 
 class StoreOwnerSerializer(ModelSerializer):
-   shipping_address = serializers.CharField(required=False, max_length=500)
-   profile_image = serializers.FileField(required=False)
-   
-   class Meta:
-      model=CustomUser
-      fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner", "completed_steps", "password", "shipping_address")
-      read_only_fields = ("username", "is_store_owner")
-      
-   def create(self, validated_data):
-      # Extract password from validated_data
-      password = validated_data.pop("password", None)
-      if password:
-         # Validate the password using regular expressions
-         if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
-            raise ValidationError({"error":"Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+    shipping_address = serializers.CharField(required=False, max_length=500)
+    profile_image = serializers.FileField(required=False)
 
-      user = CustomUser.objects.create(**validated_data)
-      # Confirm the user as a store owner
-      user.is_store_owner = True
+    class Meta:
+        model = CustomUser
+        fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_store_owner", "completed_steps", "password", "shipping_address")
+        read_only_fields = ("username", "is_store_owner")
 
-      if password:
-         # Set and save the user's password only if a valid password is provided
-         user.set_password(password)
-         user.save()
-      return user
+    def create(self, validated_data):
+        # Extract password from validated_data
+        password = validated_data.pop("password", None)
+
+
+        if password:
+            # Validate the password using regular expressions
+            if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+                raise ValidationError({"error": "Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+
+        # Handle the profile image upload to Cloudinary
+        profile_image = validated_data.pop("profile_image", None)
+        if profile_image:
+            # Upload the image to Cloudinary
+            try:
+                upload_result = cloudinary.uploader.upload(profile_image)
+                validated_data['profile_image'] = upload_result['secure_url']  # Get the secure URL
+            except Exception as e:
+                raise ValidationError({"error": f"Image upload failed: {str(e)}"})
+
+        user = CustomUser.objects.create(**validated_data)
+        # Confirm the user as a store owner
+        user.is_store_owner = True
+
+        if password:
+            # Set and save the user's password only if a valid password is provided
+            user.set_password(password)
+            user.save()
+        return user
 
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
