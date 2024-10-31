@@ -1,10 +1,12 @@
 from setup.celery import app
-from .models import Product
+from .models import Product, ProductImage
 from cloudinary.uploader import upload_large
+from cloudinary.utils import cloudinary_url
 from celery import shared_task
 import uuid
 import logging
 from django.db import transaction
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 

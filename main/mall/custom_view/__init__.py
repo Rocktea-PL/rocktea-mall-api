@@ -1,2 +1,2 @@
-from mall.serializers import ReportUserSerializer
-from mall.models import ReportUser
+# from mall.serializers import ReportUserSerializer
+# from mall.models import ReportUser
