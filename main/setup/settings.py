@@ -58,6 +58,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "order",
     "services",
+    # "dropshippers",
+    # "tenants",
 
     # API Documentation
     'drf_yasg',
