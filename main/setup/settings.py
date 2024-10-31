@@ -5,6 +5,7 @@ import os
 from datetime import timedelta
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
+import cloudinary
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -149,6 +150,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall-api-test.up.railway.app",
     "http://localhost:5174",
     "http://localhost:5173",
+    "http://127.0.0.1:8000",
     "https://rocktea-dropshippers.vercel.app",
     "https://rocktea-users.vercel.app"
 ]
@@ -281,3 +283,9 @@ TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
 
 TEST_KEY = env("TEST_KEY")
+
+cloudinary.config(
+  cloud_name = env("CLOUDINARY_NAME"),
+  api_key = env("CLOUDINARY_API_KEY"),
+  api_secret = env("CLOUDINARY_SECRET")
+)

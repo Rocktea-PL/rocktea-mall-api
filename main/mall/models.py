@@ -52,7 +52,7 @@ class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=250)
     last_name = models.CharField(max_length=250)
-    contact = PhoneNumberField()
+    contact = PhoneNumberField(unique=True)
     is_store_owner = models.BooleanField(default=False)
     is_consumer = models.BooleanField(default=False)
     is_logistics = models.BooleanField(default=False)
@@ -60,7 +60,7 @@ class CustomUser(AbstractUser):
     password = models.CharField(max_length=200)
     associated_domain = models.ForeignKey(
         "Store", on_delete=models.CASCADE, null=True)
-    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
+    profile_image = models.FileField(storage=RawMediaCloudinaryStorage, blank=True, null=True)
 
     # Registration Progress: This Records the User registration stage
     completed_steps = models.IntegerField(default=0)
@@ -84,6 +84,7 @@ class CustomUser(AbstractUser):
         if not self.username:
             self.username = self._generate_unique_username()
         return super().save(*args, **kwargs)
+
 
     def _generate_unique_username(self):
         return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
