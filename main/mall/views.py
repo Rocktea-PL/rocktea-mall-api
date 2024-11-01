@@ -73,6 +73,8 @@ import logging
 from .store_features.get_store_id import get_store_instance
 from workshop.processor import DomainNameHandler
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly
 
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
@@ -149,6 +151,7 @@ class SignInUserView(TokenObtainPairView):
 class ProductViewSet(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
+   permission_classes = [IsAuthenticatedOrReadOnly]
 
    def get_queryset(self):
          category_id = self.request.query_params.get('category')
@@ -328,11 +331,24 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
          # 'brand': brand_serializer.data
       })
 
+class CategoryViewSet(viewsets.ModelViewSet):
+    queryset = Category.objects.all()
+    serializer_class = CategorySerializer
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 
 class UploadProductImage(ListCreateAPIView):
    queryset = ProductImage.objects.all()
    serializer_class = ProductImageSerializer
    parser_classes = (MultiPartParser,)
+   permission_classes = [IsAuthenticatedOrReadOnly]
 
    def perform_create(self, serializer):
       image = self.request.FILES.get('image')
@@ -458,16 +474,40 @@ class StoreOrdersViewSet(ListAPIView):
 class BrandView(viewsets.ModelViewSet):
    queryset = Brand.objects.prefetch_related('producttype')
    serializer_class = BrandSerializer
+   permission_classes = [IsAdminOrReadOnly]
+
+   def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class SubCategoryView(viewsets.ModelViewSet):
    queryset =  SubCategories.objects.select_related('category')
    serializer_class = SubCategorySerializer
+   permission_classes = [IsAdminOrReadOnly]
+
+   def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class ProductTypeView(viewsets.ModelViewSet):
    queryset = ProductTypes.objects.select_related('subcategory')
    serializer_class = ProductTypesSerializer
+   permission_classes = [IsAdminOrReadOnly]
+
+   def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class ProductDetails(viewsets.ModelViewSet):
@@ -479,6 +519,29 @@ class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
    serializer_class = WalletSerializer
    lookup_field = 'store_id'  # Disable the default lookup field
+   permission_classes = [IsAuthenticated]
+
+   def get_queryset(self):
+      # Ensure users can only see their own wallets
+      return Wallet.objects.filter(store__owner_id=self.request.user.id)
+
+   # def perform_create(self, serializer):
+   #    # Set the store to the authenticated user's store
+   #    store = Store.objects.get(owner_id=self.request.user.id)
+   #    serializer.save(store=store)
+   @action(detail=False, methods=['post'], url_path='update-wallet', permission_classes=[IsAuthenticated])
+   def update_wallet(self, request, *args, **kwargs):
+      try:
+         store = Store.objects.get(owner_id=request.user.id)
+         wallet = Wallet.objects.get(store=store)
+         serializer = self.get_serializer(wallet, data=request.data, partial=True)
+         serializer.is_valid(raise_exception=True)
+         serializer.save()
+         return Response(serializer.data, status=status.HTTP_200_OK)
+      except Store.DoesNotExist:
+         return Response({"detail": "Store not found."}, status=status.HTTP_404_NOT_FOUND)
+      except Wallet.DoesNotExist:
+         return Response({"detail": "Wallet not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
 class ServicesBusinessInformationView(viewsets.ModelViewSet):

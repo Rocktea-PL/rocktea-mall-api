@@ -5,6 +5,7 @@ from rest_framework import routers
 from mall.views import (
         CreateStoreOwner,
         GetCategories,
+        CategoryViewSet,
         CreateStore,
         ProductViewSet,
         MarketPlaceView,
@@ -74,6 +75,7 @@ router.register('storeowner', CreateStoreOwner, basename="user")
 router.register('dropshippers/store', GetStoreDropshippers, basename="dropship")
 
 router.register('categories', GetCategories, basename='categories')
+router.register('category', CategoryViewSet, basename='category')
 
 router.register('create/store', CreateStore, basename='create-store')
 
