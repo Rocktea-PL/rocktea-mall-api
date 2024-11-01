@@ -42,6 +42,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 # from workshop.decorators import store_domain_required
 
 
@@ -261,6 +262,7 @@ class AssignedOrders(generics.ListAPIView):
 class PaymentHistoryView(viewsets.ModelViewSet):
    queryset = PaymentHistory.objects.select_related('store', 'order')
    serializer_class = PaymentHistorySerializers
+   permission_classes = [IsAuthenticated]
    
    def get_queryset(self):
       store_id = handler.process_request(store_domain=get_store_domain(self.request))

@@ -126,6 +126,12 @@ class StoreOwnerSerializer(ModelSerializer):
          user.save()
       return user
 
+   def to_representation(self, instance):
+      representation = super().to_representation(instance)
+      # Remove the password from the serialized output
+      representation.pop('password', None)
+      return representation
+
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    @classmethod
