@@ -38,7 +38,8 @@ from order.views import (
     ViewOrders, 
     OrderDeliverView, 
     AllOrders,
-    PaymentHistoryView
+    PaymentHistoryView,
+    InitiatePayment
     )
 
 from order.logistics.assign_order import AssignOrderView
@@ -106,6 +107,9 @@ router.register('buyer-behaviour', BuyerBehaviourView, basename='buyerbehavior')
 # Payments
 router.register(r'wallet', WalletView, basename='wallets')
 router.register('payment/history', PaymentHistoryView, basename='payment')
+
+# Payment initialization
+router.register('payment/initialize', InitiatePayment, basename='payment-initializer')
 
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
