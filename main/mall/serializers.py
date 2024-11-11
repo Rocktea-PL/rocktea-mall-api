@@ -324,6 +324,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    size = serializers.CharField(required=False)
+   product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), many=True)
    
    class Meta:
       model = ProductVariant

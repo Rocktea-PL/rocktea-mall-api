@@ -189,6 +189,7 @@ class ProductFilter(ListAPIView):
 class ProductVariantView(viewsets.ModelViewSet):
    queryset = ProductVariant.objects.all().prefetch_related('product')
    serializer_class = ProductVariantSerializer
+   permission_classes = [IsAdminOrReadOnly]
 
    def get_queryset(self):
       # Assuming you're getting the product ID from the request data
@@ -209,10 +210,13 @@ class ProductVariantView(viewsets.ModelViewSet):
 
 # import logging
 class CreateAndGetStoreProductPricing(APIView):
+   permission_classes = [IsAuthenticated]
+
    def post(self, request):
       try:
          collect = request.data
-         store_id = request.query_params.get("mall")
+         # store_id = request.query_params.get("mall")
+         store_id = handler.process_request(store_domain=get_store_domain(request))
          product_id = collect.get("product")
          retail_price = collect.get("retail_price")
 

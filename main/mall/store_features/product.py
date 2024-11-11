@@ -1,5 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from django.http import Http404
 from rest_framework import status, viewsets
 from mall.models import CustomUser, Store, Product, Category, SubCategories, StoreProductPricing, Product, ProductVariant
 

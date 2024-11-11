@@ -77,7 +77,7 @@ class OrderSerializer(serializers.ModelSerializer):
    order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
    created_at = serializers.SerializerMethodField()
    order_id = serializers.CharField(max_length=5, read_only=True)
-   status = serializers.CharField(max_length=9, read_only=True)
+   status = serializers.CharField(max_length=9) # , read_only=True
    delivery_code = serializers.CharField(max_length=5, read_only=True)
 
    # Logistics
@@ -86,7 +86,7 @@ class OrderSerializer(serializers.ModelSerializer):
    class Meta:
       model = StoreOrder
       fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status']
-      read_only_fields = ['order_items', 'order_id', 'status']
+      read_only_fields = ['order_items', 'order_id'] # , 'status'
 
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
@@ -147,6 +147,21 @@ class CartSerializer(serializers.ModelSerializer):
 
    def get_user(self, obj):
       return f"{obj.user.first_name} {obj.user.last_name}"
+
+   def validate_items(self, value):
+      if not value:
+         raise serializers.ValidationError("Items cannot be empty.")
+      for item in value:
+         if 'product_variant' not in item or 'quantity' not in item or 'price' not in item:
+               raise serializers.ValidationError("Each item must include 'product_variant', 'quantity', and 'price'.")
+      return value
+
+   def create(self, validated_data):
+      items_data = validated_data.pop('items')
+      cart = Cart.objects.create(**validated_data)
+      for item_data in items_data:
+         CartItem.objects.create(cart=cart, **item_data)
+      return cart
 
 
 class OrderDeliverySerializer(serializers.ModelSerializer):

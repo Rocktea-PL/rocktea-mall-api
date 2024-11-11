@@ -43,6 +43,7 @@ from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from mall.payments.verify_payment import verify_payment_paystack, initiate_payment
 # from workshop.decorators import store_domain_required
 
 
@@ -66,6 +67,7 @@ class OrderItemsViewSet(ModelViewSet):
 class CartViewSet(viewsets.ViewSet):
    # authentication_classes = [TokenAuthentication]
    renderer_classes = [JSONRenderer,]
+   permission_classes = [IsAuthenticated]
 
    def create(self, request):
       user = request.user
@@ -73,6 +75,9 @@ class CartViewSet(viewsets.ViewSet):
       
       verified_store = get_object_or_404(Store, id=store_domain)
       products = request.data.get('products', [])
+
+      if not products:
+         return Response({"error": "Products are required."}, status=status.HTTP_400_BAD_REQUEST)
 
       # Check if the user already has a cart
       cart = Cart.objects.filter(user=user, store=verified_store).first()
@@ -84,11 +89,11 @@ class CartViewSet(viewsets.ViewSet):
          
       for product in products:
          product_id = product.get('id')
-         quantity = product.get('quantity', 1)
+         quantity = int(product.get('quantity', 1))
          product_variant_id = product.get('variant')
          product_price = product.get('price')
 
-         if product_id is None:
+         if not product_id or not product_variant_id or not product_price:
                return JsonResponse({"error": "Product ID is required"}, status=400)
 
          # Check if the same product variant is already in the cart
@@ -134,16 +139,39 @@ class CartViewSet(viewsets.ViewSet):
 class CartItemModifyView(viewsets.ModelViewSet):
    queryset = CartItem.objects.all()
    serializer_class = CartItemSerializer
+   permission_classes = [IsAuthenticated]
 
+class InitiatePayment(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def create(self, request):
+      email = request.data.get("email")
+      amount = request.data.get("amount")
+
+      if not email or not amount:
+         return Response({"error": "Email and amount are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+      # Initiate payment
+      payment_response = initiate_payment(email, amount)
+
+      if payment_response.get('status') == True:
+         payment_url = payment_response['data']
+         return Response({"data": payment_url}, status=status.HTTP_201_CREATED)
+      else:
+         error_message = payment_response.get('message', 'Payment initialization failed')
+         return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
 
 # Checkout Cart and Delete Cart
 class CheckOutCart(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
+   permission_classes = [IsAuthenticated]
+
    def create(self, request):
       # Collect Data
       user = request.user
       store_id = handler.process_request(store_domain=get_store_domain(request))
       total_price = request.data.get("total_price")
+      transaction_id = request.data.get("transaction_id")
 
       # Validate that required fields are present
       if not (store_id and total_price):
@@ -157,16 +185,21 @@ class CheckOutCart(viewsets.ViewSet):
 
       verified_store = get_object_or_404(Store, id=store_id)
 
+      payment_response = verify_payment_paystack(transaction_id)
+      if payment_response.data['status'] != True:
+               return Response({"error": "Payment verification failed"}, status=status.HTTP_400_BAD_REQUEST)
+
       order_data = {
          'buyer': user.id,
          'store': cart.store.id,
          'total_price': total_price,
-         'status': 'Pending',
+         'status': 'Completed',
       }
       order_serializer = OrderSerializer(data=order_data)
 
       if order_serializer.is_valid():
          order = order_serializer.save()
+         total_profit = 0
 
          for cart_item in cart.items.all():
             # print(cart_item)
@@ -181,11 +214,19 @@ class CheckOutCart(viewsets.ViewSet):
 
                if order_item_serializer.is_valid():
                   order_item_serializer.save()
+                  # Calculate profit
+                  # retail_price = self.get_store_pricing(cart_item.product.id, verified_store)
+                  # wholesale_price = cart_item.product_variant.wholesale_price
+                  # profit_per_item = retail_price - wholesale_price
+                  # total_profit += profit_per_item * cart_item.quantity
                else:
                   # Handle the case where an order item cannot be created
                   logging.error("Order Item ERROR")
                   return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+         
+         # Update store's wallet
+         # verified_store.balance += total_profit
+         # verified_store.save()
          # CClear the user's cart after a successful checkout
          cart.items.all().delete()
 
@@ -193,6 +234,14 @@ class CheckOutCart(viewsets.ViewSet):
       else:
          logging.error("Order ERROR")
          return Response(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+   def get_store_pricing(self, product_id, store):
+      try:
+         store_product = StoreProductPricing.objects.get(product_id=product_id, store=store)
+      except StoreProductPricing.DoesNotExist:
+         return 0  # Handle the case when pricing information is not available
+
+      return store_product.retail_price
 
    # Move cart items to order items
    def list(self, request):
