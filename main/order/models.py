@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.serializers import ValidationError
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.contrib.postgres.fields import JSONField
 
 
 class StoreOrder(models.Model):
@@ -155,3 +156,16 @@ class CartItem(models.Model):
    
    def __str__(self):
       return self.cart.id
+
+
+class PaystackWebhook(models.Model):
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='owner')
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='store_mall', null=True)
+   reference = models.CharField(max_length=64, null=True)
+   data = models.JSONField(null=True, blank=True)  # To store the entire response data from Paystack
+   created_at = models.DateTimeField(auto_now_add=True)
+   total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
+   status = models.CharField(max_length=20, default='Pending')  # To store the status of the transaction
+
+   def __str__(self):
+      return self.reference

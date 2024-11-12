@@ -44,6 +44,7 @@ from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from mall.payments.verify_payment import verify_payment_paystack, initiate_payment
+from django.views.decorators.csrf import csrf_exempt
 # from workshop.decorators import store_domain_required
 
 
@@ -51,6 +52,67 @@ handler = DomainNameHandler()
 
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN", None)
+
+@csrf_exempt
+def paystack_webhook(request):
+   if request.method == 'POST':
+      payload = json.loads(request.body)
+      event = payload.get('event')
+      
+      if event == 'charge.success':
+         data = payload.get('data')
+         transaction_id = data.get('reference')
+         total_price = data.get('amount') / 100  # Paystack sends amount in kobo
+         email = data.get('email')
+         user_id = data.get('metadata').get('user_id')
+         store_id = data.get('metadata').get('store_id')
+         
+         # Get user and cart
+         user = get_object_or_404(User, id=user_id)
+         try:
+               cart = Cart.objects.get(user=user)
+         except Cart.DoesNotExist:
+               return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
+         
+         verified_store = get_object_or_404(Store, id=store_id)
+         
+         # Create order
+         order_data = {
+               'buyer': user.id,
+               'store': cart.store.id,
+               'total_price': total_price,
+               'status': 'Completed',
+         }
+         order_serializer = OrderSerializer(data=order_data)
+         if order_serializer.is_valid():
+            order = order_serializer.save()
+            for cart_item in cart.items.all():
+               order_item_data = {
+                  'userorder': order.id,
+                  'product': cart_item.product.id,
+                  'product_variant': cart_item.product_variant.id,
+                  'quantity': cart_item.quantity
+               }
+               order_item_serializer = OrderItemsSerializer(data=order_item_data)
+               if order_item_serializer.is_valid():
+                  order_item_serializer.save()
+               else:
+                  return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Clear the user's cart after a successful checkout
+            cart.items.all().delete()
+            
+            # Update webhook status to success
+            PaystackWebhook.objects.filter(reference=transaction_id).update(
+               data=data,
+               status='Success'
+            )
+            return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
+         else:
+            return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+      else:
+         return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
+   return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
 class OrderPagination(PageNumberPagination):
@@ -147,12 +209,14 @@ class InitiatePayment(viewsets.ViewSet):
     def create(self, request):
       email = request.data.get("email")
       amount = request.data.get("amount")
+      store_id = handler.process_request(store_domain=get_store_domain(request))
+      user_id = request.user.id
 
       if not email or not amount:
          return Response({"error": "Email and amount are required"}, status=status.HTTP_400_BAD_REQUEST)
 
       # Initiate payment
-      payment_response = initiate_payment(email, amount)
+      payment_response = initiate_payment(email, amount, store_id, user_id)
 
       if payment_response.get('status') == True:
          payment_url = payment_response['data']
