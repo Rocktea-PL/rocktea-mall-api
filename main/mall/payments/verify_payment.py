@@ -1,5 +1,6 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from order.models import PaystackWebhook
 import environ, requests
 
 env = environ.Env()
@@ -20,7 +21,7 @@ def verify_payment(request, transaction_id):
     response = requests.get(url, headers=headers)
     return Response(response.json())
 
-def initiate_payment(email, amount):
+def initiate_payment(email, amount, store_id, user_id):
     headers = {
         'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}',
         'Content-Type': 'application/json',
@@ -31,12 +32,29 @@ def initiate_payment(email, amount):
     data = {
         'email': email,
         'amount': amount_in_naira,
-        'callback_url': 'https://rocktea-users.vercel.app/order_success'
+        'callback_url': 'https://rocktea-users.vercel.app/order_success',
+        'metadata': {
+            'store_id': store_id,
+            'user_id': user_id
+        }
     }
     url = 'https://api.paystack.co/transaction/initialize'
     
     response = requests.post(url, headers=headers, json=data)
-    return response.json() 
+    response_data = response.json()
+
+    # Save the initializer data in PaystackWebhook
+    if response_data['status']:
+        PaystackWebhook.objects.create(
+            user_id=user_id,
+            store_id=store_id,
+            reference=response_data['data']['reference'],
+            data=response_data,
+            total_price=amount,
+            status='Pending'
+        )
+
+    return response_data
 
 # @api_view(["GET"])
 def verify_payment_paystack(transaction_id):
