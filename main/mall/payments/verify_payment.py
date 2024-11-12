@@ -25,9 +25,13 @@ def initiate_payment(email, amount):
         'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}',
         'Content-Type': 'application/json',
     }
+
+    amount = int(amount)
+    amount_in_naira = amount * 100
     data = {
         'email': email,
-        'amount': amount,
+        'amount': amount_in_naira,
+        'callback_url': 'https://rocktea-users.vercel.app/order_success'
     }
     url = 'https://api.paystack.co/transaction/initialize'
     
