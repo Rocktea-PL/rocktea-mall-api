@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'multiselectfield',
     'rest_framework_simplejwt',
     'rest_framework',
+    'django_rest_passwordreset',
     'django_filters',
 
     # Caution
@@ -291,3 +292,10 @@ cloudinary.config(
   api_key = env("CLOUDINARY_API_KEY"),
   api_secret = env("CLOUDINARY_SECRET")
 )
+# Configure email backend (for development, use console backend)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = env('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')

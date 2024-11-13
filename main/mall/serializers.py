@@ -635,3 +635,10 @@ class DropshipperReviewSerializer(serializers.ModelSerializer):
       representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
       return representation
    
+
+class ResetPasswordEmailRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class ResetPasswordConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    password = serializers.CharField()
