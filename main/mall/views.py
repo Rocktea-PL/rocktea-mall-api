@@ -23,7 +23,9 @@ from .serializers import (
    ShippingDataSerializer,
    ProductReviewSerializer,
    ProductRatingSerializer,
-   DropshipperReviewSerializer
+   DropshipperReviewSerializer,
+   ResetPasswordEmailRequestSerializer,
+   ResetPasswordConfirmSerializer
 )
 from django.http import Http404
 from .models import (
@@ -75,6 +77,17 @@ from workshop.processor import DomainNameHandler
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly
+from django_rest_passwordreset.views import ResetPasswordRequestToken, ResetPasswordConfirm
+from rest_framework import generics
+from django.core.mail import send_mail
+
+from django.conf import settings
+from django.urls import reverse
+from django_rest_passwordreset.models import ResetPasswordToken
+from django_rest_passwordreset.signals import reset_password_token_created
+from django.dispatch import receiver
+from django.contrib.sites.shortcuts import get_current_site
+from urllib.parse import urlparse
 
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
@@ -596,3 +609,61 @@ class BuyerBehaviourView(viewsets.ModelViewSet):
 class ShippingDataView(viewsets.ModelViewSet):
    queryset = ShippingData.objects.select_related('user')
    serializer_class = ShippingDataSerializer
+
+class CustomResetPasswordRequestToken(ResetPasswordRequestToken):
+    serializer_class = ResetPasswordEmailRequestSerializer
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        return response
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
+   request = instance.request
+   current_site = get_current_site(request=request).domain
+   get_protocol = request.scheme
+   relative_link = reverse('password_reset_confirm', kwargs={'token': reset_password_token.key})
+   absurl = f"{get_protocol}://{current_site}{relative_link}"
+
+   referer = request.META.get('HTTP_REFERER')
+   if referer:
+      parsed_referer = urlparse(referer)
+      base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/reset-password?token={reset_password_token.key}"
+   else:
+      base_url = absurl
+
+   email_plaintext_message = f"Please use the following link to reset your password: {base_url}"
+
+   send_mail(
+      # title:
+      "Password Reset for {title}".format(title="Your Website Title"),
+      # message:
+      email_plaintext_message,
+      # from:
+      settings.EMAIL_HOST_USER,
+      # to:
+      [reset_password_token.user.email]
+   )
+
+class CustomResetPasswordConfirm(generics.GenericAPIView):
+   serializer_class = ResetPasswordConfirmSerializer
+
+   def post(self, request, *args, **kwargs):
+      serializer = self.get_serializer(data=request.data)
+      serializer.is_valid(raise_exception=True)
+
+      token = serializer.validated_data['token']
+      password = serializer.validated_data['password']
+
+      try:
+         reset_password_token = ResetPasswordToken.objects.get(key=token)
+         user = reset_password_token.user
+         user.set_password(password)
+         user.save()
+
+         # Optionally, you can delete the token after successful password reset
+         reset_password_token.delete()
+
+         return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
+      except ResetPasswordToken.DoesNotExist:
+         return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
