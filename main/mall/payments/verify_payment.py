@@ -47,7 +47,7 @@ def initiate_payment(email, amount, user_id):
     if response_data['status']:
         PaystackWebhook.objects.create(
             user_id=user_id,
-            store_id=null,
+            # store_id=NULL,
             reference=response_data['data']['reference'],
             data=response_data,
             total_price=amount,
