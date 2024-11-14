@@ -65,7 +65,7 @@ def paystack_webhook(request):
          total_price = data.get('amount') / 100  # Paystack sends amount in kobo
          email = data.get('email')
          user_id = data.get('metadata').get('user_id')
-         store_id = data.get('metadata').get('store_id')
+         # store_id = data.get('metadata').get('store_id')
          
          # Get user and cart
          user = get_object_or_404(User, id=user_id)
@@ -74,7 +74,7 @@ def paystack_webhook(request):
          except Cart.DoesNotExist:
                return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
          
-         verified_store = get_object_or_404(Store, id=store_id)
+         verified_store = get_object_or_404(Store, id=cart.store.id)
          
          # Create order
          order_data = {
@@ -204,24 +204,19 @@ class CartItemModifyView(viewsets.ModelViewSet):
    permission_classes = [IsAuthenticated]
 
 class InitiatePayment(viewsets.ViewSet):
-   permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
-   def create(self, request):
+    def create(self, request):
       email = request.data.get("email")
       amount = request.data.get("amount")
-      store_domain = get_store_domain(request)
+      # store_id = handler.process_request(store_domain=get_store_domain(request))
       user_id = request.user.id
 
       if not email or not amount:
          return Response({"error": "Email and amount are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-      try:
-         store_id = handler.process_request(store_domain=store_domain)
-      except ValueError as e:
-         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
       # Initiate payment
-      payment_response = initiate_payment(email, amount, store_id, user_id)
+      payment_response = initiate_payment(email, amount, user_id)
 
       if payment_response.get('status') == True:
          payment_url = payment_response['data']

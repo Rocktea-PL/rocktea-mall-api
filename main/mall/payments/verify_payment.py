@@ -21,7 +21,7 @@ def verify_payment(request, transaction_id):
     response = requests.get(url, headers=headers)
     return Response(response.json())
 
-def initiate_payment(email, amount, store_id, user_id):
+def initiate_payment(email, amount, user_id):
     headers = {
         'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}',
         'Content-Type': 'application/json',
@@ -34,7 +34,7 @@ def initiate_payment(email, amount, store_id, user_id):
         'amount': amount_in_naira,
         'callback_url': 'https://rocktea-users.vercel.app/order_success',
         'metadata': {
-            'store_id': store_id,
+            # 'store_id': store_id,
             'user_id': user_id
         }
     }
@@ -47,7 +47,7 @@ def initiate_payment(email, amount, store_id, user_id):
     if response_data['status']:
         PaystackWebhook.objects.create(
             user_id=user_id,
-            store_id=store_id,
+            store_id=null,
             reference=response_data['data']['reference'],
             data=response_data,
             total_price=amount,
