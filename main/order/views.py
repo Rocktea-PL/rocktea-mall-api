@@ -204,16 +204,21 @@ class CartItemModifyView(viewsets.ModelViewSet):
    permission_classes = [IsAuthenticated]
 
 class InitiatePayment(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
+   permission_classes = [IsAuthenticated]
 
-    def create(self, request):
+   def create(self, request):
       email = request.data.get("email")
       amount = request.data.get("amount")
-      store_id = handler.process_request(store_domain=get_store_domain(request))
+      store_domain = get_store_domain(request)
       user_id = request.user.id
 
       if not email or not amount:
          return Response({"error": "Email and amount are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+      try:
+         store_id = handler.process_request(store_domain=store_domain)
+      except ValueError as e:
+         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
       # Initiate payment
       payment_response = initiate_payment(email, amount, store_id, user_id)
