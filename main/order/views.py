@@ -105,6 +105,7 @@ def paystack_webhook(request):
             # Update webhook status to success
             PaystackWebhook.objects.filter(reference=transaction_id).update(
                data=data,
+               store_id=order_data.store,
                status='Success'
             )
             return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
