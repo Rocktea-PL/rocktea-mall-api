@@ -132,7 +132,6 @@ DATABASES = {
         'HOST': env('PGHOST'),
         'PORT': env('PGPORT'),
 
-
     },
 
     #     'production': {
