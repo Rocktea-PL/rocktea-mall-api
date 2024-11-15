@@ -389,4 +389,3 @@ class PaymentHistoryView(viewsets.ModelViewSet):
          return queryset
       except PaymentHistory.DoesNotExist:
          return PaymentHistory.objects.none()
-      
