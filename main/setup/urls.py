@@ -39,7 +39,8 @@ from order.views import (
     OrderDeliverView, 
     AllOrders,
     PaymentHistoryView,
-    InitiatePayment
+    InitiatePayment,
+    ShipbubbleViewSet
     )
 
 from order.logistics.assign_order import AssignOrderView
@@ -130,6 +131,9 @@ router.register('promo/', PromoPlansView, basename='promos')
 
 # ShippingData
 router.register('shipping-data', ShippingDataView, basename='shipping_data')
+
+# shipping with shipbubble
+router.register('shipbubble', ShipbubbleViewSet, basename='shipbubble')
 
 
 

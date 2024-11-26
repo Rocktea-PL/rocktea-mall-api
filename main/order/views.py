@@ -2,7 +2,6 @@
 from .models import (
    OrderItems, 
    Store, 
-   CustomUser, 
    Cart, 
    CartItem, 
    StoreOrder, 
@@ -47,7 +46,8 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from mall.payments.verify_payment import verify_payment_paystack, initiate_payment
 from django.views.decorators.csrf import csrf_exempt
 import json
-from django.contrib.auth.models import User
+from .shipbubble_service import ShipbubbleService
+from rest_framework.decorators import action
 # from workshop.decorators import store_domain_required
 
 
@@ -71,7 +71,7 @@ def paystack_webhook(request):
          # store_id = data.get('metadata').get('store_id')
          
          # Get user and cart
-         user = get_object_or_404(User, id=user_id)
+         user = get_object_or_404(CustomUser, id=user_id)
          try:
                cart = Cart.objects.get(user=user)
          except Cart.DoesNotExist:
@@ -391,3 +391,78 @@ class PaymentHistoryView(viewsets.ModelViewSet):
          return queryset
       except PaymentHistory.DoesNotExist:
          return PaymentHistory.objects.none()
+      
+
+class ShipbubbleViewSet(viewsets.ViewSet):
+   permission_classes = [IsAuthenticated]
+
+   def create(self, request): 
+      shipment_data = request.data 
+      shipbubble_service = ShipbubbleService() 
+      user = request.user
+      store_id = handler.process_request(store_domain=get_store_domain(request))
+
+      # Get Cart belonging to user 
+      try: 
+         cart = Cart.objects.get(user=user, store_id=store_id) 
+      except Cart.DoesNotExist: 
+         return Response({"detail": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND) 
+      
+      # Prepare package items from cart 
+      package_items = [] 
+      cart_items = CartItem.objects.filter(cart=cart) 
+      
+      if not cart_items: 
+         return JsonResponse({"error": "No items in the cart"}, status=400) 
+
+      for cart_item in cart_items:
+
+         try: 
+            pricing = StoreProductPricing.objects.get(product=cart_item.product, store=store_id) 
+            retail_price = float(pricing.retail_price) 
+         except StoreProductPricing.DoesNotExist: 
+            return JsonResponse({"error": f"Pricing not found for product {cart_item.product.name}"}, status=400)
+         
+         # Ensure description is not None 
+         description = cart_item.product.description if cart_item.product.description else f"{cart_item.product.name} item purchased"
+
+         package_items.append({ 
+            "name": cart_item.product.name, 
+            "description": description, 
+            "unit_weight": 1, 
+            # "unit_amount": cart_item.product_variant.wholesale_price,
+            "unit_amount": retail_price,
+            "quantity": cart_item.quantity
+         })
+
+      response = shipbubble_service.process_shipping(shipment_data, package_items)
+      # response = shipbubble_service.validate_address(shipment_data)
+      return JsonResponse(response)
+   
+   @action(detail=False, methods=['get'], url_path='available-carriers')
+   def available_carriers(self, request):
+      shipbubble_service = ShipbubbleService()
+      response = shipbubble_service.get_available_carrirers()
+      return JsonResponse(response)
+   
+   @action(detail=False, methods=['get'], url_path='label-categories')
+   def label_categories(self, request):
+      shipbubble_service = ShipbubbleService()
+      response = shipbubble_service.get_label_categories()
+      return JsonResponse(response)
+   
+   @action(detail=False, methods=['post'], url_path='shipment-label')
+   def create_shipment_label(self, request):
+      shipbubble_service = ShipbubbleService()
+      shipment_data = request.data
+
+      # Validate required fields 
+      required_fields = ['request_token', 'service_code' ]
+      missing_fields = [field for field in required_fields if field not in shipment_data] 
+      if missing_fields: 
+         return JsonResponse({'status': 'error', 'message': f'Missing required fields: {", ".join(missing_fields)}'}, status=400)
+
+      response = shipbubble_service.create_shipment(shipment_data)
+      return JsonResponse(response)
+
+      
