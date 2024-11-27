@@ -85,7 +85,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = StoreOrder
-      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status']
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status', 'tracking_id', 'tracking_url', 'tracking_status']
       read_only_fields = ['order_items', 'order_id'] # , 'status'
 
    def get_created_at(self, obj):
@@ -106,6 +106,9 @@ class OrderSerializer(serializers.ModelSerializer):
       representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
       representation['store'] = instance.store.name
       representation['rider_assigned'] = self.get_assigned_rider(instance.id)
+      representation['tracking_id'] = instance.tracking_id
+      representation['tracking_url'] = instance.tracking_url
+      representation['tracking_status'] = instance.tracking_status
       cache.set(cache_key, representation, timeout=60*2)
       
       return representation

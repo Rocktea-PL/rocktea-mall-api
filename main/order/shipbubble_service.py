@@ -1,6 +1,7 @@
 import requests
 from django.conf import settings
 from datetime import datetime, timedelta
+from django.core.cache import cache
 
 class ShipbubbleService:
 
@@ -19,16 +20,6 @@ class ShipbubbleService:
             return { 'success': False, 'message': f'Missing required fields: {", ".join(missing_fields)}' } 
         url = f'{self.api_url}/shipping/address/validate' 
         response = requests.post(url, json=shipment_data, headers=self.headers) 
-        return response.json()
-
-    def create_shipment(self, shipment_data):
-        # Validate required fields 
-        required_fields = ['request_token', 'service_code'] 
-        missing_fields = [field for field in required_fields if field not in shipment_data] 
-        if missing_fields: 
-            return {'status': 'error', 'message': f'Missing required fields: {", ".join(missing_fields)}'}
-        url = f'{self.api_url}/shipping/labels'
-        response = requests.post(url, json=shipment_data, headers=self.headers)
         return response.json()
 
     def get_rates(self, rate_data):
@@ -70,11 +61,34 @@ class ShipbubbleService:
 
         rates_response = self.get_rates(rate_data)
         if rates_response.get('status') != 'success':
-            # return {'status': 'error', 'message': 'Failed to retrieve shipping rates'}
-            return rates_response
+            return {'status': 'error', 'message': 'Failed to retrieve shipping rates'}
+            # return rates_response
         
         return rates_response
 
         # Step 3: Create Shipment
         # shipment_response = self.create_shipment(shipment_data)
         # return shipment_response
+
+    def create_shipment(self, shipment_data, user_id):
+        # Validate required fields 
+        required_fields = ['request_token', 'service_code'] 
+        missing_fields = [field for field in required_fields if field not in shipment_data] 
+        if missing_fields: 
+            return {'status': 'error', 'message': f'Missing required fields: {", ".join(missing_fields)}'}
+        url = f'{self.api_url}/shipping/labels'
+        response = requests.post(url, json=shipment_data, headers=self.headers)
+        # Save feedback into cache 
+        # cache.set(f'shipment_{rates_response["data"]["order_id"]}', rates_response, timeout=3600)
+        cache.set(f'shipment_{user_id}', response, timeout=3600)
+        return response.json()
+    
+    def track_shipping_status(self, order_ids):
+        url = f'{self.api_url}/shipping/labels/list/{order_ids}'
+        response = requests.get(url, headers=self.headers)
+        return response.json()
+    
+    def cancelled_shipping_label(self, order_ids):
+        url = f'{self.api_url}/shipping/labels/cancel/{order_ids}'
+        response = requests.post(url, headers=self.headers)
+        return response.json()
