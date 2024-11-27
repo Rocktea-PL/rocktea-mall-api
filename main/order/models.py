@@ -28,6 +28,9 @@ class StoreOrder(models.Model):
    delivery_code = models.CharField(max_length=5, null=True, unique=True)
    delivery_location = models.CharField(max_length=200, null=True)
    state = models.ForeignKey('State', on_delete=models.CASCADE, null=True)
+   tracking_id = models.CharField(max_length=100, null=True, blank=True) 
+   tracking_url = models.URLField(max_length=200, null=True, blank=True) 
+   tracking_status = models.CharField(max_length=50, null=True, blank=True)
    
    def save(self, *args, **kwargs):
       if not self.order_sn:

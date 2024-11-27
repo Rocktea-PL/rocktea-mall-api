@@ -48,6 +48,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
+from django.core.cache import cache
 # from workshop.decorators import store_domain_required
 
 
@@ -114,6 +115,18 @@ def paystack_webhook(request):
                store_id=order_data['store'],
                status='Success'
             )
+
+            # Retrieve shipment feedback from cache 
+            shipment_feedback = cache.get(f'shipment_{user_id}') 
+            logging.info(f"Shipment details from cache: {shipment_feedback}")
+            if shipment_feedback: 
+               order.tracking_id = shipment_feedback['data']['order_id'] 
+               order.tracking_url = shipment_feedback['data']['tracking_url'] 
+               order.tracking_status = shipment_feedback['data']['status']
+               order.delivery_location = shipment_feedback['data']['ship_to']['address']
+               order.save()
+               # Delete cache after processing 
+               cache.delete(f'shipment_{user_id}')
             return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
          else:
             return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -458,6 +471,7 @@ class ShipbubbleViewSet(viewsets.ViewSet):
    def create_shipment_label(self, request):
       shipbubble_service = ShipbubbleService()
       shipment_data = request.data
+      user_id = request.user.id
 
       # Validate required fields 
       required_fields = ['request_token', 'service_code' ]
@@ -465,7 +479,15 @@ class ShipbubbleViewSet(viewsets.ViewSet):
       if missing_fields: 
          return JsonResponse({'status': 'error', 'message': f'Missing required fields: {", ".join(missing_fields)}'}, status=400)
 
-      response = shipbubble_service.create_shipment(shipment_data)
+      response = shipbubble_service.create_shipment(shipment_data, user_id)
+      return JsonResponse(response)
+   
+   @action(detail=False, methods=['get'], url_path='track-shipment-label')
+   def track_shipment_label(self, request):
+      shipbubble_service = ShipbubbleService()
+      order_ids = "SB-775B0DFAAADA"
+
+      response = shipbubble_service.track_shipping_status(order_ids)
       return JsonResponse(response)
 
       
