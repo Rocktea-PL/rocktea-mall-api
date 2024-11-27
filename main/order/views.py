@@ -60,6 +60,7 @@ def get_store_domain(request):
 def paystack_webhook(request):
    if request.method == 'POST':
       payload = json.loads(request.body)
+      logging.info(f"Payload: {payload}")
       event = payload.get('event')
       
       if event == 'charge.success':
@@ -78,6 +79,7 @@ def paystack_webhook(request):
                return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
          
          verified_store = get_object_or_404(Store, id=cart.store.id)
+         logging.info(f"Verified Store: {verified_store}")
          
          # Create order
          order_data = {
@@ -86,6 +88,7 @@ def paystack_webhook(request):
                'total_price': total_price,
                'status': 'Completed',
          }
+         logging.info(f"Order Data: {order_data}")
          order_serializer = OrderSerializer(data=order_data)
          if order_serializer.is_valid():
             order = order_serializer.save()
@@ -108,7 +111,7 @@ def paystack_webhook(request):
             # Update webhook status to success
             PaystackWebhook.objects.filter(reference=transaction_id).update(
                data=data,
-               store_id=order_data.store,
+               store_id=order_data['store'],
                status='Success'
             )
             return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
