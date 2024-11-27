@@ -1,5 +1,5 @@
 # from order.models import Order, OrderItems
-# from order.serializers import OrderSerializer
+from order.serializers import OrderSerializer
 from rest_framework import generics
 from django.shortcuts import get_object_or_404
 from rest_framework.response import Response
