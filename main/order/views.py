@@ -49,6 +49,7 @@ import json
 from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
 from django.core.cache import cache
+from urllib.parse import urlparse
 # from workshop.decorators import store_domain_required
 
 
@@ -118,13 +119,15 @@ def paystack_webhook(request):
 
             # Retrieve shipment feedback from cache 
             shipment_feedback = cache.get(f'shipment_{user_id}') 
-            logging.info(f"Shipment details from cache: {shipment_feedback}")
+            logging.info(f"Shipment details from cache: {shipment_feedback}") 
             if shipment_feedback: 
-               order.tracking_id = shipment_feedback['data']['order_id'] 
-               order.tracking_url = shipment_feedback['data']['tracking_url'] 
-               order.tracking_status = shipment_feedback['data']['status']
-               order.delivery_location = shipment_feedback['data']['ship_to']['address']
-               order.save()
+               shipment_data = shipment_feedback.json() 
+               # Access the JSON content 
+               order.tracking_id = shipment_data['data']['order_id'] 
+               order.tracking_url = shipment_data['data']['tracking_url'] 
+               order.tracking_status = shipment_data['data']['status'] 
+               order.delivery_location = shipment_data['data']['ship_to']['address'] 
+               order.save() 
                # Delete cache after processing 
                cache.delete(f'shipment_{user_id}')
             return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
@@ -236,7 +239,14 @@ class InitiatePayment(viewsets.ViewSet):
          return Response({"error": "Email and amount are required"}, status=status.HTTP_400_BAD_REQUEST)
 
       # Initiate payment
-      payment_response = initiate_payment(email, amount, user_id)
+      absurl = "https://rocktea-users.vercel.app/order_success"
+      referer = request.META.get('HTTP_REFERER')
+      if referer:
+         parsed_referer = urlparse(referer)
+         base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/order_success"
+      else:
+         base_url = absurl
+      payment_response = initiate_payment(email, amount, user_id, base_url)
 
       if payment_response.get('status') == True:
          payment_url = payment_response['data']

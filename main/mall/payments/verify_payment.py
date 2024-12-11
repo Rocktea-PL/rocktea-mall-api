@@ -21,18 +21,18 @@ def verify_payment(request, transaction_id):
     response = requests.get(url, headers=headers)
     return Response(response.json())
 
-def initiate_payment(email, amount, user_id):
+def initiate_payment(email, amount, user_id, base_url):
     headers = {
         'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}',
         'Content-Type': 'application/json',
     }
 
-    amount = int(amount)
+    amount = float(amount)
     amount_in_naira = amount * 100
     data = {
         'email': email,
         'amount': amount_in_naira,
-        'callback_url': 'https://rocktea-users.vercel.app/order_success',
+        'callback_url': base_url,
         'metadata': {
             # 'store_id': store_id,
             'user_id': user_id
