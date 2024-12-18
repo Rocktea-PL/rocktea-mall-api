@@ -50,6 +50,7 @@ from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
 from django.core.cache import cache
 from urllib.parse import urlparse
+import json
 # from workshop.decorators import store_domain_required
 
 
@@ -118,10 +119,14 @@ def paystack_webhook(request):
             )
 
             # Retrieve shipment feedback from cache 
-            shipment_feedback = cache.get(f'shipment_{user_id}') 
+            """ shipment_feedback = cache.get(f'shipment_{user_id}') 
             logging.info(f"Shipment details from cache: {shipment_feedback}") 
             if shipment_feedback: 
-               shipment_data = shipment_feedback.json() 
+               # shipment_data = shipment_feedback.json()
+               
+               # Parse the string to JSON
+               shipment_data = json.loads(shipment_feedback)
+      
                # Access the JSON content 
                order.tracking_id = shipment_data['data']['order_id'] 
                order.tracking_url = shipment_data['data']['tracking_url'] 
@@ -130,7 +135,29 @@ def paystack_webhook(request):
                order.save() 
                # Delete cache after processing 
                cache.delete(f'shipment_{user_id}')
-            return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
+            return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED) """
+         
+         # Retrieve shipment feedback from cache
+         shipment_feedback = cache.get(f'shipment_{user_id}')
+         logging.info(f"Shipment details from cache: {shipment_feedback}")
+
+         if shipment_feedback:
+            try:
+               # Parse the string to JSON
+               shipment_data = json.loads(shipment_feedback)
+               
+               # Access the JSON content and update the order
+               order.tracking_id = shipment_data['data']['order_id']
+               order.tracking_url = shipment_data['data']['tracking_url']
+               order.tracking_status = shipment_data['data']['status']
+               order.delivery_location = shipment_data['data']['ship_to']['address']
+               order.save()
+               
+               # Delete cache after processing
+               cache.delete(f'shipment_{user_id}')
+            except json.JSONDecodeError as e:
+               logging.error(f"Failed to decode shipment feedback from cache: {e}")
+               return JsonResponse({"error": "Invalid shipment feedback format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
          else:
             return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
       else:
