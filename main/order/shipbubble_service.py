@@ -2,6 +2,7 @@ import requests
 from django.conf import settings
 from datetime import datetime, timedelta
 from django.core.cache import cache
+import json
 
 class ShipbubbleService:
 
@@ -78,9 +79,10 @@ class ShipbubbleService:
             return {'status': 'error', 'message': f'Missing required fields: {", ".join(missing_fields)}'}
         url = f'{self.api_url}/shipping/labels'
         response = requests.post(url, json=shipment_data, headers=self.headers)
+        response_data = response.json()
         # Save feedback into cache 
         # cache.set(f'shipment_{rates_response["data"]["order_id"]}', rates_response, timeout=3600)
-        cache.set(f'shipment_{user_id}', response, timeout=3600)
+        cache.set(f'shipment_{user_id}', json.dumps(response_data), timeout=3600)
         return response.json()
     
     def track_shipping_status(self, order_ids):
