@@ -50,7 +50,6 @@ from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
 from django.core.cache import cache
 from urllib.parse import urlparse
-import json
 # from workshop.decorators import store_domain_required
 
 
