@@ -72,6 +72,9 @@ handler = DomainNameHandler()
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN", None)
 
+def clear_user_cache(user_id): 
+   cache.delete(f'shipment_{user_id}')
+
 @csrf_exempt
 def paystack_webhook(request):
    if request.method == 'POST':
@@ -83,15 +86,15 @@ def paystack_webhook(request):
       if not sig_header:
          logging.error("Missing signature header")
          return JsonResponse({"error": "Missing signature header"}, status=status.HTTP_400_BAD_REQUEST)
-
+      
       try:
          hash = hmac.new(secret.encode('utf-8'), payload, digestmod=hashlib.sha512).hexdigest()
          if hash == sig_header:
-               body_unicode   = payload.decode('utf-8')
-               body           = json.loads(body_unicode)
-               event          = body['event']
+            body_unicode   = payload.decode('utf-8')
+            body           = json.loads(body_unicode)
+            event          = body['event']
          else:
-               raise Exception("Invalid signature")
+            raise Exception("Invalid signature")
       except ValueError as e:
          logging.error(f"Failed to decode JSON payload: {e}")
          return JsonResponse({"error": "Invalid JSON payload"}, status=status.HTTP_400_BAD_REQUEST)
@@ -110,67 +113,71 @@ def paystack_webhook(request):
          metadata       = data.get('metadata', {})
          user_id        = metadata.get('user_id')
          if not user_id:
-               return JsonResponse({"error": "User ID not found in metadata"}, status=status.HTTP_400_BAD_REQUEST)
+            return JsonResponse({"error": "User ID not found in metadata"}, status=status.HTTP_400_BAD_REQUEST)
 
          user = get_object_or_404(CustomUser, id=user_id)
          try:
                cart = Cart.objects.get(user=user)
          except Cart.DoesNotExist:
-               return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
+            clear_user_cache(user_id)
+            return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
 
          verified_store = get_object_or_404(Store, id=cart.store.id)
          logging.info(f"Verified Store: {verified_store}")
 
          order_data = {
-               'buyer':       user.id,
-               'store':       cart.store.id,
-               'total_price': total_price,
-               'status':      'Completed',
+            'buyer':       user.id,
+            'store':       cart.store.id,
+            'total_price': total_price,
+            'status':      'Completed',
          }
          logging.info(f"Order Data: {order_data}")
          order_serializer = OrderSerializer(data=order_data)
          if order_serializer.is_valid():
-               order = order_serializer.save()
-               for cart_item in cart.items.all():
-                  order_item_data = {
-                     'userorder': order.id,
-                     'product': cart_item.product.id,
-                     'product_variant': cart_item.product_variant.id,
-                     'quantity': cart_item.quantity
-                  }
-                  order_item_serializer = OrderItemsSerializer(data=order_item_data)
-                  if order_item_serializer.is_valid():
-                     order_item_serializer.save()
-                  else:
-                     return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            order = order_serializer.save()
+            for cart_item in cart.items.all():
+               order_item_data = {
+                  'userorder': order.id,
+                  'product': cart_item.product.id,
+                  'product_variant': cart_item.product_variant.id,
+                  'quantity': cart_item.quantity
+               }
+               order_item_serializer = OrderItemsSerializer(data=order_item_data)
+               if order_item_serializer.is_valid():
+                  order_item_serializer.save()
+               else:
+                  clear_user_cache(user_id)
+                  return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-               cart.items.all().delete()
+            cart.items.all().delete()
 
-               PaystackWebhook.objects.filter(reference=transaction_id).update(
-                  data=data,
-                  store_id=order_data['store'],
-                  status='Success'
-               )
+            PaystackWebhook.objects.filter(reference=transaction_id).update(
+               data=data,
+               store_id=order_data['store'],
+               status='Success'
+            )
 
-               shipment_feedback = cache.get(f'shipment_{user_id}')
-               logging.info(f"Shipment details from cache: {shipment_feedback}")
+            shipment_feedback = cache.get(f'shipment_{user_id}')
+            logging.info(f"Shipment details from cache: {shipment_feedback}")
 
-               if shipment_feedback:
-                  try:
-                     shipment_data = json.loads(shipment_feedback)
-                     order.tracking_id = shipment_data['data']['order_id']
-                     order.tracking_url = shipment_data['data']['tracking_url']
-                     order.tracking_status = shipment_data['data']['status']
-                     order.delivery_location = shipment_data['data']['ship_to']['address']
-                     order.save()
-                     cache.delete(f'shipment_{user_id}')
-                  except json.JSONDecodeError as e:
-                     logging.error(f"Failed to decode shipment feedback from cache: {e}")
-                     return JsonResponse({"error": "Invalid shipment feedback format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            if shipment_feedback:
+               try:
+                  shipment_data = json.loads(shipment_feedback)
+                  order.tracking_id = shipment_data['data']['order_id']
+                  order.tracking_url = shipment_data['data']['tracking_url']
+                  order.tracking_status = shipment_data['data']['status']
+                  order.delivery_location = shipment_data['data']['ship_to']['address']
+                  order.save()
+                  cache.delete(f'shipment_{user_id}')
+               except json.JSONDecodeError as e:
+                  logging.error(f"Failed to decode shipment feedback from cache: {e}")
+                  clear_user_cache(user_id)
+                  return JsonResponse({"error": "Invalid shipment feedback format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-               return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
+            return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
          else:
-               return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            clear_user_cache(user_id)
+            return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
       else:
          return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
    return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
