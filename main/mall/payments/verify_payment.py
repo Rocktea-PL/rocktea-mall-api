@@ -66,3 +66,76 @@ def verify_payment_paystack(transaction_id):
     
     response = requests.get(url, headers=headers)
     return Response(response.json())
+
+def get_bank_list_paystack():
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/bank?currency=NGN'
+    
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+def get_account_name_paystack(account_number, bank_code):
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/bank/resolve?account_number={account_number}&bank_code={bank_code}'
+    
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+def get_receipient_code_transfer_paystack(body_data):
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/transferrecipient'
+
+    data = {
+        'type':             'nuban',
+        'name':             body_data['name'],
+        'account_number':   body_data['account_number'],
+        'bank_code':        body_data['bank_code'],
+        'currency':         'NGN'
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
+def initiate_transfer_paystack(transfer_data):
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/transfer'
+
+    amount = int(transfer_data['amount'])
+    amount_in_naira = amount * 100
+
+    data = {
+        'source':       'balance',
+        'reason':       'profit from rocktea',
+        'amount':       amount_in_naira,
+        'recipient':    transfer_data['recipient_code']
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
+def otp_transfer_paystack(transfer_data):
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/transfer/finalize_transfer'
+
+    data = {
+        'transfer_code':    transfer_data['transfer_code'],
+        'otp':              transfer_data['otp']
+    }
+    
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()

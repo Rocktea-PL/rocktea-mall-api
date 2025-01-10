@@ -13,7 +13,8 @@ from mall.models import (
    CustomUser, 
    Store, 
    Product,
-   ProductVariant
+   ProductVariant,
+   StoreProductPricing
    )
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -32,7 +33,21 @@ class OrderItemsSerializer(serializers.ModelSerializer):
    
    def to_representation(self, instance):
       representation=super(OrderItemsSerializer, self).to_representation(instance)
-      representation["product"]= [{"name": instance.product.name, "sku": instance.product.sku, "size": instance.product_variant.size, "color": instance.product_variant.colors}]
+      store_id = instance.userorder.store.id 
+      pricing = StoreProductPricing.objects.get(product=instance.product, store=store_id) 
+      retail_price = pricing.retail_price
+      representation["product"]= [
+         {
+            "id": instance.product.id, 
+            "name": instance.product.name, 
+            "sku": instance.product.sku, 
+            "size": instance.product_variant.size, 
+            "color": instance.product_variant.colors, 
+            "images": [image.images.url for image in instance.product.images.all()],
+            "price": retail_price,
+            "store": store_id
+         }
+      ]
       return representation
 
 
