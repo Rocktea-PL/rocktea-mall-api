@@ -43,7 +43,15 @@ from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from mall.payments.verify_payment import verify_payment_paystack, initiate_payment
+from mall.payments.verify_payment import (
+   verify_payment_paystack, 
+   initiate_payment, 
+   get_bank_list_paystack, 
+   get_account_name_paystack,
+   get_receipient_code_transfer_paystack,
+   initiate_transfer_paystack,
+   otp_transfer_paystack
+)
 from django.views.decorators.csrf import csrf_exempt
 import json
 from .shipbubble_service import ShipbubbleService
@@ -526,4 +534,43 @@ class ShipbubbleViewSet(viewsets.ViewSet):
       response = shipbubble_service.track_shipping_status(order_ids)
       return JsonResponse(response)
 
-      
+
+class Paystack(viewsets.ViewSet):
+   @action(detail=False, methods=['get'], url_path='get-banks-list')
+   def get_bank_list(self, request):
+      bank_list = get_bank_list_paystack()
+
+      return JsonResponse(bank_list)
+   
+   @action(detail=False, methods=['post'], url_path='get-account-name')
+   def get_account_name(self, request):
+      account_number = request.data.get('account_number') 
+      bank_code      = request.data.get('bank_code')
+
+      bank_details   = get_account_name_paystack(account_number, bank_code)
+
+      return JsonResponse(bank_details)
+   
+   @action(detail=False, methods=['post'], url_path='get-transfer-recipient')
+   def get_account_name(self, request):
+      data = request.data
+
+      transfer_recipient   = get_receipient_code_transfer_paystack(data)
+
+      return JsonResponse(transfer_recipient)
+   
+   @action(detail=False, methods=['post'], url_path='initiate-transfer')
+   def get_account_name(self, request):
+      data = request.data
+
+      initialize_transfer   = initiate_transfer_paystack(data)
+
+      return JsonResponse(initialize_transfer)
+   
+   @action(detail=False, methods=['post'], url_path='otp-transfer')
+   def get_account_name(self, request):
+      data = request.data
+
+      otp_transfer   = otp_transfer_paystack(data)
+
+      return JsonResponse(otp_transfer)

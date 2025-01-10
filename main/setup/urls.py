@@ -40,8 +40,9 @@ from order.views import (
     AllOrders,
     PaymentHistoryView,
     InitiatePayment,
-    ShipbubbleViewSet
-    )
+    ShipbubbleViewSet,
+    Paystack
+)
 
 from order.logistics.assign_order import AssignOrderView
 from services.views import (
@@ -104,6 +105,9 @@ router.register('product-type', ProductTypeView, basename='product-type')
 router.register('business_info', ServicesBusinessInformationView, basename='business')
 router.register('checkout', CheckOutCart, basename='checkout')
 router.register('buyer-behaviour', BuyerBehaviourView, basename='buyerbehavior')
+
+router.register('paystack', Paystack, basename='paystack')
+# Paystack
 
 # Payments
 router.register(r'wallet', WalletView, basename='wallets')
