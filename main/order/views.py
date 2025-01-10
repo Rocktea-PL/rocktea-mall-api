@@ -72,111 +72,6 @@ handler = DomainNameHandler()
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN", None)
 
-# @csrf_exempt
-# def paystack_webhook(request):
-#    if request.method == 'POST':
-#       payload = json.loads(request.body)
-#       logging.info(f"Payload: {payload}")
-#       event = payload.get('event')
-      
-#       if event == 'charge.success':
-#          data = payload.get('data')
-#          transaction_id = data.get('reference')
-#          total_price = data.get('amount') / 100  # Paystack sends amount in kobo
-#          email = data.get('email')
-#          user_id = data.get('metadata').get('user_id')
-#          # store_id = data.get('metadata').get('store_id')
-         
-#          # Get user and cart
-#          user = get_object_or_404(CustomUser, id=user_id)
-#          try:
-#                cart = Cart.objects.get(user=user)
-#          except Cart.DoesNotExist:
-#                return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
-         
-#          verified_store = get_object_or_404(Store, id=cart.store.id)
-#          logging.info(f"Verified Store: {verified_store}")
-         
-#          # Create order
-#          order_data = {
-#                'buyer': user.id,
-#                'store': cart.store.id,
-#                'total_price': total_price,
-#                'status': 'Completed',
-#          }
-#          logging.info(f"Order Data: {order_data}")
-#          order_serializer = OrderSerializer(data=order_data)
-#          if order_serializer.is_valid():
-#             order = order_serializer.save()
-#             for cart_item in cart.items.all():
-#                order_item_data = {
-#                   'userorder': order.id,
-#                   'product': cart_item.product.id,
-#                   'product_variant': cart_item.product_variant.id,
-#                   'quantity': cart_item.quantity
-#                }
-#                order_item_serializer = OrderItemsSerializer(data=order_item_data)
-#                if order_item_serializer.is_valid():
-#                   order_item_serializer.save()
-#                else:
-#                   return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-#             # Clear the user's cart after a successful checkout
-#             cart.items.all().delete()
-            
-#             # Update webhook status to success
-#             PaystackWebhook.objects.filter(reference=transaction_id).update(
-#                data=data,
-#                store_id=order_data['store'],
-#                status='Success'
-#             )
-
-#             # Retrieve shipment feedback from cache 
-#             """ shipment_feedback = cache.get(f'shipment_{user_id}') 
-#             logging.info(f"Shipment details from cache: {shipment_feedback}") 
-#             if shipment_feedback: 
-#                # shipment_data = shipment_feedback.json()
-               
-#                # Parse the string to JSON
-#                shipment_data = json.loads(shipment_feedback)
-      
-#                # Access the JSON content 
-#                order.tracking_id = shipment_data['data']['order_id'] 
-#                order.tracking_url = shipment_data['data']['tracking_url'] 
-#                order.tracking_status = shipment_data['data']['status'] 
-#                order.delivery_location = shipment_data['data']['ship_to']['address'] 
-#                order.save() 
-#                # Delete cache after processing 
-#                cache.delete(f'shipment_{user_id}')
-#             return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED) """
-         
-#          # Retrieve shipment feedback from cache
-#          shipment_feedback = cache.get(f'shipment_{user_id}')
-#          logging.info(f"Shipment details from cache: {shipment_feedback}")
-
-#          if shipment_feedback:
-#             try:
-#                # Parse the string to JSON
-#                shipment_data = json.loads(shipment_feedback)
-               
-#                # Access the JSON content and update the order
-#                order.tracking_id = shipment_data['data']['order_id']
-#                order.tracking_url = shipment_data['data']['tracking_url']
-#                order.tracking_status = shipment_data['data']['status']
-#                order.delivery_location = shipment_data['data']['ship_to']['address']
-#                order.save()
-               
-#                # Delete cache after processing
-#                cache.delete(f'shipment_{user_id}')
-#             except json.JSONDecodeError as e:
-#                logging.error(f"Failed to decode shipment feedback from cache: {e}")
-#                return JsonResponse({"error": "Invalid shipment feedback format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-#          else:
-#             return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-#       else:
-#          return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
-#    return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
 @csrf_exempt
 def paystack_webhook(request):
    if request.method == 'POST':
@@ -192,9 +87,9 @@ def paystack_webhook(request):
       try:
          hash = hmac.new(secret.encode('utf-8'), payload, digestmod=hashlib.sha512).hexdigest()
          if hash == sig_header:
-               body_unicode = payload.decode('utf-8')
-               body = json.loads(body_unicode)
-               event = body['event']
+               body_unicode   = payload.decode('utf-8')
+               body           = json.loads(body_unicode)
+               event          = body['event']
          else:
                raise Exception("Invalid signature")
       except ValueError as e:
@@ -208,12 +103,12 @@ def paystack_webhook(request):
          return JsonResponse({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
 
       if event == 'charge.success':
-         data = body["data"]
+         data           = body["data"]
          transaction_id = data.get('reference')
-         total_price = data.get('amount') / 100  # Paystack sends amount in kobo
-         email = data.get('email')
-         metadata = data.get('metadata', {})
-         user_id = metadata.get('user_id')
+         total_price    = data.get('amount') / 100  # Paystack sends amount in kobo
+         email          = data.get('email')
+         metadata       = data.get('metadata', {})
+         user_id        = metadata.get('user_id')
          if not user_id:
                return JsonResponse({"error": "User ID not found in metadata"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -227,10 +122,10 @@ def paystack_webhook(request):
          logging.info(f"Verified Store: {verified_store}")
 
          order_data = {
-               'buyer': user.id,
-               'store': cart.store.id,
+               'buyer':       user.id,
+               'store':       cart.store.id,
                'total_price': total_price,
-               'status': 'Completed',
+               'status':      'Completed',
          }
          logging.info(f"Order Data: {order_data}")
          order_serializer = OrderSerializer(data=order_data)
