@@ -536,6 +536,8 @@ class ShipbubbleViewSet(viewsets.ViewSet):
 
 
 class Paystack(viewsets.ViewSet):
+   permission_classes = [IsAuthenticated]
+   
    @action(detail=False, methods=['get'], url_path='get-banks-list')
    def get_bank_list(self, request):
       bank_list = get_bank_list_paystack()
