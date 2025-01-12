@@ -129,7 +129,7 @@ class Wallet(models.Model):
     pending_balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00)
     nuban = models.CharField(max_length=10, unique=True, null=True)
-    bank_code = models.IntegerField(null=True)
+    bank_code = models.CharField(null=True)
 
     def __str__(self):
         return self.store.name

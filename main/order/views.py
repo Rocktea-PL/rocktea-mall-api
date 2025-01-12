@@ -12,10 +12,12 @@ from .models import (
    )
 
 from mall.models import (
+   Notification,
    Product, 
    ProductVariant, 
    CustomUser, 
-   StoreProductPricing
+   StoreProductPricing,
+   Wallet
    )
 
 from .serializers import (
@@ -559,30 +561,138 @@ class Paystack(viewsets.ViewSet):
       account_number = request.data.get('account_number') 
       bank_code      = request.data.get('bank_code')
 
+      # Validation
+      if not account_number or not bank_code:
+         return JsonResponse(
+               {"error": "Both 'account_number' and 'bank_code' are required."}, 
+               status=400
+         )
+
       bank_details   = get_account_name_paystack(account_number, bank_code)
 
       return JsonResponse(bank_details)
    
    @action(detail=False, methods=['post'], url_path='get-transfer-recipient')
-   def get_account_name(self, request):
+   def get_receipient_code(self, request):
       data = request.data
+      import pdb
+      pdb.set_trace()
+
+      required_fields = ['name', 'account_number', 'bank_code']
+      missing_fields = [field for field in required_fields if field not in request.data]
+
+      # Validation
+      if missing_fields:
+         return JsonResponse(
+               {"error": f"Missing required fields: {', '.join(missing_fields)}."},
+               status=400
+         )
 
       transfer_recipient   = get_receipient_code_transfer_paystack(data)
 
       return JsonResponse(transfer_recipient)
    
    @action(detail=False, methods=['post'], url_path='initiate-transfer')
-   def get_account_name(self, request):
+   def initiate_transfer(self, request):
       data = request.data
+
+      required_fields = ['amount', 'recipient_code']
+      missing_fields = [field for field in required_fields if field not in request.data]
+
+      # Validation
+      if missing_fields:
+         return JsonResponse(
+               {"error": f"Missing required fields: {', '.join(missing_fields)}."},
+               status=400
+         )
 
       initialize_transfer   = initiate_transfer_paystack(data)
 
       return JsonResponse(initialize_transfer)
    
    @action(detail=False, methods=['post'], url_path='otp-transfer')
-   def get_account_name(self, request):
+   def otp_with_transfer(self, request):
       data = request.data
+
+      required_fields = ['otp', 'transfer_code']
+      missing_fields = [field for field in required_fields if field not in request.data]
+
+      # Validation
+      if missing_fields:
+         return JsonResponse(
+               {"error": f"Missing required fields: {', '.join(missing_fields)}."},
+               status=400
+         )
 
       otp_transfer   = otp_transfer_paystack(data)
 
       return JsonResponse(otp_transfer)
+   
+   @action(detail=False, methods=['post'], url_path='process-withdrawal')
+   @transaction.atomic  # Ensures atomicity
+   def process_withdrawal(self, request):
+      amount = request.data.get('amount')
+
+      # Validate amount
+      if not amount or not isinstance(amount, (int, float)):
+         return JsonResponse({"error": "Invalid or missing 'amount'."}, status=400)
+      
+      if amount < 1000:
+         return JsonResponse({"error": "Amount must be at least 1000."}, status=400)
+
+      # Fetch user's wallet
+      wallet = Wallet.objects.filter(store__owner_id=request.user.id).first()
+
+      if not wallet:
+         return JsonResponse({"error": "Wallet not found."}, status=404)
+      
+      if float(wallet.balance) < amount:
+         return JsonResponse({"error": "Insufficient balance."}, status=400)
+      
+      # Get account details
+      account_number = wallet.nuban
+      bank_code = wallet.bank_code
+      if not account_number or not bank_code:
+         return JsonResponse({"error": "Bank details not found."}, status=400)
+      
+      # Step 1: Get transfer recipient code
+      recipient_data = {
+         "name": wallet.account_name,
+         "account_number": account_number,
+         "bank_code": bank_code
+      }
+
+      recipient_response = get_receipient_code_transfer_paystack(recipient_data)
+      if recipient_response.get("status") != True:
+         return JsonResponse(
+               {"error": "Failed to create transfer recipient.", "details": recipient_response},
+               status=400
+         )
+      recipient_code = recipient_response.get("data", {}).get("recipient_code")
+
+      # Step 2: Initiate transfer
+      transfer_data = {
+         "amount": amount,
+         "recipient_code": recipient_code
+      }
+      transfer_response = initiate_transfer_paystack(transfer_data)
+      if transfer_response.get("status") != True:
+         return JsonResponse(
+               {"error": "Failed to initiate transfer.", "details": transfer_response},
+               status=400
+         )
+
+      # Step 3: Deduct amount from wallet
+      wallet.balance = str(float(wallet.balance) - amount)
+      wallet.save()
+
+      # Create Notification
+      notification_message = f"Your withdrawal of {amount} has been successfully processed."
+      store = get_object_or_404(Store, id=wallet.store.id)
+      
+      Notification.objects.create(store=store, message=notification_message)
+
+      return JsonResponse(
+         {"message": "Withdrawal successful.", "transaction": transfer_response},
+         status=200
+      )
