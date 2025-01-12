@@ -1,3 +1,5 @@
+import datetime
+import uuid
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from order.models import PaystackWebhook
@@ -119,6 +121,7 @@ def initiate_transfer_paystack(transfer_data):
         'source':       'balance',
         'reason':       'profit from rocktea',
         'amount':       amount_in_naira,
+        'reference':    generate_tx_ref(),
         'recipient':    transfer_data['recipient_code']
     }
     
@@ -139,3 +142,10 @@ def otp_transfer_paystack(transfer_data):
     
     response = requests.post(url, headers=headers, json=data)
     return response.json()
+
+def generate_tx_ref():
+    """Generate a unique transaction reference using timestamp and UUID"""
+    timestamp = str(int(datetime.datetime.now().timestamp()))
+    uid = str(uuid.uuid4().hex)
+    tx_ref ="RCKT_MALL-" + timestamp + "_" + uid
+    return tx_ref

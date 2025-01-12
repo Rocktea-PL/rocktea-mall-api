@@ -106,9 +106,6 @@ router.register('business_info', ServicesBusinessInformationView, basename='busi
 router.register('checkout', CheckOutCart, basename='checkout')
 router.register('buyer-behaviour', BuyerBehaviourView, basename='buyerbehavior')
 
-router.register('paystack', Paystack, basename='paystack')
-# Paystack
-
 # Payments
 router.register(r'wallet', WalletView, basename='wallets')
 router.register('payment/history', PaymentHistoryView, basename='payment')
@@ -138,6 +135,9 @@ router.register('shipping-data', ShippingDataView, basename='shipping_data')
 
 # shipping with shipbubble
 router.register('shipbubble', ShipbubbleViewSet, basename='shipbubble')
+
+# Paystack
+router.register('paystack', Paystack, basename='paystack')
 
 
 
