@@ -352,7 +352,6 @@ class ProductSerializer(serializers.ModelSerializer):
    # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
    store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), many=True, required=False)
-
    
    class Meta:
       model = Product

@@ -92,7 +92,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
 from order.views import CustomPagination
-from django.db.models import Sum, F, Value, IntegerField
+from django.db.models import Sum
 
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
@@ -160,48 +160,39 @@ class SignInUserView(TokenObtainPairView):
    serializer_class = MyTokenObtainPairSerializer
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related(
-      'category', 'subcategory', 'producttype', 'brand'
-   ).prefetch_related('store', 'images', 'product_variants').order_by('-created_at')
+   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductSerializer
    permission_classes = [IsAuthenticatedOrReadOnly]
    pagination_class = CustomPagination
 
    def get_queryset(self):
       category_id = self.request.query_params.get('category')
-      base_queryset = Product.objects.select_related(
-         "category", "subcategory", "producttype", "brand"
-      ).prefetch_related(
-         "images", "store", 'product_variants'
-      ).order_by('-created_at')
-
       if category_id is not None:
-         return base_queryset.filter(category_id=category_id)
-      return base_queryset
+         category = get_object_or_404(Category, id=category_id)
+         return Product.objects.filter(category=category).select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
+      else:
+         return Product.objects.select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
 
    @transaction.atomic
    def perform_create(self, serializer):
       product = serializer.save()
       store = self.request.user.owners
       if store:
-         product.store.add(store)
+         product.store.add(store)  # Associate the store with the product
          product.save()
          ProductStore.objects.create(product=product, store=store)
       return Response({"message": "Product Created Successfully"}, status=status.HTTP_201_CREATED)
 
-   def get_serializer_class(self):
-      if self.action == 'list':
-         return SimpleProductSerializer
-      return ProductSerializer
+   def list(self, request, *args, **kwargs):
+      """Override the list method to disable pagination for the main GET request."""
+      queryset = self.get_queryset()
+      serializer = self.get_serializer(queryset, many=True)
+      return Response(serializer.data)
 
-   def get_serializer_context(self):
-      context = super().get_serializer_context()
-      if self.action == 'list':
-         context['store'] = getattr(self.request.user, 'owners', None)
-      return context
-
-   @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+   @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='by-shop')
    def my_products_list(self, request):
+      """Custom endpoint to get products by shop with pagination."""
+      # Get the store associated with the authenticated user
       store = getattr(request.user, 'owners', None)
       if not store:
          return Response(
@@ -209,39 +200,37 @@ class ProductViewSet(viewsets.ModelViewSet):
                status=status.HTTP_400_BAD_REQUEST
          )
 
-      products = self.get_queryset().filter(store=store)
+      # Filter products by the store
+      products = Product.objects.filter(store=store).select_related(
+         "category", "subcategory", "producttype", "brand"
+      ).prefetch_related("images", "product_variants")
 
-      # Calculate totals
+      # Calculate summary data
       total_products = products.count()
       total_sales_count = products.aggregate(total_sold=Sum('sales_count'))['total_sold'] or 0
       total_quantity = products.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-      total_products_sold = total_sales_count
       total_available_products = total_quantity - total_sales_count
 
-      # Prepare extra data
-      extra_data = {
+      summary = {
          "total_products": total_products,
-         "total_products_sold": total_products_sold,
-         "total_available_products": total_available_products
+         "total_products_sold": total_sales_count,
+         "total_available_products": total_available_products,
       }
 
-      # Apply pagination
+      # Apply pagination only for this endpoint
       page = self.paginate_queryset(products)
       if page is not None:
-         serializer = self.get_serializer(page, many=True, context={'store': store})
+         serializer = SimpleProductSerializer(page, many=True, context={'store': store})
          paginated_response = self.get_paginated_response(serializer.data)
-
-         # Add extra data to paginated response
-         paginated_response.data['summary'] = extra_data
+         paginated_response.data.update({'summary': summary})
          return paginated_response
 
-      # For non-paginated responses
-      serializer = self.get_serializer(products, many=True, context={'store': store})
+      # For non-paginated responses (unlikely to happen here)
+      serializer = SimpleProductSerializer(products, many=True, context={'store': store})
       return Response({
-         "summary": extra_data,
+         "summary": summary,
          "products": serializer.data
       })
-
 class ProductRatingViewSet(viewsets.ModelViewSet):
    queryset = ProductRating.objects.select_related("product")
    serializer_class = ProductRatingSerializer
