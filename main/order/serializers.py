@@ -50,8 +50,6 @@ class OrderItemsSerializer(serializers.ModelSerializer):
       ]
       return representation
 
-
-
 class AssignedOrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -85,7 +83,6 @@ class AssignedOrderSerializer(serializers.ModelSerializer):
       cache.set(cache_key, representation, timeout=60 * 3)
       return representation
 
-
 class OrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
@@ -100,7 +97,7 @@ class OrderSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = StoreOrder
-      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status', 'tracking_id', 'tracking_url', 'tracking_status']
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status', 'tracking_id', 'tracking_url', 'tracking_status', 'shipping_fee', 'delivery_location']
       read_only_fields = ['order_items', 'order_id'] # , 'status'
 
    def get_created_at(self, obj):
@@ -142,7 +139,6 @@ class OrderSerializer(serializers.ModelSerializer):
       else:
          return None
 
-
 class CartItemSerializer(serializers.ModelSerializer):
    product = serializers.SerializerMethodField()
    
@@ -152,8 +148,6 @@ class CartItemSerializer(serializers.ModelSerializer):
       
    def get_product(self, obj):
       return {"id": obj.product.id, "name": obj.product.name, "images": [image.images.url for image in obj.product.images.all()] if obj.product.name else None} if obj.product.name else None
-
-
 
 class CartSerializer(serializers.ModelSerializer):
    items = CartItemSerializer(many=True, read_only=True)
@@ -181,14 +175,11 @@ class CartSerializer(serializers.ModelSerializer):
          CartItem.objects.create(cart=cart, **item_data)
       return cart
 
-
 class OrderDeliverySerializer(serializers.ModelSerializer):
    class Meta:
       model = OrderDeliveryConfirmation
       fields = ['id', 'userorder', 'code']
       
-
-
 class AssignOrderSerializer(serializers.ModelSerializer):
    class Meta:
       model = AssignOrder
@@ -224,7 +215,6 @@ class AssignOrderSerializer(serializers.ModelSerializer):
       representation['order'] = order_info
 
       return representation
-
 
 class PaymentHistorySerializers(serializers.ModelSerializer):
    class Meta:

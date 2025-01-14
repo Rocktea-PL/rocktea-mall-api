@@ -66,9 +66,7 @@ import hashlib
 from django.conf import settings
 # from workshop.decorators import store_domain_required
 
-
 secret = settings.TEST_SECRET_KEY
-
 handler = DomainNameHandler()
 
 def get_store_domain(request):
@@ -137,7 +135,14 @@ def paystack_webhook(request):
          order_serializer = OrderSerializer(data=order_data)
          if order_serializer.is_valid():
             order = order_serializer.save()
+
+            # Process cart items
             for cart_item in cart.items.all():
+               # Increment sales_count for the product
+               product = cart_item.product
+               product.sales_count += cart_item.quantity
+               product.save()
+
                order_item_data = {
                   'userorder': order.id,
                   'product': cart_item.product.id,
@@ -156,7 +161,8 @@ def paystack_webhook(request):
             PaystackWebhook.objects.filter(reference=transaction_id).update(
                data=data,
                store_id=order_data['store'],
-               status='Success'
+               status='Success',
+               order=order  # Associate the order with the webhook
             )
 
             shipment_feedback = cache.get(f'shipment_{user_id}')
@@ -169,6 +175,7 @@ def paystack_webhook(request):
                   order.tracking_url = shipment_data['data']['tracking_url']
                   order.tracking_status = shipment_data['data']['status']
                   order.delivery_location = shipment_data['data']['ship_to']['address']
+                  order.shipping_fee = shipment_data['data']['payment']['shipping_fee']
                   order.save()
                   cache.delete(f'shipment_{user_id}')
                except json.JSONDecodeError as e:
@@ -189,11 +196,9 @@ class OrderPagination(PageNumberPagination):
    page_size_query_param = 'page_size'
    max_page_size = 1000
 
-
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
    serializer_class = OrderItemsSerializer
-
 
 class CartViewSet(viewsets.ViewSet):
    # authentication_classes = [TokenAuthentication]
@@ -265,7 +270,6 @@ class CartViewSet(viewsets.ViewSet):
       except Cart.DoesNotExist:
          logging.error("Incorrect Cart ID")
          raise serializers.ValidationError("Cart Does Not Exist")
-
 
 class CartItemModifyView(viewsets.ModelViewSet):
    queryset = CartItem.objects.all()
@@ -397,20 +401,51 @@ class CheckOutCart(viewsets.ViewSet):
 
       return Response(order_items_serializer.data, status=status.HTTP_200_OK)
 
-
 class ViewOrders(viewsets.ViewSet):
    def list(self, request):
       user = self.request.user.id
       queryset = StoreOrder.objects.filter(buyer=user).select_related("buyer", "store")
       serializer = OrderSerializer(queryset, many=True)
       return Response(serializer.data)
+   
+   @action(detail=False, methods=['get'], url_path='by-reference')
+   def get_order_by_reference(self, request):
+      """
+      Retrieve a single order using the reference ID.
+      URL: /api/orders/by-reference/?reference=<reference_id>
+      """
+      reference = request.query_params.get('reference')
 
+      if not reference:
+         return Response([])  # Return empty list if no reference provided
+
+      try:
+         # Get the webhook and related order in a single query
+         webhook = PaystackWebhook.objects.select_related('order').get(reference=reference)
+         
+         if not webhook.order:
+               return Response([])  # Return empty list if no order found
+
+         # Check if the order belongs to the requesting user
+         if webhook.order.buyer.id != request.user.id:
+               return Response([])  # Return empty list if user doesn't have permission
+
+         # Get the specific order with all necessary related fields
+         order = StoreOrder.objects.select_related(
+               "buyer",
+               "store"
+         ).get(id=webhook.order.id)
+
+         serializer = OrderSerializer(order)
+         return Response([serializer.data])  # Return list with single order
+
+      except (PaystackWebhook.DoesNotExist, StoreOrder.DoesNotExist):
+         return Response([])  # Return empty list if no webhook or order found
 
 class CustomPagination(PageNumberPagination):
    page_size = 10  # Set the number of items per page
    page_size_query_param = 'page_size'
    max_page_size = 1000
-
 
 class AllOrders(viewsets.ModelViewSet):
    serializer_class = OrderSerializer
@@ -420,12 +455,10 @@ class AllOrders(viewsets.ModelViewSet):
       queryset = StoreOrder.objects.all().select_related("buyer", "store").order_by("-created_at")
       return queryset
 
-
 class OrderDeliverView(viewsets.ModelViewSet):
    queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
    pagination_class = OrderPagination
-
 
 class AssignedOrders(generics.ListAPIView):
    serializer_class = AssignedOrderSerializer
@@ -447,7 +480,6 @@ class AssignedOrders(generics.ListAPIView):
       serializer = self.get_serializer(all_orders_for_rider, many=True)
       return Response({"orders": serializer.data}, status=status.HTTP_200_OK)
 
-
 class PaymentHistoryView(viewsets.ModelViewSet):
    queryset = PaymentHistory.objects.select_related('store', 'order')
    serializer_class = PaymentHistorySerializers
@@ -463,7 +495,6 @@ class PaymentHistoryView(viewsets.ModelViewSet):
          return queryset
       except PaymentHistory.DoesNotExist:
          return PaymentHistory.objects.none()
-      
 
 class ShipbubbleViewSet(viewsets.ViewSet):
    permission_classes = [IsAuthenticated]
@@ -545,7 +576,6 @@ class ShipbubbleViewSet(viewsets.ViewSet):
 
       response = shipbubble_service.track_shipping_status(order_ids)
       return JsonResponse(response)
-
 
 class Paystack(viewsets.ViewSet):
    permission_classes = [IsAuthenticated]

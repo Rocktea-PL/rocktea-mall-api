@@ -9,10 +9,8 @@ from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 
-
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
-
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -36,7 +34,6 @@ class CustomUserManager(BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
 
         return self.create_user(email, password=password, **extra_fields)
-
 
 # StoreOwner models
 class CustomUser(AbstractUser):
@@ -92,7 +89,6 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.first_name
 
-
 class ServicesBusinessInformation(models.Model):
     EXPERIENCE = (
         ("1-2 Years", "1-2 Years"),
@@ -120,7 +116,6 @@ class ServicesBusinessInformation(models.Model):
     def __str__(self):
         return self.name
 
-
 class Wallet(models.Model):
     store = models.OneToOneField('Store', on_delete=models.CASCADE, null=True)
     balance = models.DecimalField(
@@ -133,7 +128,6 @@ class Wallet(models.Model):
 
     def __str__(self):
         return self.store.name
-
 
 class Store(models.Model):
     id = models.CharField(max_length=36, default=uuid4,
@@ -181,7 +175,6 @@ class Store(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class Product(models.Model):
     UPLOAD_STATUS = (
@@ -240,15 +233,13 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
-
 class ProductRating(models.Model):
    product = models.ForeignKey(Product, on_delete=models.CASCADE)
    star = models.IntegerField()
    
    def __str__(self):
       return self.product.id
-   
-   
+
 class ProductImage(models.Model):
     images = models.FileField(storage=RawMediaCloudinaryStorage)
 
@@ -256,7 +247,6 @@ class ProductImage(models.Model):
         indexes = [
             models.Index(fields=['images'], name='product_images_imagesx')
         ]
-
 
 class ProductVariant(models.Model):
     COLOR_CHOICES = [
@@ -292,7 +282,6 @@ class ProductVariant(models.Model):
     def __str__(self):
         return ', '.join(product.name for product in self.product.all())
 
-
 class StoreProductPricing(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name='varied_products', null=True)
@@ -301,7 +290,6 @@ class StoreProductPricing(models.Model):
 
     def __str__(self):
         return f"{self.store} - ${self.retail_price}"
-
 
 class Category(models.Model):
     CHOICES = (
@@ -328,7 +316,6 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-
 class SubCategories(models.Model):
     category = models.ForeignKey(
         Category, related_name="subcategories", on_delete=models.CASCADE)
@@ -341,7 +328,6 @@ class SubCategories(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class ProductTypes(models.Model):
     subcategory = models.ForeignKey(
@@ -356,7 +342,6 @@ class ProductTypes(models.Model):
     def __str__(self):
         return self.name
 
-
 class ProductReview(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
@@ -365,14 +350,12 @@ class ProductReview(models.Model):
     def __str__(self):
         return self.user.first_name
 
-
 class DropshipperReview(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
     review = models.TextField(null=True, blank=False)
 
     def __str__(self):
         return self.user.first_name
-
 
 class Brand(models.Model):
     producttype = models.ManyToManyField(ProductTypes)
@@ -386,7 +369,6 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
-
 class Cart(models.Model):
     user = models.ForeignKey(CustomUser, limit_choices_to={
                              "is_consumer": True}, on_delete=models.CASCADE)
@@ -394,12 +376,10 @@ class Cart(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
 
-
 class Wishlist(models.Model):
     user = models.ForeignKey(CustomUser, limit_choices_to={
                              "is_consumer": True}, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-
 
 class MarketPlace(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, db_index=True)
@@ -409,7 +389,6 @@ class MarketPlace(models.Model):
 
     def __repr__(self):
         return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"
-
 
 class ReportUser(models.Model):
     OFFENSE = (
@@ -444,7 +423,6 @@ class ReportUser(models.Model):
                 string.ascii_uppercase + string.digits, k=10))
         return super().save(*args, **kwargs)
 
-
 class Notification(models.Model):
     recipient = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, null=True)
@@ -452,7 +430,6 @@ class Notification(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)
-
 
 class PromoPlans(models.Model):
     purpose = models.CharField(max_length=200)
@@ -471,14 +448,12 @@ class PromoPlans(models.Model):
             self.code = promo_code
         super(PromoPlans, self).save(*args, **kwargs)
 
-
 class BuyerBehaviour(models.Model):
     question = models.CharField(
         max_length=200, default="How satisfied are you with our services?")
     user = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer": True})
     answer = models.IntegerField(null=True)
-
 
 class ShippingData(models.Model):
     STATE_CHOICES = (
@@ -575,3 +550,11 @@ class ShippingData(models.Model):
 
     def __str__(self):
         return self.address
+
+class ProductStore(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('product', 'store')

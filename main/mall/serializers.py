@@ -72,7 +72,6 @@ class LogisticSerializer(ModelSerializer):
          user.save()
       return user
 
-
 class OperationsSerializer(ModelSerializer):
    class Meta:
       model = CustomUser
@@ -97,7 +96,6 @@ class OperationsSerializer(ModelSerializer):
          user.set_password(password)
          user.save()
       return user
-
 
 class StoreOwnerSerializer(ModelSerializer):
    shipping_address = serializers.CharField(required=False, max_length=500)
@@ -131,7 +129,6 @@ class StoreOwnerSerializer(ModelSerializer):
       # Remove the password from the serialized output
       representation.pop('password', None)
       return representation
-
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    @classmethod
@@ -191,7 +188,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
       return data
-
 
 class CreateStoreSerializer(serializers.ModelSerializer):
    TIN_number = serializers.IntegerField(required=False)
@@ -269,7 +265,6 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          raise ValidationError("Sorry you have a store already")
       return ValidationError("Provide User")
 
-
 class ProductRatingSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductRating
@@ -280,12 +275,10 @@ class ProductRatingSerializer(serializers.ModelSerializer):
       representation["product"] = instance.product.name
       return representation
 
-
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
       model = Brand
       fields = '__all__'
-
 
 class SubCategorySerializer(serializers.ModelSerializer):
    class Meta:
@@ -297,12 +290,10 @@ class SubCategorySerializer(serializers.ModelSerializer):
       representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
       return representation
 
-
 class CategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = Category
       fields = '__all__'
-
 
 class ProductTypesSerializer(serializers.ModelSerializer):
    class Meta:
@@ -314,12 +305,10 @@ class ProductTypesSerializer(serializers.ModelSerializer):
       representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
       return representation
 
-
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
       fields = '__all__'
-
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
@@ -339,7 +328,6 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
       return representation
 
-
 class StoreProductPricingSerializer(serializers.ModelSerializer):
    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
    retail_price = serializers.DecimalField(max_digits=11, decimal_places=2)
@@ -356,7 +344,6 @@ class StoreProductPricingSerializer(serializers.ModelSerializer):
       representation['retail_price'] = '{:,.2f}'.format(retail_price_float)
       return representation
 
-
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
@@ -364,13 +351,14 @@ class ProductSerializer(serializers.ModelSerializer):
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
    # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
+   store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), many=True, required=False)
 
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
                'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 
-               'brand', "producttype",'images', "product_variants"]
+               'brand', "producttype",'images', "product_variants", 'store']
       read_only_fields = ('id', "sku")
       extra_kwargs = {
          'size': {'required': False}
@@ -410,12 +398,39 @@ class ProductSerializer(serializers.ModelSerializer):
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 5 mins
       return representation
 
+class SimpleProductSerializer(serializers.ModelSerializer):
+   unit_sold = serializers.SerializerMethodField()
+   price = serializers.SerializerMethodField()
+   date = serializers.SerializerMethodField()
+
+   class Meta:
+      model = Product
+      fields = ['id', 'name', 'unit_sold', 'sku', 'price', 'date']
+
+   def get_unit_sold(self, obj):
+      return getattr(obj.sales_count, 'sales_count', 0)
+
+   def get_price(self, obj):
+      store = self.context.get('store')
+      if not store:
+         return None  # Store context is missing
+      try:
+         pricing = StoreProductPricing.objects.get(product=obj, store=store)
+         return "{:.2f}".format(pricing.retail_price)
+      except StoreProductPricing.DoesNotExist:
+         return None
+      except Exception as e:
+         # Log the error for debugging
+         print(f"Error fetching price: {e}")
+         return None
+
+   def get_date(self, obj):
+      return obj.created_at.strftime("%Y-%m-%d %H:%M:%S")
 
 class ServicesBusinessInformationSerializer(serializers.ModelSerializer):
    class Meta:
       model = ServicesBusinessInformation
       fields = "__all__"
-
 
 class MarketPlaceSerializer(serializers.ModelSerializer):
    store = serializers.UUIDField(source='store_id', read_only=True)
@@ -514,7 +529,6 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    def serialize_product_variants(self, variants):
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
-
 class ProductDetailSerializer(serializers.ModelSerializer):
    class Meta:
       model = Product
@@ -558,7 +572,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
    def serialize_product_variants(self, variants):
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
-
 class WalletSerializer(serializers.ModelSerializer):
    class Meta:
       model = Wallet
@@ -569,7 +582,6 @@ class WalletSerializer(serializers.ModelSerializer):
       representation = super(WalletSerializer, self).to_representation(instance)
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
       return representation
-
 
 class ReportUserSerializer(serializers.ModelSerializer):
    other = serializers.CharField(required=False)
@@ -587,32 +599,27 @@ class ReportUserSerializer(serializers.ModelSerializer):
       }
       return representation
 
-
 class NotificationSerializer(serializers.ModelSerializer):
    class Meta:
       model = Notification
       fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']
       
-
 class PromoPlanSerializer(serializers.ModelSerializer):
    class Meta:
       model = PromoPlans
       fields = ['id', 'purpose', 'store', 'category', 'code']
-
 
 # Pre-Structure for Data Analyst
 class BuyerBehaviourSerializer(serializers.ModelSerializer):
    class Meta:
       model = BuyerBehaviour
       fields = "__all__"
-      
-      
+    
 class ShippingDataSerializer(serializers.ModelSerializer):
    class Meta:
       model = ShippingData
       fields = "__all__"
-      
-      
+  
 class ProductReviewSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductReview
@@ -623,8 +630,7 @@ class ProductReviewSerializer(serializers.ModelSerializer):
       representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
       representation['product'] = instance.product.name
       return representation
-   
-   
+
 class DropshipperReviewSerializer(serializers.ModelSerializer):
    class Meta:
       model = DropshipperReview
@@ -634,7 +640,6 @@ class DropshipperReviewSerializer(serializers.ModelSerializer):
       representation = super(DropshipperReviewSerializer, self).to_representation(instance)
       representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
       return representation
-   
 
 class ResetPasswordEmailRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
