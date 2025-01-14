@@ -1,5 +1,6 @@
 # from rest_framework import viewsets
 from .serializers import (
+   SimpleProductSerializer,
    StoreOwnerSerializer, 
    SubCategorySerializer, 
    CategorySerializer, 
@@ -30,7 +31,8 @@ from .serializers import (
 from django.http import Http404
 from .models import (
    CustomUser, 
-   Category, 
+   Category,
+   ProductStore, 
    Store, 
    Product, 
    ProductImage, 
@@ -89,9 +91,11 @@ from django.dispatch import receiver
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
+from order.views import CustomPagination
+from django.db.models import Sum, F, Value, IntegerField
+
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
-
 
 handler = DomainNameHandler()
 
@@ -122,16 +126,13 @@ class CreateStoreOwner(viewsets.ModelViewSet):
          queryset = CustomUser.objects.none()
       return queryset
 
-
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)
    serializer_class = LogisticSerializer
 
-
 class CreateOperationsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_operations=True)
    serializer_class = OperationsSerializer
-
 
 class CreateStore(viewsets.ModelViewSet):
    # queryset = Store.objects.all()  # You can uncomment this if you want to retrieve all stores
@@ -149,41 +150,101 @@ class CreateStore(viewsets.ModelViewSet):
    def get_serializer_context(self):
       return {'request': self.request}
 
-
 class GetStoreDropshippers(viewsets.ModelViewSet):
    queryset = Store.objects.all() 
    serializer_class = CreateStoreSerializer
-   
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
    serializer_class = MyTokenObtainPairSerializer
 
-
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
+   queryset = Product.objects.select_related(
+      'category', 'subcategory', 'producttype', 'brand'
+   ).prefetch_related('store', 'images', 'product_variants').order_by('-created_at')
    serializer_class = ProductSerializer
    permission_classes = [IsAuthenticatedOrReadOnly]
+   pagination_class = CustomPagination
 
    def get_queryset(self):
-         category_id = self.request.query_params.get('category')
-         if category_id is not None:
-               category = get_object_or_404(Category, id=category_id)
-               return Product.objects.filter(category=category).select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
-         else:
-               return Product.objects.none()
-      
+      category_id = self.request.query_params.get('category')
+      base_queryset = Product.objects.select_related(
+         "category", "subcategory", "producttype", "brand"
+      ).prefetch_related(
+         "images", "store", 'product_variants'
+      ).order_by('-created_at')
+
+      if category_id is not None:
+         return base_queryset.filter(category_id=category_id)
+      return base_queryset
+
    @transaction.atomic
    def perform_create(self, serializer):
       product = serializer.save()
+      store = self.request.user.owners
+      if store:
+         product.store.add(store)
+         product.save()
+         ProductStore.objects.create(product=product, store=store)
       return Response({"message": "Product Created Successfully"}, status=status.HTTP_201_CREATED)
-   
+
+   def get_serializer_class(self):
+      if self.action == 'list':
+         return SimpleProductSerializer
+      return ProductSerializer
+
+   def get_serializer_context(self):
+      context = super().get_serializer_context()
+      if self.action == 'list':
+         context['store'] = getattr(self.request.user, 'owners', None)
+      return context
+
+   @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+   def my_products_list(self, request):
+      store = getattr(request.user, 'owners', None)
+      if not store:
+         return Response(
+               {"error": "You are not associated with a store."},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+
+      products = self.get_queryset().filter(store=store)
+
+      # Calculate totals
+      total_products = products.count()
+      total_sales_count = products.aggregate(total_sold=Sum('sales_count'))['total_sold'] or 0
+      total_quantity = products.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
+      total_products_sold = total_sales_count
+      total_available_products = total_quantity - total_sales_count
+
+      # Prepare extra data
+      extra_data = {
+         "total_products": total_products,
+         "total_products_sold": total_products_sold,
+         "total_available_products": total_available_products
+      }
+
+      # Apply pagination
+      page = self.paginate_queryset(products)
+      if page is not None:
+         serializer = self.get_serializer(page, many=True, context={'store': store})
+         paginated_response = self.get_paginated_response(serializer.data)
+
+         # Add extra data to paginated response
+         paginated_response.data['summary'] = extra_data
+         return paginated_response
+
+      # For non-paginated responses
+      serializer = self.get_serializer(products, many=True, context={'store': store})
+      return Response({
+         "summary": extra_data,
+         "products": serializer.data
+      })
 
 class ProductRatingViewSet(viewsets.ModelViewSet):
    queryset = ProductRating.objects.select_related("product")
    serializer_class = ProductRatingSerializer
-
 
 class ProductFilter(ListAPIView):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
@@ -197,7 +258,6 @@ class ProductFilter(ListAPIView):
    #    filtered_queryset = self.filter_queryset(queryset)
    #    print("Filtered queryset:", filtered_queryset)  # Inspect filtered queryset
    #    return filtered_queryset
-
 
 class ProductVariantView(viewsets.ModelViewSet):
    queryset = ProductVariant.objects.all().prefetch_related('product')
@@ -219,7 +279,6 @@ class ProductVariantView(viewsets.ModelViewSet):
       else:
          # Handle the case where product_id is not provided
          return ProductVariant.objects.none()
-
 
 # import logging
 class CreateAndGetStoreProductPricing(APIView):
@@ -288,7 +347,6 @@ class CreateAndGetStoreProductPricing(APIView):
          logger.error(f"Error deleting StoreProductPricing: {e}", exc_info=True)
          return Response({"error": "An error occurred while deleting the store product pricing."}, status=status.HTTP_400_BAD_REQUEST)
 
-
 class StoreProductPricingAPIView(APIView):
    def get(self, request):
       store_id = handler.process_request(store_domain=get_store_domain(request))
@@ -330,7 +388,6 @@ class StoreProductPricingAPIView(APIView):
          # Handle other exceptions, you might want to log the error or return a different response
          return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
    serializer_class = CategorySerializer
@@ -360,7 +417,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-
 class UploadProductImage(ListCreateAPIView):
    queryset = ProductImage.objects.all()
    serializer_class = ProductImageSerializer
@@ -386,10 +442,8 @@ class UploadProductImage(ListCreateAPIView):
             return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
 
-
 class MarketPlacePagination(PageNumberPagination):
    page_size = 5
-
 
 class MarketPlaceView(viewsets.ModelViewSet):
    serializer_class = MarketPlaceSerializer
@@ -409,7 +463,6 @@ class MarketPlaceView(viewsets.ModelViewSet):
          logging.error("Store with ID %s does not exist.", store_host)
          return MarketPlace.objects.none()
 
-
 # Get Dropshipper Store Counts
 class DropshipperDashboardCounts(APIView):
    def get(self, request):
@@ -420,7 +473,7 @@ class DropshipperDashboardCounts(APIView):
 
       # Get Number of Listed Products
       product_count = MarketPlace.objects.filter(
-         store=store.id, list_product=True).count()
+      store=store.id, list_product=True).count()
 
       # # Get Number of all Orders per store
       order_count = StoreOrder.objects.filter(store=store).count()
@@ -436,14 +489,12 @@ class DropshipperDashboardCounts(APIView):
       }
       return Response(data, status=status.HTTP_200_OK)
 
-
 # Best Selling Product Data
 class BestSellingProductView(ListAPIView):
    serializer_class = ProductSerializer
 
    def get_queryset(self):
       return Product.objects.all().order_by('-sales_count')[:3]
-
 
 class SalesCountView(APIView):
    def get_object(self, product_id):
@@ -462,19 +513,17 @@ class SalesCountView(APIView):
       sales_count = product.sales_count
       return Response({"sales_count": sales_count})
 
-
 class ProductReviewViewSet(viewsets.ModelViewSet):
    queryset = ProductReview.objects.select_related("user", "product")
    serializer_class = ProductReviewSerializer
    
-
 class DropshipperReviewViewSet(viewsets.ModelViewSet):
    queryset = DropshipperReview.objects.select_related("user")
    serializer_class = DropshipperReviewSerializer
 
-
 class StoreOrdersViewSet(ListAPIView):
    serializer_class = OrderSerializer
+   pagination_class = CustomPagination
 
    def get_queryset(self):
       store_id = self.request.query_params.get("mall")
@@ -486,7 +535,6 @@ class StoreOrdersViewSet(ListAPIView):
       except StoreOrder.DoesNotExist:
          return StoreOrder.objects.none()
       return orders
-
 
 class BrandView(viewsets.ModelViewSet):
    queryset = Brand.objects.prefetch_related('producttype')
@@ -500,7 +548,6 @@ class BrandView(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-
 class SubCategoryView(viewsets.ModelViewSet):
    queryset =  SubCategories.objects.select_related('category')
    serializer_class = SubCategorySerializer
@@ -512,7 +559,6 @@ class SubCategoryView(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
 
 class ProductTypeView(viewsets.ModelViewSet):
    queryset = ProductTypes.objects.select_related('subcategory')
@@ -526,11 +572,9 @@ class ProductTypeView(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-
 class ProductDetails(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
    serializer_class = ProductDetailSerializer
-
 
 class WalletView(viewsets.ModelViewSet):
    queryset = Wallet.objects.select_related('store')
@@ -560,11 +604,9 @@ class WalletView(viewsets.ModelViewSet):
       except Wallet.DoesNotExist:
          return Response({"detail": "Wallet not found."}, status=status.HTTP_404_NOT_FOUND)
 
-
 class ServicesBusinessInformationView(viewsets.ModelViewSet):
    queryset = ServicesBusinessInformation.objects.select_related('user')
    serializer_class = ServicesBusinessInformationSerializer
-
 
 class NotificationView(viewsets.ModelViewSet):
    serializer_class = NotificationSerializer
@@ -595,16 +637,13 @@ class NotificationView(viewsets.ModelViewSet):
       serializer = self.get_serializer(queryset, many=True)
       return Response(serializer.data)
 
-
 class PromoPlansView(viewsets.ModelViewSet):
    queryset = PromoPlans.objects.select_related('store', 'category')
    serializer_class = PromoPlanSerializer
-   
-   
+      
 class BuyerBehaviourView(viewsets.ModelViewSet):
    queryset = BuyerBehaviour.objects.select_related('user')
    serializer_class = BuyerBehaviourSerializer
-   
    
 class ShippingDataView(viewsets.ModelViewSet):
    queryset = ShippingData.objects.select_related('user')
