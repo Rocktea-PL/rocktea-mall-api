@@ -224,29 +224,30 @@ class CartViewSet(viewsets.ViewSet):
          cart = Cart.objects.create(user=user, store=verified_store)
          
       for product in products:
-         product_id = product.get('id')
-         quantity = int(product.get('quantity', 1))
-         product_variant_id = product.get('variant')
-         product_price = product.get('price')
+         product_id                 = product.get('id')
+         quantity                   = int(product.get('quantity', 1))
+         product_variant_id         = product.get('variant')
+         product_price              = product.get('price')
+         product_price_from_retail  = StoreProductPricing.objects.filter(store=verified_store, product=product)
 
          if not product_id or not product_variant_id or not product_price:
                return JsonResponse({"error": "Product ID is required"}, status=400)
 
          # Check if the same product variant is already in the cart
          existing_item = cart.items.filter(
-               product_id=product_id, product_variant_id=product_variant_id).first()
+            product_id=product_id, product_variant_id=product_variant_id).first()
 
          if existing_item:
-               # If the product variant is already in the cart, update the quantity
-               existing_item.quantity += quantity
-               existing_item.price += Decimal(str(product_price))
-               existing_item.save()
+            # If the product variant is already in the cart, update the quantity
+            existing_item.quantity += quantity
+            existing_item.price += Decimal(str(product_price))
+            existing_item.save()
          else:
-               # Otherwise, create a new CartItem for the product variant
-               product_variant = get_object_or_404(
-                  ProductVariant, id=product_variant_id)
-               cart_item = CartItem.objects.create(
-                  cart=cart, product_variant=product_variant, price=product_price, product_id=product_id, quantity=quantity)
+            # Otherwise, create a new CartItem for the product variant
+            product_variant = get_object_or_404(
+               ProductVariant, id=product_variant_id)
+            cart_item = CartItem.objects.create(
+               cart=cart, product_variant=product_variant, price=product_price, product_id=product_id, quantity=quantity)
 
       serializer = CartSerializer(cart)
       return Response(serializer.data, status=status.HTTP_201_CREATED)
