@@ -32,7 +32,6 @@ from django.http import Http404
 from .models import (
    CustomUser, 
    Category,
-   ProductStore, 
    Store, 
    Product, 
    ProductImage, 
@@ -78,7 +77,7 @@ from .store_features.get_store_id import get_store_instance
 from workshop.processor import DomainNameHandler
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly
+from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly, IsStoreOwnerOrAdminDelete, IsStoreOwnerOrAdminViewAdd
 from django_rest_passwordreset.views import ResetPasswordRequestToken, ResetPasswordConfirm
 from rest_framework import generics
 from django.core.mail import send_mail
@@ -92,7 +91,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
 from order.views import CustomPagination
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q
 
 # from django.utils.decorators import method_decorator
 # from django.views.decorators.csrf import csrf_exempt
@@ -176,12 +175,9 @@ class ProductViewSet(viewsets.ModelViewSet):
    @transaction.atomic
    def perform_create(self, serializer):
       product = serializer.save()
-      store = self.request.user.owners
-      if store:
-         product.store.add(store)  # Associate the store with the product
-         product.save()
-         ProductStore.objects.create(product=product, store=store)
-      return Response({"message": "Product Created Successfully"}, status=status.HTTP_201_CREATED)
+      if product:
+         return Response({"message": "Product Created Successfully"}, status=status.HTTP_201_CREATED)
+      return Response({"error": "Error occurs while creating product"}, status=status.HTTP_400_BAD_REQUEST)
 
    def list(self, request, *args, **kwargs):
       """Override the list method to disable pagination for the main GET request."""
@@ -193,7 +189,7 @@ class ProductViewSet(viewsets.ModelViewSet):
    def my_products_list(self, request):
       """Custom endpoint to get products by shop with pagination."""
       # Get the store associated with the authenticated user
-      store = getattr(request.user, 'owners', None)
+      """ store = getattr(request.user, 'owners', None)
       if not store:
          return Response(
                {"error": "You are not associated with a store."},
@@ -230,7 +226,84 @@ class ProductViewSet(viewsets.ModelViewSet):
       return Response({
          "summary": summary,
          "products": serializer.data
-      })
+      }) """
+
+      """ store = getattr(request.user, 'owners', None)
+      if not store:
+         return Response(
+               {"error": "You are not associated with a store."},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+
+      try:
+         # Query the store's product pricing records
+         store_product_pricings = StoreProductPricing.objects.filter(store=store)
+
+         # Retrieve the products related to the store
+         products = [pricing.product for pricing in store_product_pricings]
+
+         # Serialize the product data with the store context
+         serializer = SimpleProductSerializer(
+               products, many=True, context={'store': store}
+         )
+         return Response(serializer.data, status=status.HTTP_200_OK)
+
+      except Exception as e:
+         # Handle unexpected errors
+         print(f"Error fetching products for the store: {e}")
+         return Response(
+               {"error": "An error occurred while retrieving the store's products."},
+               status=status.HTTP_500_INTERNAL_SERVER_ERROR
+         ) """
+      
+      store = getattr(request.user, 'owners', None)
+      if not store:
+         return Response(
+               {"error": "You are not associated with a store."},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+
+      try:
+         # Get summary data
+         total_products_added = StoreProductPricing.objects.filter(store=store).count()
+         total_products_available = Product.objects.filter(
+               id__in=StoreProductPricing.objects.filter(store=store).values_list('product', flat=True),
+               is_available=True
+         ).count()
+
+         summary = {
+               "total_products_added": total_products_added,
+               "total_products_available": total_products_available
+         }
+
+         # Optimize product query using `select_related` and `prefetch_related`
+         store_product_pricings = StoreProductPricing.objects.filter(store=store).select_related('product')
+
+         # Apply custom pagination
+         paginator = CustomPagination()
+         paginated_data = paginator.paginate_queryset(store_product_pricings, request)
+
+         # Serialize the paginated data with context
+         serializer = SimpleProductSerializer(
+               [pricing.product for pricing in paginated_data],
+               many=True,
+               context={'store': store}
+         )
+
+         # Combine the summary and paginated data in the response
+         return paginator.get_paginated_response({
+               "summary": summary,
+               "products": serializer.data
+         })
+
+      except Exception as e:
+         # Handle unexpected errors
+         print(f"Error fetching products for the store: {e}")
+         return Response(
+               {"error": "An error occurred while retrieving the store's products."},
+               status=status.HTTP_500_INTERNAL_SERVER_ERROR
+         )
+      
 class ProductRatingViewSet(viewsets.ModelViewSet):
    queryset = ProductRating.objects.select_related("product")
    serializer_class = ProductRatingSerializer
@@ -269,9 +342,17 @@ class ProductVariantView(viewsets.ModelViewSet):
          # Handle the case where product_id is not provided
          return ProductVariant.objects.none()
 
-# import logging
 class CreateAndGetStoreProductPricing(APIView):
-   permission_classes = [IsAuthenticated]
+
+   def get_permissions(self):
+      """
+      Assign permissions based on the HTTP method.
+      """
+      if self.request.method == "GET":
+         return [IsStoreOwnerOrAdminViewAdd()]
+      elif self.request.method == "DELETE":
+         return [IsStoreOwnerOrAdminDelete()]
+      return super().get_permissions()
 
    def post(self, request):
       try:
@@ -316,12 +397,31 @@ class CreateAndGetStoreProductPricing(APIView):
          raise
 
    def get(self, request):
-      store_product_prices = StoreProductPricing.objects.all()
-      serializer = StoreProductPricingSerializer(store_product_prices, many=True)
-      return Response(serializer.data, status=status.HTTP_200_OK)
+      # store_product_prices = StoreProductPricing.objects.all()
+      # serializer = StoreProductPricingSerializer(store_product_prices, many=True)
+      # return Response(serializer.data, status=status.HTTP_200_OK)
+      store_id = handler.process_request(store_domain=get_store_domain(request))
+      
+      # Get the store instance based on the provided store_id
+      store = get_object_or_404(Store, id=store_id)
+      
+      try:
+         # Retrieve all store prices related to the specified store
+         store_prices = StoreProductPricing.objects.filter(store=store)
+         
+         # Serialize the data
+         store_prices_serializer = StoreProductPricingSerializer(store_prices, many=True)
+         
+         # Return the serialized data as the API response
+         return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
+      
+      except Exception as e:
+         # Handle exceptions, you might want to log the error or return a different response
+         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
    # Assuming you have fixed the delete method as well to use request.data properly for product_id
    def delete(self, request):
+
       try:
          store_id = request.query_params.get("mall")
          product_id = request.data.get("product")  # Make sure this line is corrected to use request.data
@@ -336,10 +436,55 @@ class CreateAndGetStoreProductPricing(APIView):
          logger.error(f"Error deleting StoreProductPricing: {e}", exc_info=True)
          return Response({"error": "An error occurred while deleting the store product pricing."}, status=status.HTTP_400_BAD_REQUEST)
 
+class GetStoreProduct(APIView):
+   permission_classes = [IsAuthenticated]
+
+   def get(self, request):
+      # Retrieve the store associated with the authenticated user
+      store = getattr(request.user, 'owners', None)
+      if not store:
+         return Response(
+               {"error": "You are not associated with a store."},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+
+      try:
+         # Query the store's product pricing records
+         store_product_pricings = StoreProductPricing.objects.filter(store=store)
+
+         # Retrieve the products related to the store
+         products = [pricing.product for pricing in store_product_pricings]
+
+         # Serialize the product data with the store context
+         serializer = SimpleProductSerializer(
+               products, many=True, context={'store': store}
+         )
+         return Response(serializer.data, status=status.HTTP_200_OK)
+
+      except Exception as e:
+         # Handle unexpected errors
+         print(f"Error fetching products for the store: {e}")
+         return Response(
+               {"error": "An error occurred while retrieving the store's products."},
+               status=status.HTTP_500_INTERNAL_SERVER_ERROR
+         )
+
+# Depreciated
 class StoreProductPricingAPIView(APIView):
+   renderer_classes = [JSONRenderer]
+
+   def get_permissions(self):
+      """
+      Assign permissions based on the HTTP method.
+      """
+      if self.request.method == "GET":
+         return [IsStoreOwnerOrAdminViewAdd()]
+      elif self.request.method == "DELETE":
+         return [IsStoreOwnerOrAdminDelete()]
+      return super().get_permissions()
+
    def get(self, request):
       store_id = handler.process_request(store_domain=get_store_domain(request))
-      # print(store_id)
       
       # Get the store instance based on the provided store_id
       store = get_object_or_404(Store, id=store_id)
@@ -352,16 +497,18 @@ class StoreProductPricingAPIView(APIView):
          store_prices_serializer = StoreProductPricingSerializer(store_prices, many=True)
          
          # Return the serialized data as the API response
-         return Response(store_prices, status=status.HTTP_200_OK)
+         return Response(store_prices_serializer.data, status=status.HTTP_200_OK)
       
       except Exception as e:
          # Handle exceptions, you might want to log the error or return a different response
          return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-   def delete(self, request, store_id):
+   def delete(self, request):
+      store_id = request.query_params.get("store_id")
+      product_id = request.query_params.get("product_id")
       try:
          # Get the store price to be deleted
-         store_price = StoreProductPricing.objects.get(store_id=store_id, id=get_store_instance())
+         store_price = StoreProductPricing.objects.get(store_id=store_id, product_id=product_id)
 
          # Delete the store price
          store_price.delete()
