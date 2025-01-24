@@ -187,74 +187,6 @@ class ProductViewSet(viewsets.ModelViewSet):
 
    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='by-shop')
    def my_products_list(self, request):
-      """Custom endpoint to get products by shop with pagination."""
-      # Get the store associated with the authenticated user
-      """ store = getattr(request.user, 'owners', None)
-      if not store:
-         return Response(
-               {"error": "You are not associated with a store."},
-               status=status.HTTP_400_BAD_REQUEST
-         )
-
-      # Filter products by the store
-      products = Product.objects.filter(store=store).select_related(
-         "category", "subcategory", "producttype", "brand"
-      ).prefetch_related("images", "product_variants")
-
-      # Calculate summary data
-      total_products = products.count()
-      total_sales_count = products.aggregate(total_sold=Sum('sales_count'))['total_sold'] or 0
-      total_quantity = products.aggregate(total_quantity=Sum('quantity'))['total_quantity'] or 0
-      total_available_products = total_quantity - total_sales_count
-
-      summary = {
-         "total_products": total_products,
-         "total_products_sold": total_sales_count,
-         "total_available_products": total_available_products,
-      }
-
-      # Apply pagination only for this endpoint
-      page = self.paginate_queryset(products)
-      if page is not None:
-         serializer = SimpleProductSerializer(page, many=True, context={'store': store})
-         paginated_response = self.get_paginated_response(serializer.data)
-         paginated_response.data.update({'summary': summary})
-         return paginated_response
-
-      # For non-paginated responses (unlikely to happen here)
-      serializer = SimpleProductSerializer(products, many=True, context={'store': store})
-      return Response({
-         "summary": summary,
-         "products": serializer.data
-      }) """
-
-      """ store = getattr(request.user, 'owners', None)
-      if not store:
-         return Response(
-               {"error": "You are not associated with a store."},
-               status=status.HTTP_400_BAD_REQUEST
-         )
-
-      try:
-         # Query the store's product pricing records
-         store_product_pricings = StoreProductPricing.objects.filter(store=store)
-
-         # Retrieve the products related to the store
-         products = [pricing.product for pricing in store_product_pricings]
-
-         # Serialize the product data with the store context
-         serializer = SimpleProductSerializer(
-               products, many=True, context={'store': store}
-         )
-         return Response(serializer.data, status=status.HTTP_200_OK)
-
-      except Exception as e:
-         # Handle unexpected errors
-         print(f"Error fetching products for the store: {e}")
-         return Response(
-               {"error": "An error occurred while retrieving the store's products."},
-               status=status.HTTP_500_INTERNAL_SERVER_ERROR
-         ) """
       
       store = getattr(request.user, 'owners', None)
       if not store:
@@ -270,10 +202,21 @@ class ProductViewSet(viewsets.ModelViewSet):
                id__in=StoreProductPricing.objects.filter(store=store).values_list('product', flat=True),
                is_available=True
          ).count()
+         # Calculate total products sold
+         store_orders = StoreOrder.objects.filter(
+            store=store
+         )
+
+         # Calculate total products sold
+         total_products_sold = sum(
+            sum(item.quantity for item in order.items.all())
+            for order in store_orders
+         )
 
          summary = {
-               "total_products_added": total_products_added,
-               "total_products_available": total_products_available
+            "total_products_added": total_products_added,
+            "total_products_available": total_products_available,
+            "total_products_sold": total_products_sold,
          }
 
          # Optimize product query using `select_related` and `prefetch_related`
