@@ -300,8 +300,14 @@ class CreateAndGetStoreProductPricing(APIView):
    def post(self, request):
       try:
          collect = request.data
-         # store_id = request.query_params.get("mall")
-         store_id = handler.process_request(store_domain=get_store_domain(request))
+         store = getattr(request.user, 'owners', None)
+         if not store:
+            return Response(
+                  {"error": "You are not associated with a store."},
+                  status=status.HTTP_400_BAD_REQUEST
+            )
+         store_id = store.id
+         # store_id = handler.process_request(store_domain=get_store_domain(request))
          product_id = collect.get("product")
          retail_price = collect.get("retail_price")
 
