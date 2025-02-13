@@ -216,12 +216,14 @@ class CartViewSet(viewsets.ViewSet):
          return Response({"error": "Products are required."}, status=status.HTTP_400_BAD_REQUEST)
 
       # Check if the user already has a cart
-      cart = Cart.objects.filter(user=user, store=verified_store).first()
-      if not cart:
-         # Get the Store instance using the store_id
-
-         # Create a new cart if the user doesn't have a cart
-         cart = Cart.objects.create(user=user, store=verified_store)
+      # cart = Cart.objects.filter(user=user, store=verified_store).first()
+      # cart, created = Cart.objects.get_or_create(user=user, store=verified_store)
+      # Get or create the cart using get_or_create instead of filter/create
+      cart, created = Cart.objects.get_or_create(
+         user=user,
+         store=verified_store,
+         defaults={'price': Decimal('0.00')}  # Add any default values here
+      )
          
       for product in products:
          product_id                 = product.get('id')
