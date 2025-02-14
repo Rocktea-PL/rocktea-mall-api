@@ -1,6 +1,6 @@
 import datetime
 import uuid
-from main.mall.models import CustomUser
+from mall.models import CustomUser
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from order.models import PaystackWebhook

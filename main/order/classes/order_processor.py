@@ -7,9 +7,9 @@ import json
 import logging
 from rest_framework import status
 
-from main.mall.models import Cart, CustomUser
-from main.order.models import PaystackWebhook, StoreOrder
-from main.order.serializers import OrderItemsSerializer, OrderSerializer
+from mall.models import Cart, CustomUser
+from order.models import PaystackWebhook, StoreOrder
+from order.serializers import OrderItemsSerializer, OrderSerializer
 
 def clear_user_cache(user_id: int) -> None:
     """Clear user-specific cache entries."""
