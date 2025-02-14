@@ -164,6 +164,7 @@ class Store(models.Model):
     whatsapp = models.URLField(null=True, blank=True)
     instagram = models.URLField(null=True, blank=True)
     twitter = models.URLField(null=True, blank=True)
+    has_made_payment = models.BooleanField(default=False)
 
     class Meta:
         # Add an index for the 'uid' field
