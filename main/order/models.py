@@ -162,6 +162,7 @@ class PaystackWebhook(models.Model):
    total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
    status = models.CharField(max_length=20, default='Pending')  # To store the status of the transaction
    order = models.ForeignKey(StoreOrder, on_delete=models.SET_NULL, null=True, blank=True)  # New field for order ID
+   purpose = models.CharField(max_length=50, default="order")  # New field for payment purpose
 
    def __str__(self):
       return self.reference

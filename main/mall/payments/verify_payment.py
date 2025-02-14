@@ -1,5 +1,6 @@
 import datetime
 import uuid
+from main.mall.models import CustomUser
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from order.models import PaystackWebhook
@@ -23,7 +24,7 @@ def verify_payment(request, transaction_id):
     response = requests.get(url, headers=headers)
     return Response(response.json())
 
-def initiate_payment(email, amount, user_id, base_url):
+def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
     headers = {
         'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}',
         'Content-Type': 'application/json',
@@ -31,29 +32,43 @@ def initiate_payment(email, amount, user_id, base_url):
 
     amount = float(amount)
     amount_in_naira = amount * 100
+
+    # If user_id is not provided, try to look up the user by email
+    if user_id is None:
+        try:
+            user = CustomUser.objects.get(email=email)
+            user_id = user.id
+        except CustomUser.DoesNotExist:
+            user_id = None  # Keep as None if no user found
+
     data = {
         'email': email,
         'amount': amount_in_naira,
-        'callback_url': base_url,
         'metadata': {
-            # 'store_id': store_id,
-            'user_id': user_id
+            'user_id': user_id,
+            'purpose': purpose
         }
     }
+    # dropshipping_payment
+
+    # Include callback URL only if provided
+    if base_url:
+        data['callback_url'] = base_url
+
     url = 'https://api.paystack.co/transaction/initialize'
     
     response = requests.post(url, headers=headers, json=data)
     response_data = response.json()
 
     # Save the initializer data in PaystackWebhook
-    if response_data['status']:
+    if response_data.get('status'):
         PaystackWebhook.objects.create(
             user_id=user_id,
-            # store_id=NULL,
             reference=response_data['data']['reference'],
             data=response_data,
             total_price=amount,
-            status='Pending'
+            status='Pending',
+            purpose=purpose
         )
 
     return response_data
