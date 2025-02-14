@@ -172,8 +172,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "is_services": self.user.is_services,
       "is_logistics": self.user.is_logistics,
       "is_operations": self.user.is_operations,
-      "has_service": has_service,
-      "hasMadePayment": self.user.has_made_payment,
+      "has_service": has_service
    }
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
@@ -181,6 +180,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          data['user_data']['category'] = self.user.owners.category.id
          data['user_data']['domain_name'] = getattr(self.user.owners, 'domain_name', None)
          data['user_data']['completed'] = self.user.owners.completed
+         data['user_data']['hasMadePayment'] = self.user.owners.has_made_payment
       
       if data['user_data']['is_services']:
          data['user_data']['type'] = self.user.type
