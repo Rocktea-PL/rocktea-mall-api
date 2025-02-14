@@ -172,7 +172,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       "is_services": self.user.is_services,
       "is_logistics": self.user.is_logistics,
       "is_operations": self.user.is_operations,
-      "has_service": has_service
+      "has_service": has_service,
+      "hasMadePayment": self.user.has_made_payment,
    }
       if has_store:
          data['user_data']["store_id"] = self.user.owners.id
