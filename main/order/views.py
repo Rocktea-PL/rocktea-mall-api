@@ -434,7 +434,7 @@ class InitiatePayment(viewsets.ViewSet):
          else:
                base_url = "https://rocktea-users.vercel.app/order_success"  # Default fallback
       else:
-         amount = 150000.00  # Fixed price for dropshipper payments
+         amount = 150000  # Fixed price for dropshipper payments
 
       # Initiate payment
       payment_response = initiate_payment(email, amount, user_id, purpose, base_url)
