@@ -1,6 +1,6 @@
 
-from main.order.classes.order_processor import OrderProcessor
-from main.order.classes.webhook_processor import WebhookProcessor
+from order.classes.order_processor import OrderProcessor
+from order.classes.webhook_processor import WebhookProcessor
 from .models import (
    OrderItems, 
    Store, 
