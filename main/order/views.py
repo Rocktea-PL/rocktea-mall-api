@@ -417,6 +417,7 @@ class InitiatePayment(viewsets.ViewSet):
          return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
       base_url = None  # Default to None unless needed
+      referer = request.META.get('HTTP_REFERER')
 
       if purpose == "order":
          amount = request.data.get("amount")
@@ -427,13 +428,17 @@ class InitiatePayment(viewsets.ViewSet):
          except ValueError:
                return Response({"error": "Invalid amount format"}, status=status.HTTP_400_BAD_REQUEST)
 
-         referer = request.META.get('HTTP_REFERER')
          if referer:
                parsed_referer = urlparse(referer)
                base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/order_success"
          else:
                base_url = "https://rocktea-users.vercel.app/order_success"  # Default fallback
       else:
+         if referer:
+               parsed_referer = urlparse(referer)
+               base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/domain_creation"
+         else:
+               base_url = "https://rocktea-dropshippers.vercel.app/domain_creation"  # Default fallback
          amount = 150000  # Fixed price for dropshipper payments
 
       # Initiate payment
