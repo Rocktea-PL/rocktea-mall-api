@@ -1,6 +1,7 @@
 
 from order.classes.order_processor import OrderProcessor
 from order.classes.webhook_processor import WebhookProcessor
+from order.classes.cache_helpers import clear_user_cache
 from .models import (
    OrderItems, 
    Store, 
@@ -62,6 +63,8 @@ from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
 from django.core.cache import cache
 from urllib.parse import urlparse
+from .classes.services import PaystackService
+from django.utils.decorators import method_decorator
 
 import hmac
 import hashlib
@@ -73,9 +76,6 @@ handler = DomainNameHandler()
 
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN", None)
-
-""" def clear_user_cache(user_id): 
-   cache.delete(f'shipment_{user_id}')
 
 @csrf_exempt
 def paystack_webhook(request):
@@ -110,7 +110,7 @@ def paystack_webhook(request):
       if event == 'charge.success':
          data           = body["data"]
          transaction_id = data.get('reference')
-         total_price    = data.get('amount') / 100  # Paystack sends amount in kobo
+         total_price    = data.get('amount') / 100 
          email          = data.get('email')
          metadata       = data.get('metadata', {})
 
@@ -217,11 +217,45 @@ def paystack_webhook(request):
             return JsonResponse({"message": "Store payment processed successfully"}, status=status.HTTP_200_OK)
       else:
          return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
-   return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED) """
+   return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
-@csrf_exempt
+
+@method_decorator(csrf_exempt, name='dispatch')
+class PaystackWebhookView(APIView):
+    def post(self, request):
+        payload = request.body
+        sig_header = request.headers.get('x-paystack-signature')
+
+        body, error_response = PaystackService.verify_signature(payload, sig_header)
+        if error_response:
+            return error_response
+
+        event = body.get('event')
+        if not event:
+            return Response({"error": "Missing event type"}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = body["data"]
+        transaction_id = data.get('reference')
+        paystack_webhook = PaystackWebhook.objects.filter(reference=transaction_id).first()
+
+        if not paystack_webhook:
+            return Response({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if event == 'charge.success':
+            metadata = data.get('metadata', {})
+            purpose = metadata.get('purpose')
+
+            if purpose == 'order':
+                return PaystackService.handle_order_payment(data, metadata)
+            else:
+                return PaystackService.handle_store_payment(data, data.get('email'))
+        
+        return Response({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+""" @csrf_exempt
 def paystack_webhook(request):
-   """Handle Paystack webhook requests."""
+   "Handle Paystack webhook requests."
    try:
       if request.method != 'POST':
          return JsonResponse(
@@ -310,7 +344,7 @@ def paystack_webhook(request):
       return JsonResponse(
          {"error": "Internal server error"},
          status=status.HTTP_500_INTERNAL_SERVER_ERROR
-      )
+      ) """
 
 class OrderPagination(PageNumberPagination):
    page_size = 5
