@@ -220,40 +220,8 @@ def paystack_webhook(request):
    return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-@method_decorator(csrf_exempt, name='dispatch')
-class PaystackWebhookView(APIView):
-    def post(self, request):
-        payload = request.body
-        sig_header = request.headers.get('x-paystack-signature')
 
-        body, error_response = PaystackService.verify_signature(payload, sig_header)
-        if error_response:
-            return error_response
-
-        event = body.get('event')
-        if not event:
-            return Response({"error": "Missing event type"}, status=status.HTTP_400_BAD_REQUEST)
-
-        data = body["data"]
-        transaction_id = data.get('reference')
-        paystack_webhook = PaystackWebhook.objects.filter(reference=transaction_id).first()
-
-        if not paystack_webhook:
-            return Response({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        if event == 'charge.success':
-            metadata = data.get('metadata', {})
-            purpose = metadata.get('purpose')
-
-            if purpose == 'order':
-                return PaystackService.handle_order_payment(data, metadata)
-            else:
-                return PaystackService.handle_store_payment(data, data.get('email'))
-        
-        return Response({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
-
-
-""" @csrf_exempt
+@csrf_exempt
 def paystack_webhook(request):
    "Handle Paystack webhook requests."
    try:
@@ -344,7 +312,7 @@ def paystack_webhook(request):
       return JsonResponse(
          {"error": "Internal server error"},
          status=status.HTTP_500_INTERNAL_SERVER_ERROR
-      ) """
+      )
 
 class OrderPagination(PageNumberPagination):
    page_size = 5
