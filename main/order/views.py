@@ -220,9 +220,8 @@ def paystack_webhook(request):
    return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-
 @csrf_exempt
-def paystack_webhook(request):
+def paystack_webhooks(request):
    "Handle Paystack webhook requests."
    try:
       if request.method != 'POST':
