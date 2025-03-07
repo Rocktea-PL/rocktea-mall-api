@@ -1,6 +1,6 @@
 from order.classes.order_processor import OrderProcessor
 from order.classes.webhook_processor import WebhookProcessor
-from order.classes.cache_helpers import clear_user_cache
+from order.classes.cache_helpers import CacheHelper
 from .models import (
    OrderItems, 
    Store, 
@@ -64,6 +64,7 @@ from django.core.cache import cache
 from urllib.parse import urlparse
 from .classes.services import PaystackService
 from django.utils.decorators import method_decorator
+from .pagination import CustomPagination
 
 import hmac
 import hashlib
@@ -127,7 +128,7 @@ def paystack_webhook(request):
             try:
                cart = Cart.objects.get(user=user)
             except Cart.DoesNotExist:
-               clear_user_cache(user_id)
+               CacheHelper.clear_user_cache(user_id)
                return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
 
             verified_store = get_object_or_404(Store, id=cart.store.id)
@@ -161,7 +162,7 @@ def paystack_webhook(request):
                   if order_item_serializer.is_valid():
                      order_item_serializer.save()
                   else:
-                     clear_user_cache(user_id)
+                     CacheHelper.clear_user_cache(user_id)
                      return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
                cart.items.all().delete()
@@ -194,12 +195,12 @@ def paystack_webhook(request):
                      cache.delete(f'shipment_{user_id}')
                   except json.JSONDecodeError as e:
                      logging.error(f"Failed to decode shipment feedback from cache: {e}")
-                     clear_user_cache(user_id)
+                     CacheHelper.clear_user_cache(user_id)
                      return JsonResponse({"error": "Invalid shipment feedback format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
                return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
             else:
-               clear_user_cache(user_id)
+               CacheHelper.clear_user_cache(user_id)
                return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
          else:
             # Handle store payment
@@ -588,10 +589,6 @@ class ViewOrders(viewsets.ViewSet):
       except (PaystackWebhook.DoesNotExist, StoreOrder.DoesNotExist):
          return Response([])  # Return empty list if no webhook or order found
 
-class CustomPagination(PageNumberPagination):
-   page_size = 10  # Set the number of items per page
-   page_size_query_param = 'page_size'
-   max_page_size = 1000
 
 class AllOrders(viewsets.ModelViewSet):
    serializer_class = OrderSerializer
