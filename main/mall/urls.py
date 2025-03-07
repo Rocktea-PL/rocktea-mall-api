@@ -12,7 +12,8 @@ from .views import (
     CustomResetPasswordRequestToken, 
     CustomResetPasswordConfirm
     )
-from order.views import PaystackWebhookView, paystack_webhook
+# PaystackWebhookView,
+from order.views import paystack_webhook
 from .payments import OTP
 from mall.store_features.product import GetVariantAndPricing
 from mall.payments.verify_payment import verify_payment
