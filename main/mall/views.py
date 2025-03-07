@@ -90,7 +90,7 @@ from django.dispatch import receiver
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
-from order.views import CustomPagination
+from order.pagination import CustomPagination
 from django.db.models import Sum, Count, Q
 
 # from django.utils.decorators import method_decorator
