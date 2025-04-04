@@ -50,7 +50,7 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
         user = CustomUser.objects.create(
             associated_domain=store_instance,
-            is_active=False,  # User can't login until verified
+            is_verified=True,  # User can't login until verified
             **validated_data
         )
 
