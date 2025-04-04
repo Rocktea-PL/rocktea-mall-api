@@ -5,20 +5,14 @@ import re
 from django.shortcuts import get_object_or_404
 from workshop.processor import DomainNameHandler
 from setup.utils import sendEmail
-from django.conf import settings
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 from django.urls import reverse
 
 # Generate verification token and send email
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-from django.utils.encoding import force_bytes
-from django.utils.http import urlsafe_base64_encode
 
 # Send verification email in background
-from django.core.mail import send_mail
-from django.conf import settings
-from django.utils.html import strip_tags
 from threading import Thread
 
 import logging  # Add this import at the top of your file
@@ -154,9 +148,10 @@ class UserLogin(TokenObtainPairSerializer):
 
 def sendValidateTokenEmail(token, email, firstName, request):
     current_site = get_current_site(request).domain
-    # absurl = 'http://'+ current_site+relativeLink+"?token="+str(token)
+    relativeLink = reverse('verify-email')
+    absurl = 'http://'+ current_site+relativeLink+"?token="+str(token)
     # Build the verification URL for router-registered endpoint
-    absurl = f"http://{current_site}/verify-email/?token={token}"
+    # absurl = f"http://{current_site}/verify-email/?token={token}"
     
     # Check if we have a referer (frontend URL)
     referer = request.META.get('HTTP_REFERER')
