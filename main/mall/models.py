@@ -65,6 +65,8 @@ class CustomUser(AbstractUser):
     # Services Extension
     type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
     is_services = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

@@ -50,7 +50,7 @@ from services.views import (
     ServicesCategoryView
     )
 
-from tenants.views import TenantSignUp
+from tenants.views import TenantSignUp, VerifyEmail
 from django.urls import path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -81,6 +81,7 @@ router.register('category', CategoryViewSet, basename='category')
 router.register('create/store', CreateStore, basename='create-store')
 
 router.register('signup/user', TenantSignUp, basename="signup-tenant")
+# router.register('verify-email', VerifyEmail, basename="verify-email")
 
 # Products
 router.register('products', ProductViewSet, basename='products')
@@ -147,7 +148,9 @@ urlpatterns = [
     path('store/', include("tenants.urls")),
     path('dropshippers/', include('dropshippers.urls')),
     path('order/', include('order.urls')),
-    path('service/', include('services.urls'))
+    path('service/', include('services.urls')),
+
+    path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
 ]
 
 urlpatterns += router.urls
