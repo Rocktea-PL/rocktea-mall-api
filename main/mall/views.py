@@ -81,6 +81,7 @@ from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly, IsStoreOw
 from django_rest_passwordreset.views import ResetPasswordRequestToken, ResetPasswordConfirm
 from rest_framework import generics
 from django.core.mail import send_mail
+from setup.utils import sendEmail
 
 from django.conf import settings
 from django.urls import reverse
@@ -750,7 +751,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
    absurl = f"{get_protocol}://{current_site}{relative_link}"
 
    referer = request.META.get('HTTP_REFERER')
-   if referer:
+   if referer and 'swagger' not in referer.lower():
       parsed_referer = urlparse(referer)
       base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/reset-password?token={reset_password_token.key}"
    else:
@@ -758,7 +759,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
 
    email_plaintext_message = f"Please use the following link to reset your password: {base_url}"
 
-   send_mail(
+   """ send_mail(
       # title:
       "Password Reset for {title}".format(title="Your Website Title"),
       # message:
@@ -767,7 +768,9 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
       settings.EMAIL_HOST_USER,
       # to:
       [reset_password_token.user.email]
-   )
+   ) """
+
+   sendEmail(reset_password_token.user.email, email_plaintext_message, "Password Reset for {title}".format(title="Your Website Title"))
 
 class CustomResetPasswordConfirm(generics.GenericAPIView):
    serializer_class = ResetPasswordConfirmSerializer
