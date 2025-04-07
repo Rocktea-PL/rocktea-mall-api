@@ -77,7 +77,7 @@ handler = DomainNameHandler()
 def get_store_domain(request):
    return request.META.get("HTTP_ORIGIN", None)
 
-@csrf_exempt
+""" @csrf_exempt
 def paystack_webhook(request):
    if request.method == 'POST':
       payload = request.body
@@ -106,7 +106,7 @@ def paystack_webhook(request):
       except Exception as e:
          logging.error(f"Signature verification failed: {e}")
          return JsonResponse({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
-
+      
       if event == 'charge.success':
          data           = body["data"]
          transaction_id = data.get('reference')
@@ -114,11 +114,14 @@ def paystack_webhook(request):
          email          = data.get('email')
          metadata       = data.get('metadata', {})
 
+         logging.debug(f"Metadata from webhook: {metadata}")
+
          paystack_webhook = PaystackWebhook.objects.filter(reference=transaction_id).first()
          if not paystack_webhook:
             return JsonResponse({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
          
          purpose = metadata.get('purpose')
+         logging.info(f"Paystack Webhook Received: Event: {event}, Purpose: {purpose}, Reference: {transaction_id}")
          if purpose == 'order':
             user_id = metadata.get('user_id')
             if not user_id:
@@ -203,6 +206,7 @@ def paystack_webhook(request):
                CacheHelper.clear_user_cache(user_id)
                return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
          else:
+            logging.info("Processing dropshipping payment")
             # Handle store payment
             user = get_object_or_404(CustomUser, email=email)
             store = get_object_or_404(Store, owner=user)
@@ -213,11 +217,198 @@ def paystack_webhook(request):
             paystack_webhook.status = 'Success'
             paystack_webhook.store_id = store.id
             paystack_webhook.save()
+
+            logging.info(f"Dropshipping payment processed successfully for store {store.name} (ID: {store.id})")
             
             return JsonResponse({"message": "Store payment processed successfully"}, status=status.HTTP_200_OK)
       else:
+         logging.warning(f"Unhandled payment purpose: {purpose}")
          return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
-   return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+   return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED) """
+
+@csrf_exempt
+def paystack_webhook(request):
+    if request.method == 'POST':
+        payload = request.body
+        sig_header = request.headers.get('x-paystack-signature')
+        body = None
+        event = None
+
+        if not sig_header:
+            logging.error("Missing signature header")
+            return JsonResponse({"error": "Missing signature header"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            hash = hmac.new(secret.encode('utf-8'), payload, digestmod=hashlib.sha512).hexdigest()
+            if hash == sig_header:
+                body_unicode = payload.decode('utf-8')
+                body = json.loads(body_unicode)
+                event = body['event']
+            else:
+                raise Exception("Invalid signature")
+        except ValueError as e:
+            logging.error(f"Failed to decode JSON payload: {e}")
+            return JsonResponse({"error": "Invalid JSON payload"}, status=status.HTTP_400_BAD_REQUEST)
+        except KeyError as e:
+            logging.error(f"Missing key in payload: {e}")
+            return JsonResponse({"error": "Invalid payload"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logging.error(f"Signature verification failed: {e}")
+            return JsonResponse({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if event == 'charge.success':
+            data = body["data"]
+            transaction_id = data.get('reference')
+            total_price = data.get('amount') / 100 
+            email = data.get('email')
+            metadata = data.get('metadata', {})
+            purpose = metadata.get('purpose')
+
+            # Log the incoming webhook data for debugging
+            logging.info(f"Processing webhook for purpose: {purpose}")
+            logging.info(f"Transaction ID: {transaction_id}")
+            logging.info(f"Email: {email}")
+            logging.info(f"Metadata: {metadata}")
+
+            try:
+                paystack_webhook = PaystackWebhook.objects.get(reference=transaction_id)
+            except PaystackWebhook.DoesNotExist:
+                logging.error(f"Transaction reference not found: {transaction_id}")
+                return JsonResponse({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            if purpose == 'order':
+                return handle_order_payment(data, paystack_webhook, total_price, metadata)
+            elif purpose == 'dropshipping_payment':
+                return handle_dropshipping_payment(data, paystack_webhook, email)
+            else:
+                logging.error(f"Unknown payment purpose: {purpose}")
+                return JsonResponse({"error": "Unknown payment purpose"}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            logging.warning(f"Unhandled event type: {event}")
+            return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
+    return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+def handle_order_payment(data, paystack_webhook, total_price, metadata):
+    """Handle order payment processing"""
+    user_id = metadata.get('user_id')
+    if not user_id:
+        logging.error("User ID not found in metadata for order payment")
+        return JsonResponse({"error": "User ID not found in metadata"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = CustomUser.objects.get(id=user_id)
+        cart = Cart.objects.get(user=user)
+        verified_store = Store.objects.get(id=cart.store.id)
+        
+        logging.info(f"Processing order for user: {user.email}, store: {verified_store.name}")
+
+        order_data = {
+            'buyer': user.id,
+            'store': cart.store.id,
+            'total_price': total_price,
+            'status': 'Completed',
+        }
+        
+        order_serializer = OrderSerializer(data=order_data)
+        if not order_serializer.is_valid():
+            CacheHelper.clear_user_cache(user_id)
+            logging.error(f"Order validation failed: {order_serializer.errors}")
+            return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        order = order_serializer.save()
+
+        # Process cart items
+        for cart_item in cart.items.all():
+            product = cart_item.product
+            product.sales_count += cart_item.quantity
+            product.save()
+
+            order_item_data = {
+                'userorder': order.id,
+                'product': cart_item.product.id,
+                'product_variant': cart_item.product_variant.id,
+                'quantity': cart_item.quantity
+            }
+            
+            order_item_serializer = OrderItemsSerializer(data=order_item_data)
+            if not order_item_serializer.is_valid():
+                CacheHelper.clear_user_cache(user_id)
+                logging.error(f"Order item validation failed: {order_item_serializer.errors}")
+                return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            order_item_serializer.save()
+
+        cart.items.all().delete()
+
+        # Update webhook record
+        paystack_webhook.store_id = order_data['store']
+        paystack_webhook.data = data
+        paystack_webhook.status = 'Success'
+        paystack_webhook.order = order
+        paystack_webhook.save()
+
+        # Process shipment if available
+        process_shipment_details(user_id, order)
+
+        return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        logging.error(f"Error processing order payment: {str(e)}", exc_info=True)
+        CacheHelper.clear_user_cache(user_id)
+        return JsonResponse({"error": "Error processing order"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def handle_dropshipping_payment(data, paystack_webhook, email):
+    """Handle dropshipping payment processing"""
+    try:
+        logging.info(f"Processing dropshipping payment for email: {email}")
+        
+        user = CustomUser.objects.get(email=email)
+        store = Store.objects.get(owner=user)
+        
+        logging.info(f"Found store: {store.name} for user: {user.email}")
+
+        store.has_made_payment = True
+        store.save()
+        
+        paystack_webhook.data = data
+        paystack_webhook.status = 'Success'
+        paystack_webhook.store_id = store.id
+        paystack_webhook.save()
+        
+        logging.info("Dropshipping payment processed successfully")
+        return JsonResponse({
+            "message": "Dropshipping payment processed successfully",
+            "store_id": store.id,
+            "store_name": store.name
+        }, status=status.HTTP_200_OK)
+        
+    except CustomUser.DoesNotExist:
+        logging.error(f"User not found with email: {email}")
+        return JsonResponse({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Store.DoesNotExist:
+        logging.error(f"Store not found for user: {email}")
+        return JsonResponse({"error": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        logging.error(f"Error processing dropshipping payment: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "Error processing dropshipping payment"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def process_shipment_details(user_id, order):
+    """Process shipment details from cache if available"""
+    shipment_feedback = cache.get(f'shipment_{user_id}')
+    if shipment_feedback:
+        try:
+            shipment_data = json.loads(shipment_feedback)
+            order.tracking_id = shipment_data['data']['order_id']
+            order.tracking_url = shipment_data['data']['tracking_url']
+            order.tracking_status = shipment_data['data']['status']
+            order.delivery_location = shipment_data['data']['ship_to']['address']
+            order.shipping_fee = shipment_data['data']['payment']['shipping_fee']
+            order.save()
+            cache.delete(f'shipment_{user_id}')
+            logging.info(f"Shipment details processed for order: {order.id}")
+        except json.JSONDecodeError as e:
+            logging.error(f"Failed to decode shipment feedback from cache: {e}")
+        except KeyError as e:
+            logging.error(f"Missing key in shipment data: {e}")
 
 
 @csrf_exempt
@@ -429,13 +620,13 @@ class InitiatePayment(viewsets.ViewSet):
          except ValueError:
                return Response({"error": "Invalid amount format"}, status=status.HTTP_400_BAD_REQUEST)
 
-         if referer:
+         if referer and 'swagger' not in referer.lower():
                parsed_referer = urlparse(referer)
                base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/order_success"
          else:
                base_url = "https://rocktea-users.vercel.app/order_success"  # Default fallback
       else:
-         if referer:
+         if referer and 'swagger' not in referer.lower():
                parsed_referer = urlparse(referer)
                base_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/domain_creation"
          else:
