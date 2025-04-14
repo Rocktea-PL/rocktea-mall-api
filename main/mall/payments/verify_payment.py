@@ -5,6 +5,9 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from order.models import PaystackWebhook
 import environ, requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 env = environ.Env()
 environ.Env.read_env()
@@ -49,6 +52,7 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
             'purpose': purpose
         }
     }
+    logger.info(f"data from payment initialization: {data}")
     # dropshipping_payment
 
     # Include callback URL only if provided
@@ -70,6 +74,7 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
             status='Pending',
             purpose=purpose
         )
+        logger.info(f"response_data from payment initialization: {response_data}")
 
     return response_data
 
