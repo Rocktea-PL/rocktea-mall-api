@@ -521,6 +521,8 @@ class InitiatePayment(viewsets.ViewSet):
       purpose = request.data.get("purpose", "order")
       user_id = request.user.id if request.user.is_authenticated else None
 
+      logger.info(f"Initiating payment request with data: {request.data}")
+
       if not email:
          return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
 
