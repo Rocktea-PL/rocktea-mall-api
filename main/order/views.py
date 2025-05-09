@@ -268,6 +268,7 @@ def paystack_webhook(request):
          purpose = metadata.get('purpose')
 
          # Log the incoming webhook data for debugging
+         logger.info(f"Data: {data}")
          logger.info(f"Processing webhook for purpose: {purpose}")
          logger.info(f"Transaction ID: {transaction_id}")
          logger.info(f"Email: {email}")
@@ -414,7 +415,7 @@ def process_shipment_details(user_id, order):
          logger.error(f"Missing key in shipment data: {e}")
 
 
-@csrf_exempt
+""" @csrf_exempt
 def paystack_webhooks(request):
    "Handle Paystack webhook requests."
    try:
@@ -506,7 +507,7 @@ def paystack_webhooks(request):
          {"error": "Internal server error"},
          status=status.HTTP_500_INTERNAL_SERVER_ERROR
       )
-
+ """
 class InitiatePayment(viewsets.ViewSet):
     
    def get_permissions(self):
