@@ -37,6 +37,7 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
     amount_in_naira = amount * 100
 
     # If user_id is not provided, try to look up the user by email
+    logger.info(f"email from payment initialization: {email}")
     if user_id is None:
         try:
             user = CustomUser.objects.get(email=email)
