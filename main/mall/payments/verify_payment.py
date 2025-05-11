@@ -79,7 +79,6 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
 
     return response_data
 
-# @api_view(["GET"])
 def verify_payment_paystack(transaction_id):
     headers = { 
         'content-type': 'application/json',
@@ -89,6 +88,25 @@ def verify_payment_paystack(transaction_id):
     
     response = requests.get(url, headers=headers)
     return Response(response.json())
+
+def verify_paystack_transaction(reference):
+    """Verify Paystack transaction with proper error handling"""
+    headers = {'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'}
+    url = f'https://api.paystack.co/transaction/verify/{reference}'
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.Timeout:
+        logger.error(f"Paystack verification timeout for reference: {reference}")
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Paystack API error: {str(e)} | Reference: {reference}")
+        return None
+    except ValueError as e:  # JSON decode error
+        logger.error(f"Invalid Paystack response: {str(e)} | Reference: {reference}")
+        return None
 
 def get_bank_list_paystack():
     headers = { 
