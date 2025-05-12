@@ -194,7 +194,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                )
                
                if paystack_payment.status == 'Pending':
-                  payment_data = verify_payment(paystack_payment.reference)
+                  payment_data = verify_paystack_transaction(paystack_payment.reference)
                   if payment_data and payment_data.get('data', {}).get('status') == 'success':
                      paystack_payment.status = 'Success'
                      paystack_payment.data = payment_data
