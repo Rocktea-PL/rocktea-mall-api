@@ -141,15 +141,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    
    def validate(self, attrs):
       data = super().validate(attrs)
-      user = self.user  # Use consistent user reference
-
-      try:
-         # Validate user type
-         user = CustomUser.objects.get(
-               Q(is_store_owner=True) | Q(is_logistics=True) & Q(id=user.id)
-         )
-      except CustomUser.DoesNotExist:
-         raise ValidationError("User Does Not Exist")
+      user = self.user  # This is already the authenticated user
 
       # Initialize flags
       has_store = False
@@ -184,61 +176,53 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          "is_logistics": user.is_logistics,
          "is_operations": user.is_operations,
          "has_service": has_service,
-         "hasMadePayment": False  # Default value
+         "hasMadePayment": False
       }
 
       if has_store and store:
-         # Add store-specific data
          user_data.update({
-               "store_id": store.id,
-               "theme": store.theme,
-               "category": store.category.id if store.category else None,
-               "domain_name": store.domain_name,
-               "completed": store.completed,
+            "store_id": store.id,
+            "theme": store.theme,
+            "category": store.category.id if store.category else None,
+            "domain_name": store.domain_name,
+            "completed": store.completed,
          })
 
          try:
-               paystack_payment = PaystackWebhook.objects.get(
+            paystack_payment = PaystackWebhook.objects.get(
                   user=user,
                   purpose="dropshipping_payment"
-               )
-               
-               # Always check payment status
-               current_status = paystack_payment.status
-               needs_verification = current_status == 'Pending'
-               payment_verified = False
+            )
 
-               if needs_verification:
-                  # Verify payment and get full response data
+            current_status = paystack_payment.status
+            needs_verification = current_status == 'Pending'
+            payment_verified = False
+
+            if needs_verification:
                   payment_data = verify_paystack_transaction(paystack_payment.reference)
-                  
+
                   if payment_data and payment_data.get('data', {}).get('status') == 'success':
-                     # Update payment record with full API response
                      paystack_payment.data = payment_data
                      paystack_payment.status = 'Success'
                      paystack_payment.save()
                      payment_verified = True
 
-               # Sync payment status with store
-               if current_status == 'Success' or payment_verified:
+            if current_status == 'Success' or payment_verified:
                   if not store.has_made_payment:
                      store.has_made_payment = True
                      store.save()
                   user_data["hasMadePayment"] = True
-               else:
+            else:
                   user_data["hasMadePayment"] = store.has_made_payment
 
          except PaystackWebhook.DoesNotExist:
-               # No payment record exists
-               user_data["hasMadePayment"] = False
+            user_data["hasMadePayment"] = False
 
-      # Add service type if applicable
       if user_data.get('is_services'):
          user_data["type"] = user.type
 
       data['user_data'] = user_data
 
-      # Add JWT tokens
       refresh = self.get_token(user)
       data["refresh"] = str(refresh)
       data["access"] = str(refresh.access_token)
