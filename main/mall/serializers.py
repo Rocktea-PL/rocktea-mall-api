@@ -138,31 +138,27 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       token = super().get_token(user)
       token['email'] = user.email
       return token
-   
+
    def validate(self, attrs):
       data = super().validate(attrs)
-      user = self.user  # This is already the authenticated user
+      user = self.user  # Already authenticated user from parent class
 
-      # Initialize flags
-      has_store = False
-      has_service = False
-      store = None
-
-      # Check store existence
+      # Fix 1: Correct query to ensure single user
       try:
-         store = Store.objects.get(owner=user)
-         has_store = True
-      except Store.DoesNotExist:
-         pass
+         # Validate user type - Get current user with permissions
+         user = CustomUser.objects.get(
+               Q(id=user.id) & 
+               (Q(is_store_owner=True) | Q(is_logistics=True)))
+      except CustomUser.DoesNotExist:
+         raise ValidationError("User Does Not Exist")
+      except CustomUser.MultipleObjectsReturned:
+         raise ValidationError("Multiple users found - database inconsistency")
 
-      # Check service existence
-      try:
-         ServicesBusinessInformation.objects.get(user=user.id)
-         has_service = True
-      except ServicesBusinessInformation.DoesNotExist:
-         pass
+      # Fix 2: Simplified store/service checks
+      has_store = Store.objects.filter(owner=user).exists()
+      has_service = ServicesBusinessInformation.objects.filter(user=user).exists()
 
-      # Build base user data
+      # Build user data
       user_data = {
          "id": user.id,
          "first_name": user.first_name,
@@ -176,57 +172,45 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          "is_logistics": user.is_logistics,
          "is_operations": user.is_operations,
          "has_service": has_service,
-         "hasMadePayment": False
       }
 
-      if has_store and store:
+      # Store-specific logic
+      if has_store:
+         store = Store.objects.get(owner=user)
          user_data.update({
-            "store_id": store.id,
-            "theme": store.theme,
-            "category": store.category.id if store.category else None,
-            "domain_name": store.domain_name,
-            "completed": store.completed,
+               "store_id": store.id,
+               "theme": store.theme,
+               "category": store.category.id if store.category else None,
+               "domain_name": store.domain_name,
+               "completed": store.completed,
+               "hasMadePayment": store.has_made_payment  # Directly use store value
          })
 
+         # Payment verification
          try:
-            paystack_payment = PaystackWebhook.objects.get(
+               paystack_payment = PaystackWebhook.objects.get(
                   user=user,
                   purpose="dropshipping_payment"
-            )
-
-            current_status = paystack_payment.status
-            needs_verification = current_status == 'Pending'
-            payment_verified = False
-
-            if needs_verification:
+               )
+               
+               if paystack_payment.status == 'Pending':
                   payment_data = verify_paystack_transaction(paystack_payment.reference)
-
                   if payment_data and payment_data.get('data', {}).get('status') == 'success':
-                     paystack_payment.data = payment_data
                      paystack_payment.status = 'Success'
+                     paystack_payment.data = payment_data
                      paystack_payment.save()
-                     payment_verified = True
-
-            if current_status == 'Success' or payment_verified:
-                  if not store.has_made_payment:
                      store.has_made_payment = True
                      store.save()
-                  user_data["hasMadePayment"] = True
-            else:
-                  user_data["hasMadePayment"] = store.has_made_payment
+
+               user_data["hasMadePayment"] = store.has_made_payment
 
          except PaystackWebhook.DoesNotExist:
-            user_data["hasMadePayment"] = False
+               user_data["hasMadePayment"] = False
 
       if user_data.get('is_services'):
          user_data["type"] = user.type
 
       data['user_data'] = user_data
-
-      refresh = self.get_token(user)
-      data["refresh"] = str(refresh)
-      data["access"] = str(refresh.access_token)
-
       return data
 
 class CreateStoreSerializer(serializers.ModelSerializer):
