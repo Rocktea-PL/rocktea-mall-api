@@ -371,6 +371,7 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
       logger.info(f"Found store: {store.name} for user: {user.email}")
 
       store.has_made_payment = True
+      store.completed = True
       store.save()
       
       paystack_webhook.data = data
