@@ -183,7 +183,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                "category": store.category.id if store.category else None,
                "domain_name": store.domain_name,
                "completed": store.completed,
-               "hasMadePayment": store.has_made_payment  # Directly use store value
+               "hasMadePayment": store.has_made_payment
          })
 
          # Payment verification
@@ -210,6 +210,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       if user_data.get('is_services'):
          user_data["type"] = user.type
 
+      refresh = self.get_token(self.user)
+      user_data["refresh"] = str(refresh)
+      user_data["access"] = str(refresh.access_token)
       data['user_data'] = user_data
       return data
 
