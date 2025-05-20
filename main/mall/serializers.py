@@ -177,33 +177,39 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       # Store-specific logic
       if has_store:
          store = Store.objects.get(owner=user)
+
+         # Ensure completed is True if payment was made before
+         if store.has_made_payment and not store.completed:
+            store.completed = True
+            store.save()
+
          user_data.update({
-               "store_id": store.id,
-               "theme": store.theme,
-               "category": store.category.id if store.category else None,
-               "domain_name": store.domain_name,
-               "completed": store.completed,
-               "hasMadePayment": store.has_made_payment
+            "store_id": store.id,
+            "theme": store.theme,
+            "category": store.category.id if store.category else None,
+            "domain_name": store.domain_name,
+            "completed": store.completed,
+            "hasMadePayment": store.has_made_payment
          })
 
          # Payment verification
          try:
-               paystack_payment = PaystackWebhook.objects.get(
-                  user=user,
-                  purpose="dropshipping_payment"
-               )
-               
-               if paystack_payment.status == 'Pending':
-                  payment_data = verify_paystack_transaction(paystack_payment.reference)
-                  if payment_data and payment_data.get('data', {}).get('status') == 'success':
-                     paystack_payment.status = 'Success'
-                     paystack_payment.data = payment_data
-                     paystack_payment.save()
-                     store.has_made_payment = True
-                     store.save()
+            paystack_payment = PaystackWebhook.objects.get(
+               user=user,
+               purpose="dropshipping_payment"
+            )
+            
+            if paystack_payment.status == 'Pending':
+               payment_data = verify_paystack_transaction(paystack_payment.reference)
+               if payment_data and payment_data.get('data', {}).get('status') == 'success':
+                  paystack_payment.status = 'Success'
+                  paystack_payment.data = payment_data
+                  paystack_payment.save()
+                  store.has_made_payment = True
+                  store.completed = True
+                  store.save()
 
-               user_data["hasMadePayment"] = store.has_made_payment
-
+            user_data["hasMadePayment"] = store.has_made_payment
          except PaystackWebhook.DoesNotExist:
                user_data["hasMadePayment"] = False
 
