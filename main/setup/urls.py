@@ -49,7 +49,7 @@ from services.views import (
     SignUpServices,
     ServicesCategoryView
     )
-from dashboards.views import AdminDashboardView
+from dashboards.views import AdminDashboardView, DropshipperAnalyticsView
 
 from tenants.views import TenantSignUp, VerifyEmail
 from django.urls import path
@@ -152,6 +152,7 @@ urlpatterns = [
     path('service/', include('services.urls')),
     path('api/accounts/', include('accounts.urls')),
     path('api/admin/dashboard', AdminDashboardView.as_view(), name='admin-dashboard'),
+    path('api/admin/dropshipper-analytic', DropshipperAnalyticsView.as_view(), name='admin-dashboard'),
 
     path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
 ]
