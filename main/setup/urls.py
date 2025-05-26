@@ -49,6 +49,7 @@ from services.views import (
     SignUpServices,
     ServicesCategoryView
     )
+from dashboards.views import AdminDashboardView
 
 from tenants.views import TenantSignUp, VerifyEmail
 from django.urls import path
@@ -149,6 +150,8 @@ urlpatterns = [
     path('dropshippers/', include('dropshippers.urls')),
     path('order/', include('order.urls')),
     path('service/', include('services.urls')),
+    path('api/accounts/', include('accounts.urls')),
+    path('api/admin/dashboard', AdminDashboardView.as_view(), name='admin-dashboard'),
 
     path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
 ]

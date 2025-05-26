@@ -28,7 +28,3 @@ def create_marketplace(sender, instance, created, **kwargs):
       notification_message = f"{store.name} you just added a new product to your Marketplace."
 
       Notification.objects.create(store=store, message=notification_message)
-
-
-
-
