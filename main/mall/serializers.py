@@ -178,6 +178,11 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       if has_store:
          store = Store.objects.get(owner=user)
 
+         # Enforce completed=True when payment exists (add this FIRST)
+         if store.has_made_payment:
+            store.completed = True  # Force completion if payment exists
+            store.save(update_fields=['completed'])
+
          # Ensure completed is True if payment was made before
          if store.has_made_payment and not store.completed:
             store.completed = True
@@ -207,11 +212,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
                   paystack_payment.save()
                   store.has_made_payment = True
                   store.completed = True
-                  store.save()
+                  # store.save()
+                  store.save(update_fields=['has_made_payment', 'completed'])
 
-            user_data["hasMadePayment"] = store.has_made_payment
          except PaystackWebhook.DoesNotExist:
-               user_data["hasMadePayment"] = False
+            pass
+
+      user_data["hasMadePayment"] = store.has_made_payment
 
       if user_data.get('is_services'):
          user_data["type"] = user.type

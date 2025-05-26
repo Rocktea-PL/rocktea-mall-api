@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     "services",
     # "dropshippers",
     # "tenants",
+    "accounts",
+    "dashboards",
 
     # API Documentation
     'drf_yasg',

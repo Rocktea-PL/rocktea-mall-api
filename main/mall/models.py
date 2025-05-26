@@ -178,6 +178,11 @@ class Store(models.Model):
 
     def __str__(self):
         return self.name
+    
+    def save(self, *args, **kwargs):
+        if self.has_made_payment:
+            self.completed = True
+        super().save(*args, **kwargs)
 
 class Product(models.Model):
     UPLOAD_STATUS = (
