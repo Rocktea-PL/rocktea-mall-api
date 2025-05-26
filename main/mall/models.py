@@ -292,12 +292,27 @@ class ProductVariant(models.Model):
 
 class StoreProductPricing(models.Model):
     product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='varied_products', null=True)
-    store = models.ForeignKey('Store', on_delete=models.CASCADE)
+        Product, 
+        on_delete=models.CASCADE, 
+        related_name='store_pricings',  # Changed for clarity
+        null=True
+    )
+    store = models.ForeignKey(
+        'Store', 
+        on_delete=models.CASCADE,
+        related_name='pricings'  # Add explicit related_name
+    )
     retail_price = models.DecimalField(max_digits=11, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['store', 'product']),
+            models.Index(fields=['retail_price']),
+        ]
 
     def __str__(self):
-        return f"{self.store} - ${self.retail_price}"
+        return f"{self.store.name} - {self.product.name} (${self.retail_price})"
 
 class Category(models.Model):
     CHOICES = (
