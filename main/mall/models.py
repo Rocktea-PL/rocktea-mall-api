@@ -8,6 +8,7 @@ from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
+from cloudinary.models import CloudinaryField
 
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))

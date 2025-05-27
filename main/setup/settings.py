@@ -59,7 +59,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "order",
     "services",
-    # "dropshippers",
+    "dropshippers",
     # "tenants",
     "accounts",
     "dashboards",
