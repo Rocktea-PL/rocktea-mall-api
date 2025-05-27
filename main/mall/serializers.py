@@ -125,6 +125,37 @@ class StoreOwnerSerializer(ModelSerializer):
          user.set_password(password)
          user.save()
       return user
+   
+   def update(self, instance, validated_data):
+      # Check if a new profile_image is being provided
+      new_profile_image = validated_data.get('profile_image')
+
+      # If a new image is provided AND it's different from the current one
+      # OR if the client is sending null to clear the image
+      if 'profile_image' in validated_data and new_profile_image != instance.profile_image:
+         # Check if there was an old image to delete
+         if instance.profile_image:
+            try:
+               # Calling .delete() on the FieldFile instance should trigger Cloudinary deletion
+               # because cloudinary-storage hooks into this.
+               instance.profile_image.delete()
+            except Exception as e:
+               # Log or handle the error gracefully, but don't prevent the update from proceeding
+               print(f"Cloudinary deletion error during profile image update: {e}")
+      
+      # Handle password update separately as set_password doesn't go through setattr
+      password = validated_data.pop('password', None)
+      if password:
+         if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+            raise ValidationError({"error":"Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+         instance.set_password(password)
+      
+      # Update other fields passed in validated_data
+      for attr, value in validated_data.items():
+         setattr(instance, attr, value)
+      
+      instance.save()
+      return instance
 
    def to_representation(self, instance):
       representation = super().to_representation(instance)

@@ -1,4 +1,4 @@
-from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification
+from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification, CustomUser
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
