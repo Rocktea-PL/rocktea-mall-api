@@ -32,6 +32,13 @@ class StoreOrder(models.Model):
    tracking_url = models.URLField(max_length=200, null=True, blank=True) 
    tracking_status = models.CharField(max_length=50, null=True, blank=True)
    shipping_fee = models.DecimalField(decimal_places=2, max_digits=11, default=0.00, null=True)
+
+   class Meta:
+      indexes = [
+         models.Index(fields=['status']),
+         models.Index(fields=['store', 'status']),
+         models.Index(fields=['total_price']),
+      ]
    
    def save(self, *args, **kwargs):
       if not self.order_sn:
