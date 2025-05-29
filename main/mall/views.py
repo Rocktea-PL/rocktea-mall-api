@@ -94,9 +94,6 @@ from urllib.parse import urlparse
 from order.pagination import CustomPagination
 from django.db.models import Sum, Count, Q
 
-# from django.utils.decorators import method_decorator
-# from django.views.decorators.csrf import csrf_exempt
-
 handler = DomainNameHandler()
 
 def get_store_domain(request):

@@ -150,9 +150,11 @@ urlpatterns = [
     path('dropshippers/', include('dropshippers.urls')),
     path('order/', include('order.urls')),
     path('service/', include('services.urls')),
-    path('api/accounts/', include('accounts.urls')),
-    path('api/admin/dashboard', AdminDashboardView.as_view(), name='admin-dashboard'),
-    path('api/admin/dropshipper-analytic', DropshipperAnalyticsView.as_view(), name='admin-dashboard'),
+    path('api/', include([
+        path('admin/products/', include('products.urls')),
+        path('accounts/', include('accounts.urls')),
+        path('admin/', include('dashboards.urls')),
+    ])),
 
     path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
 ]
