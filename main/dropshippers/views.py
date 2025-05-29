@@ -14,6 +14,7 @@ from django.db.models.functions import Coalesce
 from mall.models import Product 
 
 from django.utils import timezone
+from order.pagination import CustomPagination
 
 # Create your views here.
 # Get Store Products by Category
@@ -29,12 +30,6 @@ class MyProducts(ListAPIView):
       # Filter Product By Category
       queryset = Product.objects.filter(category__in=verified_category)
       return queryset
-   
-class DropshipperPagination(PageNumberPagination):
-   """Custom pagination for dropshippers"""
-   page_size = 20
-   page_size_query_param = 'page_size'
-   max_page_size = 100
 
 class DropshipperAdminViewSet(viewsets.ModelViewSet):
    """
@@ -44,7 +39,7 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    serializer_class = DropshipperAdminSerializer
    permission_classes = [IsAdminUser]
    lookup_field = 'id'
-   pagination_class = DropshipperPagination
+   pagination_class = CustomPagination
 
    def get_serializer_class(self):
       if self.action == 'list':

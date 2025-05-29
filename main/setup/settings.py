@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     # "tenants",
     "accounts",
     "dashboards",
+    "products",
 
     # API Documentation
     'drf_yasg',

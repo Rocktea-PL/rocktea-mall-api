@@ -379,7 +379,12 @@ class ProductTypesSerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
-      fields = '__all__'
+      fields = ['id', 'url', 'images']
+
+   def get_url(self, obj):
+      if obj.images:
+         return obj.images.url
+      return None
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
@@ -420,7 +425,6 @@ class ProductSerializer(serializers.ModelSerializer):
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-   # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
    store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), many=True, required=False)
    
