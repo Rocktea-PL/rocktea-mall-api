@@ -12,7 +12,7 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     pagination_class = CustomPagination
     http_method_names = ['get']
-    lookup_field = 'identifier'  # New custom lookup field
+    lookup_field = 'identifier'
     
     def get_queryset(self):
         queryset = StoreOrder.objects.select_related(
@@ -21,14 +21,14 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
             Prefetch(
                 'items',
                 queryset=OrderItems.objects.select_related(
-                    'product'
+                    'product', 'product_variant'
                 ).prefetch_related(
-                    'product__images'
+                    'product__images',
+                    'product__product_variants'  # Prefetch variants
                 )
             )
         ).order_by("-created_at")
         
-        # Optional status filtering
         status = self.request.query_params.get('status')
         if status:
             queryset = queryset.filter(status=status)
