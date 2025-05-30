@@ -20,7 +20,11 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
         ).prefetch_related(
             Prefetch(
                 'items',
-                queryset=OrderItems.objects.select_related('product')
+                queryset=OrderItems.objects.select_related(
+                    'product'
+                ).prefetch_related(
+                    'product__images'
+                )
             )
         ).order_by("-created_at")
         

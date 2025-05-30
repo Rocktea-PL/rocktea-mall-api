@@ -17,28 +17,31 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
 
     def get_product_image(self, obj):
         try:
-            first_image = obj.product.images.first()
-            return first_image.images.url if first_image else None
+            if obj.product.images.exists():
+                return obj.product.images.first().images.url
+            return None
         except Exception as e:
-            logger.error(f"Error loading product image: {e}")
+            logger.error(f"Image error: {e}")
             return None
 
 class AdminOrderSerializer(serializers.ModelSerializer):
     order_id = serializers.CharField(source='id')
     invoice_no = serializers.CharField(source='order_sn')
-    order_date = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S%p")
+    order_date = serializers.DateTimeField(source='created_at', format="%Y-%m-%d %H:%M:%S%p")
     items = AdminOrderItemSerializer(many=True, source='items.all')
     total = serializers.DecimalField(max_digits=10, decimal_places=2, source='total_price')
     buyer_name = serializers.SerializerMethodField()
     buyer_contact = serializers.SerializerMethodField()
-    delivery_location = serializers.CharField()
+    delivery_location = serializers.CharField(allow_blank=True, allow_null=True)
+    delivery_code = serializers.CharField()
 
     class Meta:
         model = StoreOrder
         fields = [
             'order_id', 'invoice_no', 'order_date', 'status',
             'total', 'items', 'buyer_name', 'buyer_contact',
-            'delivery_location', 'tracking_id', 'tracking_url'
+            'delivery_location', 'tracking_id', 'tracking_url',
+            'delivery_code'
         ]
 
     def get_buyer_name(self, obj):
