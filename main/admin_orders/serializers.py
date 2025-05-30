@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 class AdminOrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name')
     product_sku = serializers.CharField(source='product.sku')
-    amount = serializers.SerializerMethodField()  # Changed to SerializerMethodField
+    amount = serializers.SerializerMethodField()  # Keep as method field
     product_image = serializers.SerializerMethodField()
 
     class Meta:
@@ -15,22 +15,21 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
         fields = ['product_name', 'product_sku', 'quantity', 'amount', 'product_image']
 
     def get_amount(self, obj):
-        """Get the wholesale price from product variant"""
+        """Get price from product variant or product"""
         try:
-            # First try to get price from the specific product_variant linked to this order item
+            # First priority: price from specific variant in order item
             if obj.product_variant and obj.product_variant.wholesale_price:
                 return obj.product_variant.wholesale_price
             
-            # Fallback: get price from any variant of the product
-            variant = obj.product.product_variants.first()
-            if variant and variant.wholesale_price:
+            # Second priority: any variant of the product
+            if obj.product and obj.product.product_variants.exists():
+                variant = obj.product.product_variants.first()
                 return variant.wholesale_price
             
-            # If no variant found, return 0.00
+            # Fallback to 0 if no price found
             return 0.00
-            
         except Exception as e:
-            logger.error(f"Error getting product price for order item {obj.id}: {e}")
+            logger.error(f"Price error for order item {obj.id}: {e}")
             return 0.00
 
     def get_product_image(self, obj):
@@ -41,7 +40,6 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.error(f"Image error: {e}")
             return None
-
 class AdminOrderSerializer(serializers.ModelSerializer):
     order_id = serializers.CharField(source='id')
     invoice_no = serializers.CharField(source='order_sn')
