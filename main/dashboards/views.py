@@ -3,12 +3,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework import status
 from django.db.models import (
-    Count, Sum, Value, DecimalField, DateTimeField, IntegerField, Q, F,
+    Count, Sum, Value, DecimalField, IntegerField, Q, F,
     When, Case, CharField
 )
 from django.db.models.functions import Coalesce
 from order.pagination import CustomPagination
-from order.models import StoreOrder, PaystackWebhook, Product, Store, StoreProductPricing
+from order.models import StoreOrder, PaystackWebhook, Product
 from mall.models import CustomUser
 from order.serializers import OrderSerializer
 from django.utils import timezone

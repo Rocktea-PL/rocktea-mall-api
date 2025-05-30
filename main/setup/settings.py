@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "accounts",
     "dashboards",
     "products",
+    "admin_orders",
 
     # API Documentation
     'drf_yasg',
