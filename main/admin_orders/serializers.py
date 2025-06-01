@@ -67,20 +67,27 @@ class AdminOrderSerializer(serializers.ModelSerializer):
         return str(obj.buyer.contact)
     
 class AdminTransactionSerializer(serializers.ModelSerializer):
-    id = serializers.SerializerMethodField()  # Change to method field
+    # Use transaction's own ID instead of order ID
+    id = serializers.CharField(source='id')
+    # Add new field for order ID
+    order_id = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
     invoice_no = serializers.SerializerMethodField()  # Change to method field
     amount = serializers.DecimalField(max_digits=12, decimal_places=2, source='total_price')
     transaction_details = serializers.SerializerMethodField()
     status = serializers.CharField()
+    transaction_date = serializers.DateTimeField(
+        source='created_at', 
+        format="%Y-%m-%d %H:%M:%S%p"
+    )
 
     class Meta:
         model = PaystackWebhook
-        fields = ['id', 'name', 'invoice_no', 'amount', 'transaction_details', 'status']
+        fields = ['id', 'order_id', 'name', 'invoice_no', 'amount', 'transaction_details', 'status', 'transaction_date']
 
-    def get_id(self, obj):
-        """Get order ID if order exists"""
-        return obj.order.id if obj.order else None
+    def get_order_id(self, obj):
+        """Get order ID if exists"""
+        return str(obj.order.id) if obj.order else None
 
     def get_invoice_no(self, obj):
         """Get invoice number if order exists"""
@@ -88,7 +95,11 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj):
         """Get name of the person who processed the transaction"""
-        return f"{obj.user.first_name} {obj.user.last_name}"
+        # return f"{obj.user.first_name} {obj.user.last_name}"
+        return {
+            "full_name": f"{obj.user.first_name} {obj.user.last_name}",
+            "email": obj.user.email
+        }
 
     def get_transaction_details(self, obj):
         """Get formatted transaction details"""
