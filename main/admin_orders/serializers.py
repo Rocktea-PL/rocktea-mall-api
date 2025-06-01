@@ -68,7 +68,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
     
 class AdminTransactionSerializer(serializers.ModelSerializer):
     # Use transaction's own ID instead of order ID
-    id = serializers.CharField(source='id')
+    id = serializers.CharField()
     # Add new field for order ID
     order_id = serializers.SerializerMethodField()
     name = serializers.SerializerMethodField()
