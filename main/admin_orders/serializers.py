@@ -1,4 +1,4 @@
-from order.models import StoreOrder, OrderItems
+from order.models import StoreOrder, OrderItems, PaystackWebhook
 from rest_framework import serializers
 import logging
 
@@ -65,3 +65,29 @@ class AdminOrderSerializer(serializers.ModelSerializer):
 
     def get_buyer_contact(self, obj):
         return str(obj.buyer.contact)
+    
+class AdminTransactionSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='order.id')
+    name = serializers.SerializerMethodField()
+    invoice_no = serializers.CharField(source='order.order_sn')
+    amount = serializers.DecimalField(max_digits=12, decimal_places=2, source='total_price')
+    transaction_details = serializers.SerializerMethodField()
+    status = serializers.CharField()
+
+    class Meta:
+        model = PaystackWebhook
+        fields = ['id', 'name', 'invoice_no', 'amount', 'transaction_details', 'status']
+
+    def get_name(self, obj):
+        """Get name of the person who processed the transaction"""
+        return f"{obj.user.first_name} {obj.user.last_name}"
+
+    def get_transaction_details(self, obj):
+        """Get formatted transaction details"""
+        return {
+            "reference": obj.reference,
+            "purpose": obj.purpose,
+            "created_at": obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p"),
+            "payment_method": obj.data.get('channel') if obj.data else "Unknown",
+            "currency": obj.data.get('currency') if obj.data else "NGN"
+        }

@@ -1,7 +1,7 @@
 from django.http import Http404
 from rest_framework import viewsets, status
-from order.models import StoreOrder, OrderItems
-from .serializers import AdminOrderSerializer
+from order.models import StoreOrder, OrderItems, PaystackWebhook
+from .serializers import AdminOrderSerializer, AdminTransactionSerializer
 from order.pagination import CustomPagination
 from django.db.models import Prefetch
 from rest_framework.permissions import IsAdminUser
@@ -67,3 +67,25 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
+        
+class AdminTransactionViewSet(viewsets.ModelViewSet):
+    serializer_class = AdminTransactionSerializer
+    permission_classes = [IsAdminUser]
+    pagination_class = CustomPagination
+    http_method_names = ['get']
+    
+    def get_queryset(self):
+        queryset = PaystackWebhook.objects.select_related(
+            'user', 'order'
+        ).order_by("-created_at")
+        
+        # Optional filtering
+        status = self.request.query_params.get('status')
+        if status:
+            queryset = queryset.filter(status=status)
+            
+        purpose = self.request.query_params.get('purpose')
+        if purpose:
+            queryset = queryset.filter(purpose=purpose)
+            
+        return queryset
