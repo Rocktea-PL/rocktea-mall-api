@@ -489,16 +489,50 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
       })
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    queryset = Category.objects.all()
-    serializer_class = CategorySerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+   queryset = Category.objects.all()
+   serializer_class = CategorySerializer
+   permission_classes = [IsAuthenticated, IsAdminUser]
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+   def create(self, request, *args, **kwargs):
+      serializer = self.get_serializer(data=request.data)
+      serializer.is_valid(raise_exception=True)
+      self.perform_create(serializer)
+      headers = self.get_success_headers(serializer.data)
+      return Response(
+         {
+               'message': 'Category created successfully',
+               'data': serializer.data
+         },
+         status=status.HTTP_201_CREATED, 
+         headers=headers
+      )
+   
+   def update(self, request, *args, **kwargs):
+      partial = kwargs.pop('partial', False)
+      instance = self.get_object()
+      serializer = self.get_serializer(instance, data=request.data, partial=partial)
+      serializer.is_valid(raise_exception=True)
+      self.perform_update(serializer)
+      
+      return Response({
+         'message': 'Category updated successfully',
+         'data': serializer.data
+      })
+   
+   def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+   def destroy(self, request, *args, **kwargs):
+      instance = self.get_object()
+      
+      category_name = instance.name
+      self.perform_destroy(instance)
+      
+      return Response(
+         {'message': f'Category "{category_name}" deleted successfully'},
+         status=status.HTTP_204_NO_CONTENT
+      )
 
 class UploadProductImage(ListCreateAPIView):
    queryset = ProductImage.objects.all()
@@ -625,11 +659,52 @@ class BrandView(viewsets.ModelViewSet):
    permission_classes = [IsAdminOrReadOnly]
 
    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+      serializer = self.get_serializer(data=request.data)
+      serializer.is_valid(raise_exception=True)
+      self.perform_create(serializer)
+      headers = self.get_success_headers(serializer.data)
+      return Response(
+         {
+               'message': 'Brand created successfully',
+               'data': serializer.data
+         },
+         status=status.HTTP_201_CREATED, 
+         headers=headers
+      )
+
+   def update(self, request, *args, **kwargs):
+      partial = kwargs.pop('partial', False)
+      instance = self.get_object()
+      serializer = self.get_serializer(instance, data=request.data, partial=partial)
+      serializer.is_valid(raise_exception=True)
+      self.perform_update(serializer)
+      
+      return Response({
+         'message': 'Brand updated successfully',
+         'data': serializer.data
+      })
+
+   def partial_update(self, request, *args, **kwargs):
+      kwargs['partial'] = True
+      return self.update(request, *args, **kwargs)
+
+   def destroy(self, request, *args, **kwargs):
+      instance = self.get_object()
+      
+      # Check if brand has related products
+      if Product.objects.filter(brand=instance).exists():
+         return Response(
+               {'error': 'Cannot delete brand. It has associated products.'},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      brand_name = instance.name
+      self.perform_destroy(instance)
+      
+      return Response(
+         {'message': f'Brand "{brand_name}" deleted successfully'},
+         status=status.HTTP_204_NO_CONTENT
+      )
 
 class SubCategoryView(viewsets.ModelViewSet):
    queryset =  SubCategories.objects.select_related('category')
@@ -637,11 +712,45 @@ class SubCategoryView(viewsets.ModelViewSet):
    permission_classes = [IsAdminOrReadOnly]
 
    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+      serializer = self.get_serializer(data=request.data)
+      serializer.is_valid(raise_exception=True)
+      self.perform_create(serializer)
+      headers = self.get_success_headers(serializer.data)
+      return Response(
+         {
+            'message': 'Subcategory created successfully',
+            'data': serializer.data
+         },
+         status=status.HTTP_201_CREATED, 
+         headers=headers
+      )
+
+   def update(self, request, *args, **kwargs):
+      partial = kwargs.pop('partial', False)
+      instance = self.get_object()
+      serializer = self.get_serializer(instance, data=request.data, partial=partial)
+      serializer.is_valid(raise_exception=True)
+      self.perform_update(serializer)
+      
+      return Response({
+         'message': 'Subcategory updated successfully',
+         'data': serializer.data
+      })
+
+   def partial_update(self, request, *args, **kwargs):
+      kwargs['partial'] = True
+      return self.update(request, *args, **kwargs)
+
+   def destroy(self, request, *args, **kwargs):
+      instance = self.get_object()
+      
+      subcategory_name = instance.name
+      self.perform_destroy(instance)
+      
+      return Response(
+         {'message': f'Subcategory "{subcategory_name}" deleted successfully'},
+         status=status.HTTP_204_NO_CONTENT
+      )
 
 class ProductTypeView(viewsets.ModelViewSet):
    queryset = ProductTypes.objects.select_related('subcategory')
@@ -649,11 +758,52 @@ class ProductTypeView(viewsets.ModelViewSet):
    permission_classes = [IsAdminOrReadOnly]
 
    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+      serializer = self.get_serializer(data=request.data)
+      serializer.is_valid(raise_exception=True)
+      self.perform_create(serializer)
+      headers = self.get_success_headers(serializer.data)
+      return Response(
+         {
+               'message': 'Product type created successfully',
+               'data': serializer.data
+         },
+         status=status.HTTP_201_CREATED, 
+         headers=headers
+      )
+
+   def update(self, request, *args, **kwargs):
+      partial = kwargs.pop('partial', False)
+      instance = self.get_object()
+      serializer = self.get_serializer(instance, data=request.data, partial=partial)
+      serializer.is_valid(raise_exception=True)
+      self.perform_update(serializer)
+      
+      return Response({
+         'message': 'Product type updated successfully',
+         'data': serializer.data
+      })
+
+   def partial_update(self, request, *args, **kwargs):
+      kwargs['partial'] = True
+      return self.update(request, *args, **kwargs)
+
+   def destroy(self, request, *args, **kwargs):
+      instance = self.get_object()
+      
+      # Check if product type has related products
+      if Product.objects.filter(producttype=instance).exists():
+         return Response(
+               {'error': 'Cannot delete product type. It has associated products.'},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      producttype_name = instance.name
+      self.perform_destroy(instance)
+      
+      return Response(
+         {'message': f'Product type "{producttype_name}" deleted successfully'},
+         status=status.HTTP_204_NO_CONTENT
+      )
 
 class ProductDetails(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
@@ -733,11 +883,11 @@ class ShippingDataView(viewsets.ModelViewSet):
    serializer_class = ShippingDataSerializer
 
 class CustomResetPasswordRequestToken(ResetPasswordRequestToken):
-    serializer_class = ResetPasswordEmailRequestSerializer
+   serializer_class = ResetPasswordEmailRequestSerializer
 
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        return response
+   def post(self, request, *args, **kwargs):
+      response = super().post(request, *args, **kwargs)
+      return response
 
 @receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
