@@ -222,7 +222,12 @@ class Product(models.Model):
             models.Index(fields=['sku'], name='product_sku_skux'),
             models.Index(fields=['name'], name='product_name_namex'),
             models.Index(fields=['category'],
-                         name='product_category_categoryx')
+                         name='product_category_categoryx'),
+            models.Index(fields=['subcategory'], name='product_subcategory_idx'),
+            models.Index(fields=['producttype'], name='product_producttype_idx'),
+            models.Index(fields=['brand'], name='product_brand_idx'),
+            models.Index(fields=['is_available'], name='product_available_idx'),
+            models.Index(fields=['upload_status'], name='product_status_idx'),
         ]
 
     def formatted_created_at(self):
@@ -234,10 +239,32 @@ class Product(models.Model):
         #    self.serial_number = generate_unique_code()
         if not self.sku:
             self.sku = self._generate_sku()
+
+        # Run clean validation
+        self.clean()
         return super().save(*args, **kwargs)
 
     def _generate_sku(self):
-        return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        while True:
+            sku = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            if not Product.objects.filter(sku=sku).exists():
+                return sku
+            
+    def clean(self):
+        """Validate that category, subcategory, and producttype are related"""
+        from django.core.exceptions import ValidationError
+        
+        if self.subcategory and self.category:
+            if self.subcategory.category != self.category:
+                raise ValidationError(
+                    "Selected subcategory does not belong to the selected category."
+                )
+        
+        if self.producttype and self.subcategory:
+            if self.producttype.subcategory != self.subcategory:
+                raise ValidationError(
+                    "Selected product type does not belong to the selected subcategory."
+                )
 
     def __str__(self):
         return self.name
@@ -347,12 +374,13 @@ class SubCategories(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['name'], name='subcategories_name_namex')
+            models.Index(fields=['name'], name='subcategories_name_namex'),
+            models.Index(fields=['category'], name='subcategories_category_idx')
         ]
+        unique_together = ('category', 'name')
 
     def __str__(self):
-        return self.name
-
+        return f"{self.category.name} - {self.name}"
 class ProductTypes(models.Model):
     subcategory = models.ForeignKey(
         SubCategories, related_name="producttypes", on_delete=models.CASCADE)
@@ -360,11 +388,12 @@ class ProductTypes(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['name'], name='producttypes_name_namex')
+            models.Index(fields=['name'], name='producttypes_name_namex'),
+            models.Index(fields=['subcategory'], name='producttypes_subcategory_idx')
         ]
 
     def __str__(self):
-        return self.name
+        return f"{self.subcategory.name} - {self.name}"
 
 class ProductReview(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)

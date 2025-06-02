@@ -7,7 +7,7 @@ class IsAdminOrReadOnly(BasePermission):
 
     def has_permission(self, request, view):
         # Allow read-only access for any request
-        if request.method in ('GET', 'HEAD', 'OPTIONS'):
+        if request.method in SAFE_METHODS:
             return True
         # Allow create access only for admin users
         return request.user and request.user.is_staff

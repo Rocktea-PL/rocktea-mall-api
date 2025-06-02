@@ -351,10 +351,36 @@ class BrandSerializer(serializers.ModelSerializer):
       model = Brand
       fields = '__all__'
 
+   def validate_name(self, value):
+      # Check if brand name already exists (for updates)
+      if self.instance and self.instance.name != value:
+         if Brand.objects.filter(name=value).exists():
+               raise serializers.ValidationError("A brand with this name already exists.")
+      elif not self.instance and Brand.objects.filter(name=value).exists():
+         raise serializers.ValidationError("A brand with this name already exists.")
+      return value
+
 class SubCategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = SubCategories
       fields = '__all__'
+
+   def validate(self, data):
+      # Check for unique subcategory name within the same category
+      category = data.get('category')
+      name = data.get('name')
+      
+      if category and name:
+         query = SubCategories.objects.filter(category=category, name=name)
+         if self.instance:
+               query = query.exclude(pk=self.instance.pk)
+         
+         if query.exists():
+               raise serializers.ValidationError(
+                  "A subcategory with this name already exists in this category."
+               )
+      
+      return data
       
    def to_representation(self, instance):
       representation = super(SubCategorySerializer, self).to_representation(instance)
@@ -366,10 +392,36 @@ class CategorySerializer(serializers.ModelSerializer):
       model = Category
       fields = '__all__'
 
+   def validate_name(self, value):
+      # Check if category name already exists (for updates)
+      if self.instance and self.instance.name != value:
+         if Category.objects.filter(name=value).exists():
+            raise serializers.ValidationError("A category with this name already exists.")
+      elif not self.instance and Category.objects.filter(name=value).exists():
+         raise serializers.ValidationError("A category with this name already exists.")
+      return value
+
 class ProductTypesSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductTypes
       fields = '__all__'
+
+   def validate(self, data):
+      # Check for unique product type name within the same subcategory
+      subcategory = data.get('subcategory')
+      name = data.get('name')
+      
+      if subcategory and name:
+         query = ProductTypes.objects.filter(subcategory=subcategory, name=name)
+         if self.instance:
+               query = query.exclude(pk=self.instance.pk)
+         
+         if query.exists():
+               raise serializers.ValidationError(
+                  "A product type with this name already exists in this subcategory."
+               )
+      
+      return data
       
    def to_representation(self, instance):
       representation = super(ProductTypesSerializer, self).to_representation(instance)
@@ -716,8 +768,8 @@ class DropshipperReviewSerializer(serializers.ModelSerializer):
       return representation
 
 class ResetPasswordEmailRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+   email = serializers.EmailField()
 
 class ResetPasswordConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
-    password = serializers.CharField()
+   token = serializers.CharField()
+   password = serializers.CharField()
