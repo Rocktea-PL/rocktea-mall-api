@@ -1,20 +1,22 @@
 from mall.models import CustomUser, Store, Product, Category
 from mall.serializers import ProductSerializer
-from rest_framework.generics import RetrieveAPIView, ListAPIView
-from django.shortcuts import get_object_or_404, get_list_or_404
+from rest_framework.generics import ListAPIView
+from django.shortcuts import get_list_or_404
 
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from .serializers import DropshipperAdminSerializer, DropshipperListSerializer
 
-from rest_framework.pagination import PageNumberPagination
 from django.db.models import Count, Sum, Q, Case, When, BooleanField, DecimalField, IntegerField, CharField, Value
 from django.db.models.functions import Coalesce
 from mall.models import Product 
 
 from django.utils import timezone
 from order.pagination import CustomPagination
+
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 
 # Create your views here.
 # Get Store Products by Category
@@ -38,6 +40,25 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    permission_classes = [IsAdminUser]
    lookup_field = 'id'
    pagination_class = CustomPagination
+
+   filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+   filterset_fields = {
+      'email': ['exact', 'contains'],
+      'first_name': ['exact', 'contains'],
+      'last_name': ['exact', 'contains'],
+      'is_active': ['exact'],
+      'is_verified': ['exact'],
+      'date_joined': ['exact', 'gte', 'lte'],
+      'last_login': ['exact', 'gte', 'lte'],
+      'owners__name': ['exact', 'contains'],  # Store name
+      'total_products': ['exact', 'gte', 'lte'],
+      'total_products_available': ['exact', 'gte', 'lte'],
+      'total_products_sold': ['exact', 'gte', 'lte'],
+      'total_revenue': ['exact', 'gte', 'lte'],
+      'is_active_user': ['exact'],
+   }
+   search_fields = ['email', 'first_name', 'last_name', 'owners__name']
+   ordering_fields = ['date_joined', 'last_login', 'total_revenue']
 
    def get_serializer_class(self):
       if self.action == 'list':

@@ -6,6 +6,8 @@ from order.pagination import CustomPagination
 from django.db.models import Prefetch
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 
 class AdminOrderViewSet(viewsets.ModelViewSet):
     serializer_class = AdminOrderSerializer
@@ -13,6 +15,19 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
     pagination_class = CustomPagination
     http_method_names = ['get']
     lookup_field = 'identifier'
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        'status': ['exact', 'in'],
+        'created_at': ['exact', 'gte', 'lte'],
+        'buyer__email': ['exact', 'contains'],
+        'store__name': ['exact', 'contains'],
+        'total_price': ['exact', 'gte', 'lte'],
+        'delivery_code': ['exact'],
+        'tracking_id': ['exact'],
+    }
+    search_fields = ['id', 'order_sn', 'delivery_location']
+    ordering_fields = ['created_at', 'total_price']
     
     def get_queryset(self):
         queryset = StoreOrder.objects.select_related(
@@ -73,6 +88,19 @@ class AdminTransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     pagination_class = CustomPagination
     http_method_names = ['get']
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = {
+        'status': ['exact', 'in'],
+        'created_at': ['exact', 'gte', 'lte'],
+        'user__email': ['exact', 'contains'],
+        'order__id': ['exact'],
+        'total_price': ['exact', 'gte', 'lte'],
+        'purpose': ['exact'],
+        'reference': ['exact'],
+    }
+    search_fields = ['reference', 'user__email']
+    ordering_fields = ['created_at', 'total_price']
     
     def get_queryset(self):
         queryset = PaystackWebhook.objects.select_related(

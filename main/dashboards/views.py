@@ -13,6 +13,9 @@ from mall.models import CustomUser
 from admin_orders.serializers import AdminTransactionSerializer
 from django.utils import timezone
 
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+
 class AdminDashboardView(APIView):
     permission_classes = [IsAdminUser]
     pagination_class = CustomPagination
@@ -42,6 +45,23 @@ class AdminDashboardView(APIView):
             'user', 'order'
         ).order_by('-created_at')
         
+        # Apply filters
+        status = request.query_params.get('status')
+        if status:
+            transactions_queryset = transactions_queryset.filter(status=status)
+            
+        purpose = request.query_params.get('purpose')
+        if purpose:
+            transactions_queryset = transactions_queryset.filter(purpose=purpose)
+            
+        min_amount = request.query_params.get('min_amount')
+        if min_amount:
+            transactions_queryset = transactions_queryset.filter(total_price__gte=min_amount)
+            
+        max_amount = request.query_params.get('max_amount')
+        if max_amount:
+            transactions_queryset = transactions_queryset.filter(total_price__lte=max_amount)
+
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(transactions_queryset, request)
         
@@ -86,6 +106,19 @@ class DropshipperAnalyticsView(APIView):
             ),
             last_seen=F('last_login')
         ).order_by('-owners__created_at')
+
+        # Apply filters
+        status = request.query_params.get('status')
+        if status:
+            dropshippers = dropshippers.filter(active_status=status)
+            
+        min_products = request.query_params.get('min_products')
+        if min_products:
+            dropshippers = dropshippers.filter(total_products__gte=min_products)
+            
+        min_revenue = request.query_params.get('min_revenue')
+        if min_revenue:
+            dropshippers = dropshippers.filter(total_revenue__gte=min_revenue)
 
         # Paginate results
         paginator = self.pagination_class()
