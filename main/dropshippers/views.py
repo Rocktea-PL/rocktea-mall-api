@@ -32,9 +32,7 @@ class MyProducts(ListAPIView):
       return queryset
 
 class DropshipperAdminViewSet(viewsets.ModelViewSet):
-   """
-   Admin-only dropshipper management with analytics
-   """
+   """Admin-only dropshipper management with analytics"""
    queryset = CustomUser.objects.filter(is_store_owner=True)
    serializer_class = DropshipperAdminSerializer
    permission_classes = [IsAdminUser]
@@ -78,37 +76,47 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       now = timezone.now()
       thirty_days_ago = now - timezone.timedelta(days=30)
       
-      return super().get_queryset().select_related('owners').annotate(
+      return super().get_queryset().select_related('owners').prefetch_related(
+         'owners__store_orders'
+      ).annotate(
          # Store metrics
-         total_products=Count('owners__pricings', distinct=True),
-         total_products_available=Count(
-            'owners__pricings',
-            filter=Q(owners__pricings__product__is_available=True),
-            distinct=True
+         total_products=Coalesce(
+               Count('owners__pricings', distinct=True),
+               0,
+               output_field=IntegerField()
+         ),
+         total_products_available=Coalesce(
+               Count(
+                  'owners__pricings',
+                  filter=Q(owners__pricings__product__is_available=True),
+                  distinct=True
+               ),
+               0,
+               output_field=IntegerField()
          ),
          total_products_sold=Coalesce(
-            Sum(
-               'owners__store_orders__items__quantity',
-               filter=Q(owners__store_orders__status='Completed'),
-               output_field=IntegerField()  # Explicit output field
-            ), 
-            0, 
-            output_field=IntegerField()
+               Sum(
+                  'owners__store_orders__items__quantity',
+                  filter=Q(owners__store_orders__status='Completed'),
+                  output_field=IntegerField()
+               ), 
+               0, 
+               output_field=IntegerField()
          ),
          total_revenue=Coalesce(
-            Sum(
-               'owners__store_orders__total_price',
-               filter=Q(owners__store_orders__status='Completed'),
+               Sum(
+                  'owners__store_orders__total_price',
+                  filter=Q(owners__store_orders__status='Completed'),
+                  output_field=DecimalField(max_digits=12, decimal_places=2)
+               ), 
+               0.0,
                output_field=DecimalField(max_digits=12, decimal_places=2)
-            ), 
-            0.0,
-            output_field=DecimalField(max_digits=12, decimal_places=2)
          ),
          
          # Activity status
          is_active_user=Case(
-            When(last_login__gte=thirty_days_ago, then=True),
-            default=False,
-            output_field=BooleanField()
+               When(last_login__gte=thirty_days_ago, then=True),
+               default=False,
+               output_field=BooleanField()
          )
       ).order_by('-date_joined')
