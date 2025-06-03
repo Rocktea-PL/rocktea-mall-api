@@ -11,22 +11,29 @@ class StoreSerializer(serializers.ModelSerializer):
             'id', 'name', 'email', 'domain_name', 'completed', 
             'has_made_payment', 'created_at', 'logo', 'cover_image'
         ]
+        extra_kwargs = {
+            'logo': {'allow_null': True},
+            'cover_image': {'allow_null': True},
+            'domain_name': {'allow_null': True}
+        }
 
 class DropshipperListSerializer(StoreOwnerSerializer):
     """Optimized serializer for list view with analytics"""
-    total_products = serializers.IntegerField(read_only=True)
-    total_products_available = serializers.IntegerField(read_only=True)
-    total_products_sold = serializers.IntegerField(read_only=True)
+    total_products = serializers.IntegerField(read_only=True, allow_null=True)
+    total_products_available = serializers.IntegerField(read_only=True, allow_null=True)
+    total_products_sold = serializers.IntegerField(read_only=True, allow_null=True)
     total_revenue = serializers.DecimalField(
         max_digits=12, 
         decimal_places=2, 
-        read_only=True
+        read_only=True,
+        allow_null=True
     )
-    last_active = serializers.DateTimeField(source='last_login', read_only=True)
-    is_active = serializers.BooleanField()
-    is_verified = serializers.BooleanField()
-    store = StoreSerializer(source='owners', read_only=True)
-    is_active_user = serializers.BooleanField(read_only=True)
+    last_active = serializers.DateTimeField(source='last_login', read_only=True, allow_null=True)
+    is_active = serializers.BooleanField(allow_null=True)
+    is_verified = serializers.BooleanField(allow_null=True)
+    store = StoreSerializer(source='owners', read_only=True, allow_null=True)
+    is_active_user = serializers.BooleanField(read_only=True, allow_null=True)
+    profile_image = serializers.ImageField(allow_null=True)  # Add this
 
     class Meta(StoreOwnerSerializer.Meta):
         fields = StoreOwnerSerializer.Meta.fields + (
@@ -35,22 +42,32 @@ class DropshipperListSerializer(StoreOwnerSerializer):
             'total_products_sold', 'total_revenue', 'store', 'is_active_user'
         )
         read_only_fields = ('completed_steps', 'date_joined')
+        extra_kwargs = {
+            'contact': {'allow_null': True},
+            'username': {'allow_null': True},
+            'first_name': {'allow_null': True},
+            'last_name': {'allow_null': True},
+            'email': {'allow_null': True},
+            'profile_image': {'allow_null': True}
+        }
 
 class DropshipperAdminSerializer(StoreOwnerSerializer):
-    company_name = serializers.CharField(write_only=True, required=False)
-    is_active = serializers.BooleanField(default=True)
-    is_verified = serializers.BooleanField(default=True)
-    last_active = serializers.DateTimeField(source='last_login', read_only=True)
-    store = StoreSerializer(source='owners', read_only=True)
-    total_products = serializers.IntegerField(read_only=True)
-    total_products_available = serializers.IntegerField(read_only=True)
-    total_products_sold = serializers.IntegerField(read_only=True)
+    company_name = serializers.CharField(write_only=True, required=False, allow_null=True)
+    is_active = serializers.BooleanField(default=True, allow_null=True)
+    is_verified = serializers.BooleanField(default=True, allow_null=True)
+    last_active = serializers.DateTimeField(source='last_login', read_only=True, allow_null=True)
+    store = StoreSerializer(source='owners', read_only=True, allow_null=True)
+    total_products = serializers.IntegerField(read_only=True, allow_null=True)
+    total_products_available = serializers.IntegerField(read_only=True, allow_null=True)
+    total_products_sold = serializers.IntegerField(read_only=True, allow_null=True)
     total_revenue = serializers.DecimalField(
         max_digits=12, 
         decimal_places=2, 
-        read_only=True
+        read_only=True,
+        allow_null=True
     )
-    is_active_user = serializers.BooleanField(read_only=True)
+    is_active_user = serializers.BooleanField(read_only=True, allow_null=True)
+    profile_image = serializers.ImageField(allow_null=True)  # Add this
 
     class Meta(StoreOwnerSerializer.Meta):
         fields = StoreOwnerSerializer.Meta.fields + (
@@ -60,7 +77,13 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         )
         read_only_fields = ('completed_steps', 'date_joined')
         extra_kwargs = {
-            'password': {'write_only': True, 'required': False}
+            'password': {'write_only': True, 'required': False, 'allow_null': True},
+            'contact': {'allow_null': True},
+            'username': {'allow_null': True},
+            'first_name': {'allow_null': True},
+            'last_name': {'allow_null': True},
+            'email': {'allow_null': True},
+            'profile_image': {'allow_null': True}
         }
 
     def create(self, validated_data):

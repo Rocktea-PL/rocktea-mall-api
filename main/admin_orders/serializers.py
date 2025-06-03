@@ -5,6 +5,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AdminOrderItemSerializer(serializers.ModelSerializer):
+    product_id = serializers.CharField(source='product.id')
     product_name = serializers.CharField(source='product.name')
     product_sku = serializers.CharField(source='product.sku')
     amount = serializers.SerializerMethodField()  # Keep as method field
@@ -12,7 +13,7 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItems
-        fields = ['product_name', 'product_sku', 'quantity', 'amount', 'product_image']
+        fields = ['product_id', 'product_name', 'product_sku', 'quantity', 'amount', 'product_image']
 
     def get_amount(self, obj):
         """Get price from product variant or product"""
@@ -50,6 +51,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
     buyer_contact = serializers.SerializerMethodField()
     delivery_location = serializers.CharField(allow_blank=True, allow_null=True)
     delivery_code = serializers.CharField()
+    item_count = serializers.SerializerMethodField()
 
     class Meta:
         model = StoreOrder
@@ -57,7 +59,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
             'order_id', 'invoice_no', 'order_date', 'status',
             'total', 'items', 'buyer_name', 'buyer_contact',
             'delivery_location', 'tracking_id', 'tracking_url',
-            'delivery_code'
+            'delivery_code', 'item_count'
         ]
 
     def get_buyer_name(self, obj):
@@ -65,6 +67,10 @@ class AdminOrderSerializer(serializers.ModelSerializer):
 
     def get_buyer_contact(self, obj):
         return str(obj.buyer.contact)
+    
+    def get_item_count(self, obj):
+        """Get total number of items in the order"""
+        return obj.items.count()
     
 class AdminTransactionSerializer(serializers.ModelSerializer):
     # Use transaction's own ID instead of order ID

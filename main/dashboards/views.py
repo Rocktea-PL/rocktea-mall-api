@@ -10,7 +10,7 @@ from django.db.models.functions import Coalesce
 from order.pagination import CustomPagination
 from order.models import StoreOrder, PaystackWebhook, Product
 from mall.models import CustomUser
-from order.serializers import OrderSerializer
+from admin_orders.serializers import AdminTransactionSerializer
 from django.utils import timezone
 
 class AdminDashboardView(APIView):
@@ -37,15 +37,15 @@ class AdminDashboardView(APIView):
             ).count()
         }
 
-        # Get paginated orders
-        orders_queryset = StoreOrder.objects.select_related(
-            'buyer', 'store'
+        # Get paginated transactions instead of orders
+        transactions_queryset = PaystackWebhook.objects.select_related(
+            'user', 'order'
         ).order_by('-created_at')
         
         paginator = self.pagination_class()
-        page = paginator.paginate_queryset(orders_queryset, request)
+        page = paginator.paginate_queryset(transactions_queryset, request)
         
-        serializer = OrderSerializer(page, many=True)
+        serializer = AdminTransactionSerializer(page, many=True)
         
         return Response({
             'stats': stats,
