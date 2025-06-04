@@ -42,21 +42,22 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         """Filter products based on query parameters"""
         queryset = self.queryset
         
-        # Filter by category
-        category_id = self.request.query_params.get('category')
-        if category_id:
-            try:
-                queryset = queryset.filter(category_id=int(category_id))
-            except (ValueError, TypeError):
-                pass
+        # NEW: Filter by category name
+        category_name = self.request.query_params.get('category_name')
+        if category_name:
+            queryset = queryset.filter(category__name__icontains=category_name)
         
-        # Filter by brand
-        brand_id = self.request.query_params.get('brand')
-        if brand_id:
-            try:
-                queryset = queryset.filter(brand_id=int(brand_id))
-            except (ValueError, TypeError):
-                pass
+        # NEW: Filter by brand name
+        brand_name = self.request.query_params.get('brand_name')
+        if brand_name:
+            queryset = queryset.filter(brand__name__icontains=brand_name)
+        
+        search = self.request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | 
+                Q(sku__icontains=search)  # Removed description
+            )
         
         # Filter by stock status
         stock_status = self.request.query_params.get('stock_status')
@@ -66,20 +67,25 @@ class AdminProductViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(quantity__lte=10, quantity__gt=0)
         elif stock_status == 'in_stock':
             queryset = queryset.filter(quantity__gt=10)
+
+        name = self.request.query_params.get('name')
+        if name:
+            queryset = queryset.filter(name__icontains=name)
         
-        # Filter by upload status
-        upload_status = self.request.query_params.get('upload_status')
-        if upload_status:
-            queryset = queryset.filter(upload_status=upload_status)
+        sku_filter = self.request.query_params.get('sku')
+        if sku_filter:
+            queryset = queryset.filter(sku__icontains=sku_filter)
         
-        # Search by name or SKU
-        search = self.request.query_params.get('search')
-        if search:
-            queryset = queryset.filter(
-                Q(name__icontains=search) | 
-                Q(sku__icontains=search) |
-                Q(description__icontains=search)
-            )
+        # 'amount' refers to wholesale_price
+        amount = self.request.query_params.get('amount')
+        if amount:
+            try:
+                price = float(amount)
+                queryset = queryset.filter(
+                    product_variants__wholesale_price=price
+                ).distinct()
+            except (ValueError, TypeError):
+                pass
 
         return queryset.order_by('-created_at')
 
