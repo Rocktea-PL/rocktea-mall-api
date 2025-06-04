@@ -153,8 +153,8 @@ urlpatterns = [
     path('api/', include([
         path('admin/products/', include('products.urls')),
         path('accounts/', include('accounts.urls')),
-        path('admin/', include('dashboards.urls')),
         path('admin/orders/', include('admin_orders.urls')),
+        path('admin/', include('dashboards.urls')),
     ])),
 
     path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
