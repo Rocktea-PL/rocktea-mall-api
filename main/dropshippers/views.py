@@ -17,6 +17,7 @@ from order.pagination import CustomPagination
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+from .filters import DropshipperFilter
 
 # Create your views here.
 # Get Store Products by Category
@@ -42,21 +43,7 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    pagination_class = CustomPagination
 
    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-   filterset_fields = {
-      'email': ['exact', 'contains'],
-      'first_name': ['exact', 'contains'],
-      'last_name': ['exact', 'contains'],
-      'is_active': ['exact'],
-      'is_verified': ['exact'],
-      'date_joined': ['exact', 'gte', 'lte'],
-      'last_login': ['exact', 'gte', 'lte'],
-      'owners__name': ['exact', 'contains'],  # Store name
-      'total_products': ['exact', 'gte', 'lte'],
-      'total_products_available': ['exact', 'gte', 'lte'],
-      'total_products_sold': ['exact', 'gte', 'lte'],
-      'total_revenue': ['exact', 'gte', 'lte'],
-      'is_active_user': ['exact'],
-   }
+   filterset_class = DropshipperFilter
    search_fields = ['email', 'first_name', 'last_name', 'owners__name']
    ordering_fields = ['date_joined', 'last_login', 'total_revenue']
 
@@ -102,42 +89,42 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       ).annotate(
          # Store metrics
          total_products=Coalesce(
-               Count('owners__pricings', distinct=True),
-               0,
-               output_field=IntegerField()
+            Count('owners__pricings', distinct=True),
+            0,
+            output_field=IntegerField()
          ),
          total_products_available=Coalesce(
-               Count(
-                  'owners__pricings',
-                  filter=Q(owners__pricings__product__is_available=True),
-                  distinct=True
-               ),
-               0,
-               output_field=IntegerField()
+            Count(
+               'owners__pricings',
+               filter=Q(owners__pricings__product__is_available=True),
+               distinct=True
+            ),
+            0,
+            output_field=IntegerField()
          ),
          total_products_sold=Coalesce(
-               Sum(
-                  'owners__store_orders__items__quantity',
-                  filter=Q(owners__store_orders__status='Completed'),
-                  output_field=IntegerField()
-               ), 
-               0, 
+            Sum(
+               'owners__store_orders__items__quantity',
+               filter=Q(owners__store_orders__status='Completed'),
                output_field=IntegerField()
+            ), 
+            0, 
+            output_field=IntegerField()
          ),
          total_revenue=Coalesce(
-               Sum(
-                  'owners__store_orders__total_price',
-                  filter=Q(owners__store_orders__status='Completed'),
-                  output_field=DecimalField(max_digits=12, decimal_places=2)
-               ), 
-               0.0,
+            Sum(
+               'owners__store_orders__total_price',
+               filter=Q(owners__store_orders__status='Completed'),
                output_field=DecimalField(max_digits=12, decimal_places=2)
+            ), 
+            0.0,
+            output_field=DecimalField(max_digits=12, decimal_places=2)
          ),
          
          # Activity status
          is_active_user=Case(
-               When(last_login__gte=thirty_days_ago, then=True),
-               default=False,
-               output_field=BooleanField()
+            When(last_login__gte=thirty_days_ago, then=True),
+            default=False,
+            output_field=BooleanField()
          )
       ).order_by('-date_joined')

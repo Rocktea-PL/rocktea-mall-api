@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
-from rest_framework import status
+from rest_framework import status as drf_status
 from django.db.models import (
     Count, Sum, Value, DecimalField, IntegerField, Q, F,
     When, Case, CharField
@@ -12,9 +12,6 @@ from order.models import StoreOrder, PaystackWebhook, Product
 from mall.models import CustomUser
 from admin_orders.serializers import AdminTransactionSerializer
 from django.utils import timezone
-
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
 
 class AdminDashboardView(APIView):
     permission_classes = [IsAdminUser]
@@ -69,8 +66,8 @@ class AdminDashboardView(APIView):
         
         return Response({
             'stats': stats,
-            'orders': paginator.get_paginated_response(serializer.data).data
-        }, status=status.HTTP_200_OK)
+            'transactions': paginator.get_paginated_response(serializer.data).data
+        }, status=drf_status.HTTP_200_OK)
     
 class DropshipperAnalyticsView(APIView):
     permission_classes = [IsAdminUser]
