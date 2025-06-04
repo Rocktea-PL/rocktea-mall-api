@@ -96,11 +96,11 @@ class AdminProductListSerializer(serializers.ModelSerializer):
         return None
     
     def get_wholesale_price(self, obj):
-        """Get wholesale price from product variant"""
+        """Get wholesale price from product variant with fallback"""
         variant = obj.product_variants.first()
-        if variant:
+        if variant and variant.wholesale_price is not None:
             return '{:,.2f}'.format(variant.wholesale_price)
-        return None
+        return "0.00"
     
     def get_units_sold(self, obj):
         """Calculate total units sold for this product"""

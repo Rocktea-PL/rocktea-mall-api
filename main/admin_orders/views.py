@@ -88,6 +88,8 @@ class AdminTransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     pagination_class = CustomPagination
     http_method_names = ['get']
+    lookup_field = 'id'
+    lookup_url_kwarg = 'id'
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = {
