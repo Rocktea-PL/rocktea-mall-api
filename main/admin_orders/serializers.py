@@ -71,7 +71,7 @@ class AdminOrderSerializer(serializers.ModelSerializer):
     def get_item_count(self, obj):
         """Get total number of items in the order"""
         return obj.items.count()
-    
+
 class AdminTransactionSerializer(serializers.ModelSerializer):
     # Use transaction's own ID instead of order ID
     id = serializers.CharField()
