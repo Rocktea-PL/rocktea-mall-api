@@ -8,6 +8,60 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+class BaseAdminProductSerializer(serializers.ModelSerializer):
+    """Base serializer with common fields for both list and detail views"""
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+    producttype_name = serializers.CharField(source='producttype.name', read_only=True)
+    wholesale_price = serializers.SerializerMethodField()
+    units_sold = serializers.SerializerMethodField()
+    stock_status = serializers.SerializerMethodField()
+    image_count = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'sku', 'name', 'quantity', 'category_name', 'brand_name',
+            'subcategory_name', 'producttype_name', 'wholesale_price',
+            'units_sold', 'stock_status', 'is_available', 'upload_status',
+            'created_at', 'image_count', 'primary_image'
+        ]
+    
+    def get_wholesale_price(self, obj):
+        variant = obj.product_variants.first()
+        if variant and variant.wholesale_price is not None:
+            return f"{variant.wholesale_price:,.2f}"  # Simplified formatting
+        return "0.00"
+    
+    def get_units_sold(self, obj):
+        total_sold = OrderItems.objects.filter(product=obj).aggregate(
+            total=Sum('quantity')
+        )['total']
+        return total_sold or 0
+    
+    def get_stock_status(self, obj):
+        if obj.quantity == 0:
+            return 'out_of_stock'
+        elif obj.quantity <= 10:
+            return 'low_stock'
+        else:
+            return 'in_stock'
+    
+    def get_image_count(self, obj):
+        return obj.images.count()
+    
+    def get_primary_image(self, obj):
+        if img := obj.images.first():
+            return img.images.url if img.images else None
+        return None
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['created_at'] = instance.formatted_created_at()
+        return representation
+    
 class AdminProductCreateSerializer(serializers.ModelSerializer):
     """Serializer for creating products by admin"""
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
@@ -69,167 +123,22 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
         # Fallback to comma-separated values
         return [item.strip() for item in value.split(',') if item.strip()]
 
-
-class AdminProductListSerializer(serializers.ModelSerializer):
-    """Serializer for listing products in admin panel"""
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    brand_name = serializers.CharField(source='brand.name', read_only=True)
-    wholesale_price = serializers.SerializerMethodField()
-    units_sold = serializers.SerializerMethodField()
-    stock_status = serializers.SerializerMethodField()
-    image_count = serializers.SerializerMethodField()
-    primary_image = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = Product
+class AdminProductListSerializer(BaseAdminProductSerializer):
+    """Serializer for listing products (minimal fields)"""
+    class Meta(BaseAdminProductSerializer.Meta):
         fields = [
             'id', 'sku', 'name', 'quantity', 'category_name', 'brand_name',
+            'subcategory_name', 'producttype_name',
             'wholesale_price', 'units_sold', 'stock_status', 'is_available',
             'upload_status', 'created_at', 'image_count', 'primary_image'
         ]
 
-    def get_primary_image(self, obj):
-        """Get URL of the first product image"""
-        first_image = obj.images.first()
-        if first_image and first_image.images:
-            return first_image.images.url
-        return None
-    
-    def get_wholesale_price(self, obj):
-        """Get wholesale price from product variant with fallback"""
-        variant = obj.product_variants.first()
-        if variant and variant.wholesale_price is not None:
-            return '{:,.2f}'.format(variant.wholesale_price)
-        return "0.00"
-    
-    def get_units_sold(self, obj):
-        """Calculate total units sold for this product"""
-        total_sold = OrderItems.objects.filter(product=obj).aggregate(
-            total=Sum('quantity')
-        )['total']
-        return total_sold or 0
-    
-    def get_stock_status(self, obj):
-        """Determine stock status based on quantity"""
-        if obj.quantity == 0:
-            return 'out_of_stock'
-        elif obj.quantity <= 10:
-            return 'low_stock'
-        else:
-            return 'in_stock'
-    
-    def get_image_count(self, obj):
-        """Get count of product images"""
-        return obj.images.count()
-    
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['created_at'] = instance.formatted_created_at()
-        return representation
-
-
-class AdminProductDetailSerializer(serializers.ModelSerializer):
+class AdminProductDetailSerializer(BaseAdminProductSerializer):
     """Detailed serializer for individual product view"""
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    brand_name = serializers.CharField(source='brand.name', read_only=True)
-    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
-    producttype_name = serializers.CharField(source='producttype.name', read_only=True)
-    wholesale_price = serializers.SerializerMethodField()
-    primary_image = serializers.SerializerMethodField()
-    image_count = serializers.SerializerMethodField()
-    units_sold = serializers.SerializerMethodField()
-    stock_status = serializers.SerializerMethodField()
-    images = ProductImageSerializer(many=True, read_only=True)
-    product_variants = ProductVariantSerializer(many=True, read_only=True)
-    sales_analytics = serializers.SerializerMethodField()
     
-    class Meta:
-        model = Product
-        fields = [
-            'id', 'sku', 'name', 'quantity', 'category_name', 'subcategory_name', 'brand_name',
-            'wholesale_price', 'units_sold', 'stock_status', 'is_available', 'producttype_name',
-            'upload_status', 'created_at', 'image_count', 'primary_image', 'sales_analytics',
-            'sales_count', 'product_variants', 'images',
-        ]
-        read_only_fields = ('id', 'sku', 'created_at', 'sales_count')
-
-    def get_wholesale_price(self, obj):
-        """Get wholesale price from product variant with fallback"""
-        variant = obj.product_variants.first()
-        if variant and variant.wholesale_price is not None:
-            return '{:,.2f}'.format(variant.wholesale_price)
-        return "0.00"
-    
-    def get_primary_image(self, obj):
-        """Get URL of the first product image"""
-        first_image = obj.images.first()
-        if first_image and first_image.images:
-            return first_image.images.url
-        return None
-    
-    def get_image_count(self, obj):
-        """Get count of product images"""
-        return obj.images.count()
-
-    def get_units_sold(self, obj):
-        """Calculate total units sold"""
-        total_sold = OrderItems.objects.filter(product=obj).aggregate(
-            total=Sum('quantity')
-        )['total']
-        return total_sold or 0
-    
-    def get_stock_status(self, obj):
-        """Get detailed stock status"""
-        units_sold = self.get_units_sold(obj)
-        remaining_stock = obj.quantity
-        
-        status = 'in_stock'
-        if remaining_stock == 0:
-            status = 'out_of_stock'
-        elif remaining_stock <= 10:
-            status = 'low_stock'
-        
-        return {
-            'status': status,
-            'current_quantity': remaining_stock,
-            'units_sold': units_sold,
-            'reorder_level': 10  # Configurable reorder level
-        }
-    
-    def get_sales_analytics(self, obj):
-        """Get basic sales analytics"""
-        order_items = OrderItems.objects.filter(product=obj).select_related(
-            'userorder__store'
-        )
-        
-        # Sales by store
-        sales_by_store = {}
-        total_revenue = 0
-        
-        for item in order_items:
-            store_name = item.userorder.store.name
-            if store_name not in sales_by_store:
-                sales_by_store[store_name] = {'quantity': 0, 'orders': 0}
-            
-            sales_by_store[store_name]['quantity'] += item.quantity
-            sales_by_store[store_name]['orders'] += 1
-            
-            # Calculate revenue based on wholesale price
-            variant = obj.product_variants.first()
-            if variant:
-                total_revenue += float(variant.wholesale_price) * item.quantity
-        
-        return {
-            'total_revenue': '{:,.2f}'.format(total_revenue),
-            'sales_by_store': sales_by_store,
-            'total_orders': order_items.count()
-        }
-    
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['created_at'] = instance.formatted_created_at()
-        return representation
-
+    class Meta(BaseAdminProductSerializer.Meta):
+        fields = BaseAdminProductSerializer.Meta.fields
+        read_only_fields = ('id', 'sku', 'sales_count')
 
 class AdminProductSerializer(serializers.ModelSerializer):
     """General admin product serializer for updates"""

@@ -1,6 +1,6 @@
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Sum, Q
+from django.db.models import Sum
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -20,7 +20,6 @@ import logging
 from order.pagination import CustomPagination
 from .filters import ProductFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db.models import Value, FloatField
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +31,7 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, IsAdminUser]
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = CustomPagination
+    ordering = ['-created_at']
 
     # Add filter backends and custom filter class
     filter_backends = [
@@ -60,17 +60,6 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             return AdminProductDetailSerializer
         return AdminProductSerializer
-    
-    def get_queryset(self):
-        """Apply annotation for wholesale price fallback"""
-        queryset = super().get_queryset()
-        
-        # Add annotation for wholesale price fallback
-        queryset = queryset.annotate(
-            _wholesale_price_fallback=Value(0, output_field=FloatField())
-        )
-        
-        return queryset
 
     def get_object(self):
         """Allow lookup by ID or SKU"""
