@@ -130,25 +130,46 @@ class AdminProductListSerializer(serializers.ModelSerializer):
 
 class AdminProductDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for individual product view"""
-    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
-    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-    images = ProductImageSerializer(many=True, read_only=True)
-    product_variants = ProductVariantSerializer(many=True, read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True)
+    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+    producttype_name = serializers.CharField(source='producttype.name', read_only=True)
+    wholesale_price = serializers.SerializerMethodField()
+    primary_image = serializers.SerializerMethodField()
+    image_count = serializers.SerializerMethodField()
     units_sold = serializers.SerializerMethodField()
     stock_status = serializers.SerializerMethodField()
+    images = ProductImageSerializer(many=True, read_only=True)
+    product_variants = ProductVariantSerializer(many=True, read_only=True)
     sales_analytics = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = [
-            'id', 'sku', 'name', 'description', 'quantity', 'category',
-            'subcategory', 'brand', 'producttype', 'images', 'product_variants',
-            'units_sold', 'stock_status', 'sales_analytics', 'is_available',
-            'upload_status', 'created_at', 'sales_count'
+            'id', 'sku', 'name', 'quantity', 'category_name', 'subcategory_name', 'brand_name',
+            'wholesale_price', 'units_sold', 'stock_status', 'is_available', 'producttype_name',
+            'upload_status', 'created_at', 'image_count', 'primary_image', 'sales_analytics',
+            'sales_count', 'product_variants', 'images',
         ]
         read_only_fields = ('id', 'sku', 'created_at', 'sales_count')
+
+    def get_wholesale_price(self, obj):
+        """Get wholesale price from product variant with fallback"""
+        variant = obj.product_variants.first()
+        if variant and variant.wholesale_price is not None:
+            return '{:,.2f}'.format(variant.wholesale_price)
+        return "0.00"
+    
+    def get_primary_image(self, obj):
+        """Get URL of the first product image"""
+        first_image = obj.images.first()
+        if first_image and first_image.images:
+            return first_image.images.url
+        return None
+    
+    def get_image_count(self, obj):
+        """Get count of product images"""
+        return obj.images.count()
 
     def get_units_sold(self, obj):
         """Calculate total units sold"""
@@ -343,7 +364,6 @@ class BulkStockUpdateSerializer(serializers.Serializer):
                 raise serializers.ValidationError(f"Update {i+1}: Invalid quantity: {update['quantity']}")
         
         return value
-
 
 class ProductApprovalSerializer(serializers.Serializer):
     """Serializer for product approval"""

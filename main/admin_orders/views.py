@@ -1,5 +1,5 @@
 from django.http import Http404
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from order.models import StoreOrder, OrderItems, PaystackWebhook
 from .serializers import AdminOrderSerializer, AdminTransactionSerializer
 from order.pagination import CustomPagination
@@ -7,7 +7,22 @@ from django.db.models import Prefetch
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters
+from django_filters import rest_framework as django_filters
+
+
+class OrderFilter(django_filters.FilterSet):
+    buyer_email = django_filters.CharFilter(field_name="buyer__email", lookup_expr='icontains')
+    store_name = django_filters.CharFilter(field_name="store__name", lookup_expr='icontains')
+    
+    class Meta:
+        model = StoreOrder
+        fields = {
+            'status': ['exact', 'in'],
+            'created_at': ['exact', 'gte', 'lte'],
+            'total_price': ['exact', 'gte', 'lte'],
+            'delivery_code': ['exact'],
+            'tracking_id': ['exact'],
+        }
 
 class AdminOrderViewSet(viewsets.ModelViewSet):
     serializer_class = AdminOrderSerializer
@@ -17,17 +32,38 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
     lookup_field = 'identifier'
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = {
-        'status': ['exact', 'in'],
-        'created_at': ['exact', 'gte', 'lte'],
-        'buyer__email': ['exact', 'contains'],
-        'store__name': ['exact', 'contains'],
-        'total_price': ['exact', 'gte', 'lte'],
-        'delivery_code': ['exact'],
-        'tracking_id': ['exact'],
-    }
-    search_fields = ['id', 'order_sn', 'delivery_location']
+    filterset_class = OrderFilter
+    search_fields = [
+        'id',  # Matches order_id
+        'order_sn',  # Matches invoice_no
+        'status',
+        'total_price',  # Matches total
+        'delivery_location',
+        'tracking_id',
+        'delivery_code',
+        'buyer__first_name',  # For buyer_name
+        'buyer__last_name',  # For buyer_name
+        'buyer__contact',  # For buyer_contact
+        'items__product__name',  # For product_name in items
+        'items__product__sku',  # For product_sku in items
+    ]
     ordering_fields = ['created_at', 'total_price']
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        
+        # Handle custom filters
+        params = self.request.query_params
+        
+        # Handle buyer_email filter
+        if 'buyer_email' in params:
+            queryset = queryset.filter(buyer__email__icontains=params['buyer_email'])
+            
+        # Handle store_name filter
+        if 'store_name' in params:
+            queryset = queryset.filter(store__name__icontains=params['store_name'])
+            
+        return queryset
     
     def get_queryset(self):
         queryset = StoreOrder.objects.select_related(
@@ -82,7 +118,21 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
-        
+
+class TransactionFilter(django_filters.FilterSet):
+    user_email = django_filters.CharFilter(field_name="user__email", lookup_expr='icontains')
+    order_id = django_filters.CharFilter(field_name="order__id")
+    
+    class Meta:
+        model = PaystackWebhook
+        fields = {
+            'status': ['exact', 'in'],
+            'created_at': ['exact', 'gte', 'lte'],
+            'total_price': ['exact', 'gte', 'lte'],
+            'purpose': ['exact'],
+            'reference': ['exact'],
+        }
+
 class AdminTransactionViewSet(viewsets.ModelViewSet):
     serializer_class = AdminTransactionSerializer
     permission_classes = [IsAdminUser]
@@ -92,17 +142,34 @@ class AdminTransactionViewSet(viewsets.ModelViewSet):
     lookup_url_kwarg = 'id'
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = {
-        'status': ['exact', 'in'],
-        'created_at': ['exact', 'gte', 'lte'],
-        'user__email': ['exact', 'contains'],
-        'order__id': ['exact'],
-        'total_price': ['exact', 'gte', 'lte'],
-        'purpose': ['exact'],
-        'reference': ['exact'],
-    }
-    search_fields = ['reference', 'user__email']
+    filterset_class = TransactionFilter
+    search_fields = [
+        'reference',
+        'total_price',
+        'status',
+        'user__email',
+        'user__first_name',
+        'user__last_name',
+        'order__order_sn',
+        'order__id',
+    ]
     ordering_fields = ['created_at', 'total_price']
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        
+        # Handle custom filters
+        params = self.request.query_params
+        
+        # Handle user_email filter
+        if 'user_email' in params:
+            queryset = queryset.filter(user__email__icontains=params['user_email'])
+            
+        # Handle order_id filter
+        if 'order_id' in params:
+            queryset = queryset.filter(order__id=params['order_id'])
+            
+        return queryset
     
     def get_queryset(self):
         queryset = PaystackWebhook.objects.select_related(
@@ -119,3 +186,4 @@ class AdminTransactionViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(purpose=purpose)
             
         return queryset
+    

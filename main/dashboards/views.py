@@ -41,6 +41,18 @@ class AdminDashboardView(APIView):
         transactions_queryset = PaystackWebhook.objects.select_related(
             'user', 'order'
         ).order_by('-created_at')
+
+        # Apply search parameter
+        search_term = request.query_params.get('search', '').strip()
+        if search_term:
+            transactions_queryset = transactions_queryset.filter(
+                Q(reference__icontains=search_term) |
+                Q(user__email__icontains=search_term) |
+                Q(order__order_sn__icontains=search_term) |
+                Q(status__icontains=search_term) |
+                Q(purpose__icontains=search_term) |
+                Q(total_price__icontains=search_term)
+            )
         
         # Apply filters
         status = request.query_params.get('status')
@@ -103,6 +115,17 @@ class DropshipperAnalyticsView(APIView):
             ),
             last_seen=F('last_login')
         ).order_by('-owners__created_at')
+
+        # Apply search parameter
+        search_term = request.query_params.get('search', '').strip()
+        if search_term:
+            dropshippers = dropshippers.filter(
+                Q(first_name__icontains=search_term) |
+                Q(last_name__icontains=search_term) |
+                Q(email__icontains=search_term) |
+                Q(owners__name__icontains=search_term) |
+                Q(active_status__icontains=search_term)
+            )
 
         # Apply filters
         status = request.query_params.get('status')

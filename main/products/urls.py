@@ -13,6 +13,13 @@ admin_router.register(r'', AdminProductViewSet, basename='admin-products')
 urlpatterns = [
     # Include admin router
     path('', include(admin_router.urls)),
+
+    path('<str:identifier>/', AdminProductViewSet.as_view({
+        'get': 'retrieve',
+        'put': 'update',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='admin-product-detail'),
     
     # Bulk operations
     path('bulk-update-stock/', bulk_update_stock, name='bulk-update-stock'),
