@@ -1,4 +1,4 @@
-from mall.models import CustomUser, Store, Product, Category
+from mall.models import CustomUser, Product, Category
 from mall.serializers import ProductSerializer
 from rest_framework.generics import ListAPIView
 from django.shortcuts import get_list_or_404
@@ -6,7 +6,7 @@ from django.shortcuts import get_list_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
-from .serializers import DropshipperAdminSerializer, DropshipperListSerializer
+from .serializers import DropshipperAdminSerializer, DropshipperListSerializer, DropshipperDetailSerializer
 
 from django.db.models import Count, Sum, Q, Case, When, BooleanField, DecimalField, IntegerField, CharField, Value
 from django.db.models.functions import Coalesce
@@ -37,7 +37,6 @@ class MyProducts(ListAPIView):
 class DropshipperAdminViewSet(viewsets.ModelViewSet):
    """Admin-only dropshipper management with analytics"""
    queryset = CustomUser.objects.filter(is_store_owner=True)
-   serializer_class = DropshipperAdminSerializer
    permission_classes = [IsAdminUser]
    lookup_field = 'id'
    pagination_class = CustomPagination
@@ -50,15 +49,9 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    def get_serializer_class(self):
       if self.action == 'list':
          return DropshipperListSerializer
+      elif self.action in ['create', 'retrieve', 'update', 'partial_update']:
+         return DropshipperDetailSerializer
       return DropshipperAdminSerializer
-
-   def update(self, request, *args, **kwargs):
-      """Handle full update - signals will manage Cloudinary deletion"""
-      return super().update(request, *args, **kwargs)
-
-   def partial_update(self, request, *args, **kwargs):
-      """Handle partial update - signals will manage Cloudinary deletion"""
-      return super().partial_update(request, *args, **kwargs)
 
    def destroy(self, request, *args, **kwargs):
       instance = self.get_object()
@@ -77,9 +70,30 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       self.perform_destroy(instance)
       return Response(status=status.HTTP_204_NO_CONTENT)
 
-   def perform_create(self, serializer):
-      serializer.save(is_store_owner=True)  # Force store owner status
+   def create(self, request, *args, **kwargs):
+      """Handle creation with proper response formatting"""
+      serializer = self.get_serializer(data=request.data)
+      serializer.is_valid(raise_exception=True)
+      self.perform_create(serializer)
+      
+      # Return the created instance with full details
+      instance = serializer.instance
+      output_serializer = DropshipperDetailSerializer(instance, context=self.get_serializer_context())
+      headers = self.get_success_headers(output_serializer.data)
+      return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
+   def update(self, request, *args, **kwargs):
+      """Handle update with proper response formatting"""
+      partial = kwargs.pop('partial', False)
+      instance = self.get_object()
+      serializer = self.get_serializer(instance, data=request.data, partial=partial)
+      serializer.is_valid(raise_exception=True)
+      self.perform_update(serializer)
+      
+      # Return the updated instance with full details
+      output_serializer = DropshipperDetailSerializer(instance, context=self.get_serializer_context())
+      return Response(output_serializer.data)
+   
    def get_queryset(self):
       now = timezone.now()
       thirty_days_ago = now - timezone.timedelta(days=30)

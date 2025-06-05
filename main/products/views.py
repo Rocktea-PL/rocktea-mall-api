@@ -1,6 +1,7 @@
+from django.http import Http404
 from django.db import transaction
 from django.db.models import Sum, Q
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -17,6 +18,9 @@ from .serializers import (
 from order.models import OrderItems
 import logging
 from order.pagination import CustomPagination
+from .filters import ProductFilter
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db.models import Value, FloatField
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +33,25 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = CustomPagination
 
+    # Add filter backends and custom filter class
+    filter_backends = [
+        DjangoFilterBackend,
+        filters.SearchFilter,
+        filters.OrderingFilter
+    ]
+    filterset_class = ProductFilter
+    search_fields = [
+        'name', 
+        'sku',
+        'category__name', 
+        'brand__name',
+        'description',
+        'product_variants__wholesale_price',
+        'quantity'
+    ]
+    ordering_fields = ['created_at', 'quantity', 'name']
+    lookup_field = 'identifier'
+
     def get_serializer_class(self):
         if self.action == 'create':
             return AdminProductCreateSerializer
@@ -37,57 +60,85 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         elif self.action == 'retrieve':
             return AdminProductDetailSerializer
         return AdminProductSerializer
-
+    
     def get_queryset(self):
-        """Filter products based on query parameters"""
-        queryset = self.queryset
+        """Apply annotation for wholesale price fallback"""
+        queryset = super().get_queryset()
         
-        # NEW: Filter by category name
-        category_name = self.request.query_params.get('category_name')
-        if category_name:
-            queryset = queryset.filter(category__name__icontains=category_name)
+        # Add annotation for wholesale price fallback
+        queryset = queryset.annotate(
+            _wholesale_price_fallback=Value(0, output_field=FloatField())
+        )
         
-        # NEW: Filter by brand name
-        brand_name = self.request.query_params.get('brand_name')
-        if brand_name:
-            queryset = queryset.filter(brand__name__icontains=brand_name)
-        
-        search = self.request.query_params.get('search')
-        if search:
-            queryset = queryset.filter(
-                Q(name__icontains=search) | 
-                Q(sku__icontains=search)  # Removed description
-            )
-        
-        # Filter by stock status
-        stock_status = self.request.query_params.get('stock_status')
-        if stock_status == 'out_of_stock':
-            queryset = queryset.filter(quantity=0)
-        elif stock_status == 'low_stock':
-            queryset = queryset.filter(quantity__lte=10, quantity__gt=0)
-        elif stock_status == 'in_stock':
-            queryset = queryset.filter(quantity__gt=10)
+        return queryset
 
-        name = self.request.query_params.get('name')
-        if name:
-            queryset = queryset.filter(name__icontains=name)
+    def get_object(self):
+        """Allow lookup by ID or SKU"""
+        identifier = self.kwargs.get('identifier')
         
-        sku_filter = self.request.query_params.get('sku')
-        if sku_filter:
-            queryset = queryset.filter(sku__icontains=sku_filter)
-        
-        # 'amount' refers to wholesale_price
-        amount = self.request.query_params.get('amount')
-        if amount:
+        try:
+            # Try to find by UUID (primary key)
+            return self.get_queryset().get(id=identifier)
+        except (Product.DoesNotExist, ValueError):
             try:
-                price = float(amount)
-                queryset = queryset.filter(
-                    product_variants__wholesale_price=price
-                ).distinct()
-            except (ValueError, TypeError):
-                pass
-
-        return queryset.order_by('-created_at')
+                # Try to find by SKU
+                return self.get_queryset().get(sku=identifier)
+            except Product.DoesNotExist:
+                raise Http404("No product found with the provided identifier")
+            
+    def filter_queryset(self, queryset):
+        """Handle custom search for stock status"""
+        # First handle the search parameter
+        search_term = self.request.query_params.get('search', '').strip().lower()
+        
+        if search_term:
+            # Map search terms to stock status values
+            stock_status_map = {
+                'out': 'out_of_stock',
+                'out_of_stock': 'out_of_stock',
+                'out of stock': 'out_of_stock',
+                'oos': 'out_of_stock',
+                '0': 'out_of_stock',
+                
+                'low': 'low_stock',
+                'low_stock': 'low_stock',
+                'low stock': 'low_stock',
+                'lstock': 'low_stock',
+                
+                'in': 'in_stock',
+                'in_stock': 'in_stock',
+                'in stock': 'in_stock',
+                'available': 'in_stock',
+                'instock': 'in_stock',
+                'stock': 'in_stock'
+            }
+            
+            # Check if search term matches any stock status keyword
+            status_value = stock_status_map.get(search_term)
+            
+            if status_value == 'out_of_stock':
+                return queryset.filter(quantity=0)
+            elif status_value == 'low_stock':
+                return queryset.filter(quantity__lte=10, quantity__gt=0)
+            elif status_value == 'in_stock':
+                return queryset.filter(quantity__gt=10)
+        
+        # Apply standard filtering
+        return super().filter_queryset(queryset)
+            
+    def retrieve(self, request, *args, **kwargs):
+        """Custom retrieve with proper error handling"""
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Http404:
+            return Response(
+                {
+                    "error": "Product not found",
+                    "message": "No product exists with the provided identifier. "
+                               "Please check the product ID or SKU."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
 
     @transaction.atomic
     def perform_create(self, serializer):

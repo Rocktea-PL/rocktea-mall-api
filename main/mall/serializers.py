@@ -431,7 +431,7 @@ class ProductTypesSerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
-      fields = ['id', 'url', 'images']
+      fields = ['id', 'images']
 
    def get_url(self, obj):
       if obj.images:
