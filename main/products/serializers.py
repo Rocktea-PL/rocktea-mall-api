@@ -3,7 +3,6 @@ from django.db.models import Sum
 from mall.models import Product, ProductVariant, Category, SubCategories, ProductTypes, Brand, ProductImage
 from order.models import OrderItems
 import json
-from mall.serializers import ProductVariantSerializer, ProductImageSerializer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -164,11 +163,13 @@ class AdminProductSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         # Extract special fields that need custom handling
-        new_images = validated_data.pop('images', None)
+        # new_images = validated_data.pop('images', None)
+        new_images = validated_data.pop('images', [])
         wholesale_price = validated_data.pop('wholesale_price', None)
         
         # Handle image updates ONLY if new images are explicitly provided
-        if new_images:  # Changed from `is not None` to just check if truthy
+        # if new_images:  # Changed from `is not None` to just check if truthy
+        if new_images is not None:
             try:
                 # Get current images to delete them properly
                 current_images = list(instance.images.all())
@@ -231,7 +232,6 @@ class AdminProductSerializer(serializers.ModelSerializer):
         # Save the instance
         instance.save()
         return instance
-
 
 class BulkStockUpdateSerializer(serializers.Serializer):
     """Serializer for bulk stock updates"""
