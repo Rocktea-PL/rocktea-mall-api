@@ -42,7 +42,7 @@ class DropshipperDetailSerializer(serializers.ModelSerializer):
             'profile_image', 'is_store_owner', 'completed_steps', 'is_active',
             'is_verified', 'date_joined', 'last_active', 'total_products',
             'total_products_available', 'total_products_sold', 'total_revenue',
-            'store', 'is_active_user'
+            'store', 'is_active_user', 'company_name'
         ]
         read_only_fields = ('completed_steps', 'date_joined')
         extra_kwargs = {
