@@ -5,7 +5,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from mall.models import Product, ProductImage
 from .serializers import (
     AdminProductSerializer, 
@@ -135,16 +135,15 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         try:
             product = serializer.save()
             
-            # Handle image uploads if provided
-            images = self.request.FILES.getlist('images')
-            for image in images:
-                try:
-                    # Create ProductImage with 'images' field
-                    product_image = ProductImage.objects.create(images=image)
-                    product.images.add(product_image)
-                except Exception as e:
-                    logger.error(f"Failed to create product image: {e}")
-            
+            # Only process images if they exist in request
+            if self.request.FILES.get('images'):
+                images = self.request.FILES.getlist('images')
+                for image in images:
+                    try:
+                        product_image = ProductImage.objects.create(images=image)
+                        product.images.add(product_image)
+                    except Exception as e:
+                        logger.error(f"Failed to create product image: {e}")
             return product
         except Exception as e:
             logger.error(f"Error creating product: {e}")
@@ -152,13 +151,19 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
-      """Handle full update - signals will manage Cloudinary deletion"""
-      return super().update(request, *args, **kwargs)
+        """Handle full update - signals will manage Cloudinary deletion"""
+        # Handle JSON requests by changing parser behavior
+        if not request.FILES and not request.data.get('images'):
+            request.parsers = [JSONParser()]
+        return super().update(request, *args, **kwargs)
     
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
-      """Handle partial update - signals will manage Cloudinary deletion"""
-      return super().partial_update(request, *args, **kwargs)
+        """Handle partial update - signals will manage Cloudinary deletion"""
+        # Handle JSON requests by changing parser behavior
+        if not request.FILES and not request.data.get('images'):
+            request.parsers = [JSONParser()]
+        return super().partial_update(request, *args, **kwargs)
 
     @transaction.atomic
     def perform_destroy(self, instance):
