@@ -361,6 +361,8 @@ class BrandSerializer(serializers.ModelSerializer):
       return value
 
 class SubCategorySerializer(serializers.ModelSerializer):
+   category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), read_only=False)
+
    class Meta:
       model = SubCategories
       fields = '__all__'
@@ -373,19 +375,19 @@ class SubCategorySerializer(serializers.ModelSerializer):
       if category and name:
          query = SubCategories.objects.filter(category=category, name=name)
          if self.instance:
-               query = query.exclude(pk=self.instance.pk)
+            query = query.exclude(pk=self.instance.pk)
          
          if query.exists():
-               raise serializers.ValidationError(
-                  "A subcategory with this name already exists in this category."
-               )
+            raise serializers.ValidationError(
+               "A subcategory with this name already exists in this category."
+            )
       
       return data
       
-   def to_representation(self, instance):
-      representation = super(SubCategorySerializer, self).to_representation(instance)
-      representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
-      return representation
+   # def to_representation(self, instance):
+   #    representation = super(SubCategorySerializer, self).to_representation(instance)
+   #    representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
+   #    return representation
 
 class CategorySerializer(serializers.ModelSerializer):
    class Meta:
@@ -402,6 +404,7 @@ class CategorySerializer(serializers.ModelSerializer):
       return value
 
 class ProductTypesSerializer(serializers.ModelSerializer):
+   subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    class Meta:
       model = ProductTypes
       fields = '__all__'
@@ -414,19 +417,19 @@ class ProductTypesSerializer(serializers.ModelSerializer):
       if subcategory and name:
          query = ProductTypes.objects.filter(subcategory=subcategory, name=name)
          if self.instance:
-               query = query.exclude(pk=self.instance.pk)
+            query = query.exclude(pk=self.instance.pk)
          
          if query.exists():
-               raise serializers.ValidationError(
-                  "A product type with this name already exists in this subcategory."
-               )
+            raise serializers.ValidationError(
+               "A product type with this name already exists in this subcategory."
+            )
       
       return data
       
-   def to_representation(self, instance):
-      representation = super(ProductTypesSerializer, self).to_representation(instance)
-      representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
-      return representation
+   # def to_representation(self, instance):
+   #    representation = super(ProductTypesSerializer, self).to_representation(instance)
+   #    representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
+   #    return representation
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
