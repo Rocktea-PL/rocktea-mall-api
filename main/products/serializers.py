@@ -17,15 +17,17 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
     units_sold = serializers.SerializerMethodField()
     stock_status = serializers.SerializerMethodField()
     image_count = serializers.SerializerMethodField()
-    primary_image = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
+    size = serializers.SerializerMethodField()
+    colors = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = [
-            'id', 'sku', 'name', 'quantity', 'category_name', 'brand_name',
-            'subcategory_name', 'producttype_name', 'wholesale_price',
+            'id', 'sku', 'name', 'description', 'quantity', 'category_name', 
+            'brand_name', 'subcategory_name', 'producttype_name', 'wholesale_price',
             'units_sold', 'stock_status', 'is_available', 'upload_status',
-            'created_at', 'image_count', 'primary_image'
+            'created_at', 'image_count', 'images', 'size', 'colors'
         ]
     
     def get_wholesale_price(self, obj):
@@ -51,10 +53,17 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
     def get_image_count(self, obj):
         return obj.images.count()
     
-    def get_primary_image(self, obj):
-        if img := obj.images.first():
-            return img.images.url if img.images else None
-        return None
+    def get_images(self, obj):
+        """Return all image URLs for the product"""
+        return [img.images.url for img in obj.images.all() if img.images]
+    
+    def get_size(self, obj):
+        variant = obj.product_variants.first()
+        return variant.size if variant else None
+    
+    def get_colors(self, obj):
+        variant = obj.product_variants.first()
+        return variant.colors if variant else None
     
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -70,42 +79,128 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
     wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2, write_only=True)
     size = serializers.CharField(required=False, allow_blank=True, write_only=True)
     colors = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    images = serializers.ListField(
+        child=serializers.ImageField(),
+        required=False,
+        write_only=True
+    )
     
     class Meta:
         model = Product
         fields = [
             'name', 'description', 'quantity', 'category', 'subcategory', 
             'brand', 'producttype', 'wholesale_price', 'size', 'colors',
-            'is_available', 'upload_status'
+            'is_available', 'upload_status', 'images'
         ]
         extra_kwargs = {
             'upload_status': {'default': 'Approved'}
         }
+
+    def validate(self, data):
+        """Enhanced validation with detailed error messages"""
+        errors = {}
+        
+        # Validate category exists and is active
+        if 'category' in data:
+            try:
+                category = data['category']
+                if not hasattr(category, 'id'):
+                    errors['category'] = "Invalid category provided"
+            except Exception as e:
+                errors['category'] = f"Category validation error: {str(e)}"
+        
+        # Validate subcategory exists and belongs to the category
+        if 'subcategory' in data and 'category' in data:
+            try:
+                subcategory = data['subcategory']
+                category = data['category']
+                if subcategory.category_id != category.id:
+                    errors['subcategory'] = "Subcategory does not belong to the selected category"
+            except Exception as e:
+                errors['subcategory'] = f"Subcategory validation error: {str(e)}"
+        
+        # Validate brand exists
+        if 'brand' in data:
+            try:
+                brand = data['brand']
+                if not hasattr(brand, 'id'):
+                    errors['brand'] = "Invalid brand provided"
+            except Exception as e:
+                errors['brand'] = f"Brand validation error: {str(e)}"
+        
+        # Validate producttype exists
+        if 'producttype' in data:
+            try:
+                producttype = data['producttype']
+                if not hasattr(producttype, 'id'):
+                    errors['producttype'] = "Invalid product type provided"
+            except Exception as e:
+                errors['producttype'] = f"Product type validation error: {str(e)}"
+        
+        # Validate wholesale_price
+        if 'wholesale_price' in data:
+            if data['wholesale_price'] <= 0:
+                errors['wholesale_price'] = "Wholesale price must be greater than 0"
+        
+        # Validate quantity
+        if 'quantity' in data:
+            if data['quantity'] < 0:
+                errors['quantity'] = "Quantity cannot be negative"
+        
+        if errors:
+            raise serializers.ValidationError(errors)
+        
+        return data
     
     def create(self, validated_data):
-        # Extract variant data
-        wholesale_price = validated_data.pop('wholesale_price')
-        size = validated_data.pop('size', '')
-        colors = validated_data.pop('colors', '')
-        
-        # Create product
-        product = Product.objects.create(**validated_data)
+        try:
+            # Extract variant data
+            wholesale_price = validated_data.pop('wholesale_price')
+            size = validated_data.pop('size', '')
+            colors = validated_data.pop('colors', '')
+            images = validated_data.pop('images', [])
+            
+            # Create product
+            product = Product.objects.create(**validated_data)
+            logger.info(f"Created product with ID: {product.id}")
 
-        # Convert string representations to actual lists
-        size_list = self._parse_array(size)
-        colors_list = self._parse_array(colors)
-        
-        # Create product variant with wholesale price
-        variant = ProductVariant.objects.create(
-            wholesale_price=wholesale_price,
-            size=size_list,
-            colors=colors_list
-        )
-        
-        # Add product to variant using the proper ManyToMany method
-        variant.product.add(product)
-        
-        return product
+            # Convert string representations to actual lists
+            size_list = self._parse_array(size)
+            colors_list = self._parse_array(colors)
+            
+            # Create product variant with wholesale price
+            variant = ProductVariant.objects.create(
+                wholesale_price=wholesale_price,
+                size=size_list,
+                colors=colors_list
+            )
+            logger.info(f"Created variant with ID: {variant.id}")
+            
+            # Add product to variant
+            variant.product.add(product)
+            logger.info(f"Linked product {product.id} to variant {variant.id}")
+
+            # Handle images - FIXED HERE
+            for image in images:
+                try:
+                    # Create ProductImage instance with the uploaded image
+                    product_image = ProductImage.objects.create(images=image)
+                    
+                    # Add the image to the product's images
+                    product.images.add(product_image)
+                    logger.info(f"Added image to product {product.id}")
+                except Exception as e:
+                    logger.error(f"Failed to create product image: {e}")
+            
+            # Refresh the product instance to include images
+            product.refresh_from_db()
+            logger.info(f"Successfully created product: {product.name} (ID: {product.id})")
+            return product
+            
+        except Exception as e:
+            logger.error(f"Error creating product: {str(e)}")
+            # Re-raise with more specific error
+            raise serializers.ValidationError({"non_field_errors": [f"Product creation failed: {str(e)}"]})
 
     def _parse_array(self, value):
         """Convert string representation to list"""
@@ -126,10 +221,10 @@ class AdminProductListSerializer(BaseAdminProductSerializer):
     """Serializer for listing products (minimal fields)"""
     class Meta(BaseAdminProductSerializer.Meta):
         fields = [
-            'id', 'sku', 'name', 'quantity', 'category_name', 'brand_name',
-            'subcategory_name', 'producttype_name',
+            'id', 'sku', 'name', 'description', 'quantity', 'category_name', 
+            'brand_name', 'subcategory_name', 'producttype_name',
             'wholesale_price', 'units_sold', 'stock_status', 'is_available',
-            'upload_status', 'created_at', 'image_count', 'primary_image'
+            'upload_status', 'created_at', 'image_count', 'images', 'size', 'colors'
         ]
 
 class AdminProductDetailSerializer(BaseAdminProductSerializer):
@@ -146,10 +241,12 @@ class AdminProductSerializer(serializers.ModelSerializer):
     brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
     producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
     wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2, required=False)
-    images = serializers.ListField(
+    images = serializers.SerializerMethodField(read_only=True) 
+    new_images = serializers.ListField(
         child=serializers.ImageField(),
         required=False,
-        write_only=True
+        write_only=True,
+        source='images'  # Map to existing images field
     )
     
     class Meta:
@@ -157,9 +254,13 @@ class AdminProductSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'sku', 'name', 'description', 'quantity', 'category',
             'subcategory', 'brand', 'producttype', 'wholesale_price',
-            'is_available', 'upload_status', 'images'
+            'is_available', 'upload_status', 'images', 'new_images'
         ]
-        read_only_fields = ('id', 'sku')
+        read_only_fields = ('id', 'sku', 'images')
+
+    def get_images(self, obj):
+        """Return image URLs for read operations"""
+        return [img.images.url for img in obj.images.all() if img.images]
     
     def update(self, instance, validated_data):
         # Extract special fields that need custom handling
