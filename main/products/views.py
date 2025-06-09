@@ -173,26 +173,6 @@ class AdminProductViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-        
-    # @transaction.atomic
-    # def perform_create(self, serializer):
-    #     """Create product with automatic SKU generation"""
-    #     try:
-    #         product = serializer.save()
-            
-    #         # # Only process images if they exist in request
-    #         # if self.request.FILES.get('images'):
-    #         #     images = self.request.FILES.getlist('images')
-    #         #     for image in images:
-    #         #         try:
-    #         #             product_image = ProductImage.objects.create(images=image)
-    #         #             product.images.add(product_image)
-    #         #         except Exception as e:
-    #         #             logger.error(f"Failed to create product image: {e}")
-    #         return product
-    #     except Exception as e:
-    #         logger.error(f"Error creating product: {e}")
-    #         raise
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
@@ -200,15 +180,45 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         # Handle JSON requests by changing parser behavior
         if not request.FILES and not request.data.get('images'):
             request.parsers = [JSONParser()]
-        return super().update(request, *args, **kwargs)
+        # return super().update(request, *args, **kwargs)
+        #  Get partial parameter
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        # Use the update serializer
+        serializer = AdminProductSerializer(
+            instance, 
+            data=request.data, 
+            partial=partial,
+            context=self.get_serializer_context()
+        )
+        
+        try:
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+        except Exception as e:
+            logger.error(f"Update error: {str(e)}")
+            return Response(
+                {"error": "Update failed", "details": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Return detailed representation
+        detailed_serializer = AdminProductDetailSerializer(
+            instance, 
+            context=self.get_serializer_context()
+        )
+        return Response(detailed_serializer.data)
     
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
         """Handle partial update - signals will manage Cloudinary deletion"""
         # Handle JSON requests by changing parser behavior
-        if not request.FILES and not request.data.get('images'):
-            request.parsers = [JSONParser()]
-        return super().partial_update(request, *args, **kwargs)
+        # if not request.FILES and not request.data.get('images'):
+        #     request.parsers = [JSONParser()]
+        # return super().partial_update(request, *args, **kwargs)
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
 
     @transaction.atomic
     def perform_destroy(self, instance):

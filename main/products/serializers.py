@@ -17,7 +17,7 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
     units_sold = serializers.SerializerMethodField()
     stock_status = serializers.SerializerMethodField()
     image_count = serializers.SerializerMethodField()
-    images = serializers.SerializerMethodField()
+    product_images = serializers.SerializerMethodField()
     size = serializers.SerializerMethodField()
     colors = serializers.SerializerMethodField()
     
@@ -27,7 +27,7 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
             'id', 'sku', 'name', 'description', 'quantity', 'category_name', 
             'brand_name', 'subcategory_name', 'producttype_name', 'wholesale_price',
             'units_sold', 'stock_status', 'is_available', 'upload_status',
-            'created_at', 'image_count', 'images', 'size', 'colors'
+            'created_at', 'image_count', 'product_images', 'size', 'colors'
         ]
     
     def get_wholesale_price(self, obj):
@@ -53,7 +53,7 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
     def get_image_count(self, obj):
         return obj.images.count()
     
-    def get_images(self, obj):
+    def get_product_images(self, obj):
         """Return all image URLs for the product"""
         return [img.images.url for img in obj.images.all() if img.images]
     
@@ -200,7 +200,12 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
         except Exception as e:
             logger.error(f"Error creating product: {str(e)}")
             # Re-raise with more specific error
-            raise serializers.ValidationError({"non_field_errors": [f"Product creation failed: {str(e)}"]})
+            error_data = {
+                "error": "Product creation failed",
+                "details": str(e),
+                "code": "product_creation_error"
+            }
+            raise serializers.ValidationError(error_data)
 
     def _parse_array(self, value):
         """Convert string representation to list"""
@@ -224,7 +229,7 @@ class AdminProductListSerializer(BaseAdminProductSerializer):
             'id', 'sku', 'name', 'description', 'quantity', 'category_name', 
             'brand_name', 'subcategory_name', 'producttype_name',
             'wholesale_price', 'units_sold', 'stock_status', 'is_available',
-            'upload_status', 'created_at', 'image_count', 'images', 'size', 'colors'
+            'upload_status', 'created_at', 'image_count', 'product_images', 'size', 'colors'
         ]
 
 class AdminProductDetailSerializer(BaseAdminProductSerializer):
@@ -236,31 +241,52 @@ class AdminProductDetailSerializer(BaseAdminProductSerializer):
 
 class AdminProductSerializer(serializers.ModelSerializer):
     """General admin product serializer for updates"""
-    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
-    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
-    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
-    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2, required=False)
-    images = serializers.SerializerMethodField(read_only=True) 
-    new_images = serializers.ListField(
-        child=serializers.ImageField(),
-        required=False,
-        write_only=True,
-        source='images'  # Map to existing images field
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), 
+        required=False  # Make optional for updates
     )
-    
+    subcategory = serializers.PrimaryKeyRelatedField(
+        queryset=SubCategories.objects.all(),
+        required=False
+    )
+    brand = serializers.PrimaryKeyRelatedField(
+        queryset=Brand.objects.all(),
+        required=False
+    )
+    producttype = serializers.PrimaryKeyRelatedField(
+        queryset=ProductTypes.objects.all(),
+        required=False
+    )
+    wholesale_price = serializers.DecimalField(
+        max_digits=11, 
+        decimal_places=2, 
+        required=False
+    )
+    images = serializers.ListField(
+        child=serializers.ImageField(allow_empty_file=False),
+        required=False,
+        write_only=True
+    )
     class Meta:
         model = Product
         fields = [
             'id', 'sku', 'name', 'description', 'quantity', 'category',
             'subcategory', 'brand', 'producttype', 'wholesale_price',
-            'is_available', 'upload_status', 'images', 'new_images'
+            'is_available', 'upload_status', 'images'
         ]
-        read_only_fields = ('id', 'sku', 'images')
+        read_only_fields = ('id', 'sku')
+        # Make all fields optional for updates
+        extra_kwargs = {
+            'name': {'required': False},
+            'description': {'required': False},
+            'quantity': {'required': False},
+            'is_available': {'required': False},
+            'upload_status': {'required': False},
+        }
 
-    def get_images(self, obj):
-        """Return image URLs for read operations"""
-        return [img.images.url for img in obj.images.all() if img.images]
+    # def get_product_images(self, obj):
+    #     """Return image URLs for read operations"""
+    #     return [img.images.url for img in obj.images.all() if img.images]
     
     def update(self, instance, validated_data):
         # Extract special fields that need custom handling
