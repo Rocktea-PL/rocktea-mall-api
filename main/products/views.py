@@ -29,7 +29,8 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         'category', 'subcategory', 'producttype', 'brand'
     ).prefetch_related('images', 'product_variants')
     permission_classes = [IsAuthenticated, IsAdminUser]
-    parser_classes = [MultiPartParser, FormParser]
+    # Allow both JSON and multipart requests
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     pagination_class = CustomPagination
     ordering = ['-created_at']
 
@@ -130,24 +131,68 @@ class AdminProductViewSet(viewsets.ModelViewSet):
             )
 
     @transaction.atomic
-    def perform_create(self, serializer):
-        """Create product with automatic SKU generation"""
+    def create(self, request, *args, **kwargs):
+        """Enhanced create method with better error handling"""
         try:
+            # Log the incoming data for debugging
+            logger.info(f"Creating product with data: {request.data}")
+            
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                logger.error(f"Product creation validation errors: {serializer.errors}")
+                return Response(
+                    {
+                        'error': 'Validation failed',
+                        'details': serializer.errors,
+                        'message': 'Please check the provided data and try again.'
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Save the product
             product = serializer.save()
             
-            # Only process images if they exist in request
-            if self.request.FILES.get('images'):
-                images = self.request.FILES.getlist('images')
-                for image in images:
-                    try:
-                        product_image = ProductImage.objects.create(images=image)
-                        product.images.add(product_image)
-                    except Exception as e:
-                        logger.error(f"Failed to create product image: {e}")
-            return product
+            # Return success response with created product data
+            response_serializer = AdminProductDetailSerializer(product)
+            logger.info(f"Successfully created product: {product.name} (ID: {product.id})")
+            
+            return Response(
+                {
+                    'message': 'Product created successfully',
+                    'product': response_serializer.data
+                },
+                status=status.HTTP_201_CREATED
+            )
+            
         except Exception as e:
-            logger.error(f"Error creating product: {e}")
-            raise
+            logger.error(f"Unexpected error creating product: {str(e)}")
+            return Response(
+                {
+                    'error': 'Product creation failed',
+                    'message': str(e)
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        
+    # @transaction.atomic
+    # def perform_create(self, serializer):
+    #     """Create product with automatic SKU generation"""
+    #     try:
+    #         product = serializer.save()
+            
+    #         # # Only process images if they exist in request
+    #         # if self.request.FILES.get('images'):
+    #         #     images = self.request.FILES.getlist('images')
+    #         #     for image in images:
+    #         #         try:
+    #         #             product_image = ProductImage.objects.create(images=image)
+    #         #             product.images.add(product_image)
+    #         #         except Exception as e:
+    #         #             logger.error(f"Failed to create product image: {e}")
+    #         return product
+    #     except Exception as e:
+    #         logger.error(f"Error creating product: {e}")
+    #         raise
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):
