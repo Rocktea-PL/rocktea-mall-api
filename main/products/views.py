@@ -195,7 +195,15 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         
         try:
             serializer.is_valid(raise_exception=True)
-            self.perform_update(serializer)
+            # self.perform_update(serializer)
+
+            updated_instance = serializer.save()
+
+            detailed_serializer = AdminProductDetailSerializer(
+                updated_instance,  # Use the updated instance
+                context=self.get_serializer_context()
+            )
+            return Response(detailed_serializer.data)
         except Exception as e:
             logger.error(f"Update error: {str(e)}")
             return Response(
@@ -204,11 +212,11 @@ class AdminProductViewSet(viewsets.ModelViewSet):
             )
         
         # Return detailed representation
-        detailed_serializer = AdminProductDetailSerializer(
-            instance, 
-            context=self.get_serializer_context()
-        )
-        return Response(detailed_serializer.data)
+        # detailed_serializer = AdminProductDetailSerializer(
+        #     instance, 
+        #     context=self.get_serializer_context()
+        # )
+        # return Response(detailed_serializer.data)
     
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
