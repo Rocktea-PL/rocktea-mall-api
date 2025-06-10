@@ -9,10 +9,14 @@ logger = logging.getLogger(__name__)
 
 class BaseAdminProductSerializer(serializers.ModelSerializer):
     """Base serializer with common fields for both list and detail views"""
-    category_name = serializers.CharField(source='category.name', read_only=True)
-    brand_name = serializers.CharField(source='brand.name', read_only=True)
-    subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
-    producttype_name = serializers.CharField(source='producttype.name', read_only=True)
+    # category_name = serializers.CharField(source='category.name', read_only=True)
+    # brand_name = serializers.CharField(source='brand.name', read_only=True)
+    # subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+    # producttype_name = serializers.CharField(source='producttype.name', read_only=True)
+    category = serializers.SerializerMethodField()
+    brand = serializers.SerializerMethodField()
+    subcategory = serializers.SerializerMethodField()
+    producttype = serializers.SerializerMethodField()
     wholesale_price = serializers.SerializerMethodField()
     units_sold = serializers.SerializerMethodField()
     stock_status = serializers.SerializerMethodField()
@@ -24,8 +28,8 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            'id', 'sku', 'name', 'description', 'quantity', 'category_name', 
-            'brand_name', 'subcategory_name', 'producttype_name', 'wholesale_price',
+            'id', 'sku', 'name', 'description', 'quantity', 'category', 
+            'brand', 'subcategory', 'producttype', 'wholesale_price',
             'units_sold', 'stock_status', 'is_available', 'upload_status',
             'created_at', 'image_count', 'product_images', 'size', 'colors'
         ]
@@ -56,6 +60,26 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
     def get_product_images(self, obj):
         """Return all image URLs for the product"""
         return [img.images.url for img in obj.images.all() if img.images]
+    
+    def get_category(self, obj):
+        if obj.category:
+            return {'id': obj.category.id, 'name': obj.category.name}
+        return None
+
+    def get_brand(self, obj):
+        if obj.brand:
+            return {'id': obj.brand.id, 'name': obj.brand.name}
+        return None
+
+    def get_subcategory(self, obj):
+        if obj.subcategory:
+            return {'id': obj.subcategory.id, 'name': obj.subcategory.name}
+        return None
+
+    def get_producttype(self, obj):
+        if obj.producttype:
+            return {'id': obj.producttype.id, 'name': obj.producttype.name}
+        return None
     
     def get_size(self, obj):
         variant = obj.product_variants.first()
@@ -226,8 +250,8 @@ class AdminProductListSerializer(BaseAdminProductSerializer):
     """Serializer for listing products (minimal fields)"""
     class Meta(BaseAdminProductSerializer.Meta):
         fields = [
-            'id', 'sku', 'name', 'description', 'quantity', 'category_name', 
-            'brand_name', 'subcategory_name', 'producttype_name',
+            'id', 'sku', 'name', 'description', 'quantity', 'category', 
+            'brand', 'subcategory', 'producttype',
             'wholesale_price', 'units_sold', 'stock_status', 'is_available',
             'upload_status', 'created_at', 'image_count', 'product_images', 'size', 'colors'
         ]
@@ -267,12 +291,14 @@ class AdminProductSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True
     )
+    size = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    colors = serializers.CharField(required=False, allow_blank=True, write_only=True)
     class Meta:
         model = Product
         fields = [
             'id', 'sku', 'name', 'description', 'quantity', 'category',
             'subcategory', 'brand', 'producttype', 'wholesale_price',
-            'is_available', 'upload_status', 'images'
+            'is_available', 'upload_status', 'images', 'size', 'colors'
         ]
         read_only_fields = ('id', 'sku')
         # Make all fields optional for updates
@@ -293,6 +319,8 @@ class AdminProductSerializer(serializers.ModelSerializer):
         # new_images = validated_data.pop('images', None)
         new_images = validated_data.pop('images', [])
         wholesale_price = validated_data.pop('wholesale_price', None)
+        size = validated_data.pop('size', None)
+        colors = validated_data.pop('colors', None)
         
         # Handle image updates ONLY if new images are explicitly provided
         # if new_images:  # Changed from `is not None` to just check if truthy
@@ -334,23 +362,34 @@ class AdminProductSerializer(serializers.ModelSerializer):
                 logger.error(f"Error handling image updates: {e}")
                 raise serializers.ValidationError(f"Failed to update images: {str(e)}")
         
-        # Update wholesale price in variant if provided
+        # Update variant fields
+        variant = instance.product_variants.first()
+        if variant is None:
+            # Create new variant if none exists
+            variant = ProductVariant.objects.create(
+                wholesale_price=wholesale_price or 0,
+                size=[],
+                colors=[]
+            )
+            variant.product.add(instance)
+        
+        # Update wholesale_price if provided
         if wholesale_price is not None:
-            try:
-                variant = instance.product_variants.first()
-                if variant:
-                    variant.wholesale_price = wholesale_price
-                    variant.save()
-                else:
-                    # Create a new variant if none exists
-                    variant = ProductVariant.objects.create(
-                        wholesale_price=wholesale_price,
-                        size=[],
-                        colors=[]
-                    )
-                    variant.product.add(instance)
-            except Exception as e:
-                logger.error(f"Failed to update wholesale price: {e}")
+            variant.wholesale_price = wholesale_price
+        
+        # Update size if provided
+        if size is not None:
+            size_list = self._parse_array(size)
+            variant.size = size_list
+        
+        # Update colors if provided
+        if colors is not None:
+            colors_list = self._parse_array(colors)
+            variant.colors = colors_list
+        
+        # Save the variant if any changes were made
+        if any([wholesale_price is not None, size is not None, colors is not None]):
+            variant.save()
         
         # Update other product fields
         for attr, value in validated_data.items():
@@ -359,6 +398,17 @@ class AdminProductSerializer(serializers.ModelSerializer):
         # Save the instance
         instance.save()
         return instance
+    
+    def _parse_array(self, value):
+        """Convert string representation to list"""
+        if not value:
+            return []
+        try:
+            if value.startswith('[') and value.endswith(']'):
+                return json.loads(value)
+        except json.JSONDecodeError:
+            pass
+        return [item.strip() for item in value.split(',') if item.strip()]
 
 class BulkStockUpdateSerializer(serializers.Serializer):
     """Serializer for bulk stock updates"""
