@@ -1,7 +1,7 @@
 from django.http import Http404
 from django.db import transaction
 from django.db.models import Sum
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, serializers
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -164,12 +164,26 @@ class AdminProductViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED
             )
             
+        except serializers.ValidationError as ve:
+            # Handle validation errors from serializer
+            error_detail = ve.detail
+            if 'code' in error_detail and error_detail['code'] == 'validation_error':
+                status_code = status.HTTP_400_BAD_REQUEST
+            else:
+                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+                
+            return Response({
+                'error': error_detail.get('error', 'Validation failed'),
+                'details': error_detail.get('details', 'Unknown error'),
+                'code': error_detail.get('code', 'validation_error')
+            }, status=status_code)
         except Exception as e:
             logger.error(f"Unexpected error creating product: {str(e)}")
             return Response(
                 {
                     'error': 'Product creation failed',
-                    'message': str(e)
+                    'details': 'An unexpected error occurred',
+                    'code': 'internal_error'
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

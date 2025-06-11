@@ -4,6 +4,7 @@ from mall.models import Product, ProductVariant, Category, SubCategories, Produc
 from order.models import OrderItems
 import json
 import logging
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -221,12 +222,20 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
             logger.info(f"Successfully created product: {product.name} (ID: {product.id})")
             return product
             
-        except Exception as e:
+        except DjangoValidationError as e:
             logger.error(f"Error creating product: {str(e)}")
             # Re-raise with more specific error
             error_data = {
+                "error": "Validation failed",
+                "details": e.messages,
+                "code": "validation_error"
+            }
+            raise serializers.ValidationError(error_data)
+        except Exception as e:
+            logger.error(f"Error creating product: {str(e)}")
+            error_data = {
                 "error": "Product creation failed",
-                "details": str(e),
+                "details": "An unexpected error occurred. Please try again.",
                 "code": "product_creation_error"
             }
             raise serializers.ValidationError(error_data)
