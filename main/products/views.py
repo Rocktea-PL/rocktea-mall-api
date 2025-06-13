@@ -167,16 +167,21 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         except serializers.ValidationError as ve:
             # Handle validation errors from serializer
             error_detail = ve.detail
-            if 'code' in error_detail and error_detail['code'] == 'validation_error':
-                status_code = status.HTTP_400_BAD_REQUEST
+            if isinstance(error_detail, dict) and 'code' in error_detail:
+                # This is our structured error
+                return Response(error_detail, status=status.HTTP_400_BAD_REQUEST)
             else:
-                status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-                
-            return Response({
-                'error': error_detail.get('error', 'Validation failed'),
-                'details': error_detail.get('details', 'Unknown error'),
-                'code': error_detail.get('code', 'validation_error')
-            }, status=status_code)
+                # Convert DRF validation errors to our format
+                error_message = " ".join([
+                    f"{field}: {msg}" 
+                    for field, messages in error_detail.items() 
+                    for msg in messages
+                ])
+                return Response({
+                    'error': 'Validation failed',
+                    'details': error_message,
+                    'code': 'validation_error'
+                }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error creating product: {str(e)}")
             return Response(
@@ -218,6 +223,21 @@ class AdminProductViewSet(viewsets.ModelViewSet):
                 context=self.get_serializer_context()
             )
             return Response(detailed_serializer.data)
+        except serializers.ValidationError as ve:
+            error_detail = ve.detail
+            if isinstance(error_detail, dict) and 'code' in error_detail:
+                return Response(error_detail, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                error_message = " ".join([
+                    f"{field}: {msg}" 
+                    for field, messages in error_detail.items() 
+                    for msg in messages
+                ])
+                return Response({
+                    "error": "Validation failed",
+                    "details": error_message,
+                    "code": "validation_error"
+                }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Update error: {str(e)}")
             return Response(
