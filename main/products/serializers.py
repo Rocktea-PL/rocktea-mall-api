@@ -173,7 +173,13 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
                 errors['quantity'] = "Quantity cannot be negative"
         
         if errors:
-            raise serializers.ValidationError(errors)
+            # Combine all errors into a single message
+            error_message = " ".join([f"{k}: {v}" for k, v in errors.items()])
+            raise serializers.ValidationError({
+                "error": "Validation failed",
+                "details": error_message,
+                "code": "validation_error"
+            })
         
         return data
     
@@ -223,22 +229,20 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
             return product
             
         except DjangoValidationError as e:
-            logger.error(f"Error creating product: {str(e)}")
-            # Re-raise with more specific error
-            error_data = {
+            error_message = " ".join(e.messages) if hasattr(e, 'messages') else str(e)
+            logger.error(f"Model validation error: {error_message}")
+            raise serializers.ValidationError({
                 "error": "Validation failed",
-                "details": e.messages,
+                "details": error_message,
                 "code": "validation_error"
-            }
-            raise serializers.ValidationError(error_data)
+            })
         except Exception as e:
             logger.error(f"Error creating product: {str(e)}")
-            error_data = {
+            raise serializers.ValidationError({
                 "error": "Product creation failed",
                 "details": "An unexpected error occurred. Please try again.",
                 "code": "product_creation_error"
-            }
-            raise serializers.ValidationError(error_data)
+            })
 
     def _parse_array(self, value):
         """Convert string representation to list"""

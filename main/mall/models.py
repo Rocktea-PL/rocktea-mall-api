@@ -9,6 +9,7 @@ from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 from cloudinary.models import CloudinaryField
+from django.core.exceptions import ValidationError
 
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -240,8 +241,12 @@ class Product(models.Model):
         if not self.sku:
             self.sku = self._generate_sku()
 
-        # Run clean validation
-        self.clean()
+        try:
+            self.full_clean()  # Run model validation
+        except ValidationError as e:
+            # Combine all errors into a single message
+            error_message = " ".join(e.messages)
+            raise ValidationError(error_message)
         return super().save(*args, **kwargs)
 
     def _generate_sku(self):
@@ -252,19 +257,27 @@ class Product(models.Model):
             
     def clean(self):
         """Validate that category, subcategory, and producttype are related"""
-        from django.core.exceptions import ValidationError
         
+        errors = []
+        
+        # Check category-subcategory relationship
         if self.subcategory and self.category:
             if self.subcategory.category != self.category:
-                raise ValidationError(
-                    "Selected subcategory does not belong to the selected category."
-                )
+                errors.append("Selected subcategory does not belong to the selected category.")
         
+        # Check subcategory-producttype relationship
         if self.producttype and self.subcategory:
             if self.producttype.subcategory != self.subcategory:
-                raise ValidationError(
-                    "Selected product type does not belong to the selected subcategory."
-                )
+                errors.append("Selected product type does not belong to the selected subcategory.")
+        
+        # Check category-producttype relationship
+        if self.producttype and self.category:
+            if self.producttype.subcategory.category != self.category:
+                errors.append("Selected product type does not belong to the selected category.")
+        
+        if errors:
+            # Combine all errors into a single message
+            raise ValidationError(" ".join(errors))
 
     def __str__(self):
         return self.name
