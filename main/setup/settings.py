@@ -313,9 +313,15 @@ EMAIL_USE_TLS       = True
 # EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
 # Paystack
-TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY", default="")
-TEST_SECRET_KEY = env("TEST_SECRET_KEY", default="")
-TEST_KEY = env("TEST_KEY", default="")
+# =====================
+# EXTERNAL SERVICES
+# =====================
+# Payment and shipping
+TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY", default="ci_dummy_public_key")
+TEST_SECRET_KEY = env("TEST_SECRET_KEY", default="ci_dummy_secret_key")
+TEST_KEY = env("TEST_KEY", default="ci_dummy_key")  # Add default value
+
+# ... rest of the settings ...
 
 # Shipbubble API keys
 SHIPBUBBLE_API_KEY = env("SHIPBUBBLE_API_KEY", default="")

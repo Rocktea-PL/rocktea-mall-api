@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from order.models import PaystackWebhook
 import environ, requests
 import logging
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,8 @@ environ.Env.read_env()
 
 SECRET_KEY = env("TEST_KEY")
 PAYSTACK_SECRET_KEY = env("TEST_SECRET_KEY")
+SECRET_KEY = settings.TEST_KEY
+PAYSTACK_SECRET_KEY = settings.TEST_SECRET_KEY
 
 
 @api_view(["GET"])
