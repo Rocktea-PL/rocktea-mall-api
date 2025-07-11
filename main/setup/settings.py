@@ -241,15 +241,16 @@ STORAGES = {
 }
 
 # Cloudinary with safe defaults
-CLOUDINARY_STORAGE = {
-    "CLOUDINARY_URL": env("CLOUDINARY_URL", default="cloudinary://dummy:dummy@dummy")
-}
+if not CI_ENVIRONMENT:
+    CLOUDINARY_STORAGE = {
+        "CLOUDINARY_URL": env("CLOUDINARY_URL")
+    }
 
-cloudinary.config(
-  cloud_name=env("CLOUDINARY_NAME", default="dummy"),
-  api_key=env("CLOUDINARY_API_KEY", default="dummy"),
-  api_secret=env("CLOUDINARY_SECRET", default="dummy")
-)
+    cloudinary.config(
+        cloud_name=env("CLOUDINARY_NAME"),
+        api_key=env("CLOUDINARY_API_KEY"),
+        api_secret=env("CLOUDINARY_SECRET")
+    )
 
 # =====================
 # INTERNATIONALIZATION
