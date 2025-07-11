@@ -1,12 +1,13 @@
 from pathlib import Path
 import environ
-import datetime
 import os
 from datetime import timedelta
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 import cloudinary
 import socket
+import sys  # Added for sys.stderr output
+from django.core.management.utils import get_random_secret_key  # For generating secure keys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,22 +19,33 @@ environ.Env.read_env(os.path.join(BASE_DIR, 'setup/.env'))
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env('SECRET_KEY')
+# Generate new secret key if current one is insecure
+current_secret = env('SECRET_KEY')
+if len(current_secret) < 50 or 'django-insecure' in current_secret:
+    print("WARNING: Generating new secure SECRET_KEY", file=sys.stderr)
+    new_secret = get_random_secret_key()
+    os.environ['SECRET_KEY'] = new_secret
+    SECRET_KEY = new_secret
+else:
+    SECRET_KEY = current_secret
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'staticfiles/'),
-    # Add other paths to app-specific static directories if needed
 ]
 
 # Static Files
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env('DEBUG')
+DEBUG = env.bool('DEBUG', default=False)  # Use boolean conversion
 
 # Security Settings
 if DEBUG:
     ALLOWED_HOSTS = ["*"]
+    # Debug-specific security settings
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 else:
     ALLOWED_HOSTS = [
         "12.0.0.1",
@@ -44,10 +56,21 @@ else:
         "18.217.233.199",
         socket.gethostname()
     ]
+    # Production security settings
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
+# Security headers - apply regardless of DEBUG mode
+SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
+X_FRAME_OPTIONS = "DENY"
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "mall.apps.MallConfig",
@@ -57,7 +80,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    # third-parties
+    # Third-party apps
     "django_phonenumbers",
     "cloudinary_storage",
     'multiselectfield',
@@ -65,41 +88,41 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_rest_passwordreset',
     'django_filters',
-
-    # Caution
     'django_extensions',
-
-    # Security
     "corsheaders",
+    'drf_yasg',
+    "whitenoise.runserver_nostatic",
+
+    # Your apps
     "order",
     "services",
     "dropshippers",
-    # "tenants",
     "accounts",
     "dashboards",
     "products",
     "admin_orders",
-
-    # API Documentation
-    'drf_yasg',
-
-    # Storage
-    "whitenoise.runserver_nostatic",
 ]
 
+# Corrected middleware order with all security middleware
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
+    # Security middleware must come first
     'django.middleware.security.SecurityMiddleware',
+    
+    # Other middleware
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    
+    # CSRF protection
     'django.middleware.csrf.CsrfViewMiddleware',
+    
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    
+    # Clickjacking protection
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    # 'mall.middleware.DomainNameMiddleware',
 ]
-
 
 ROOT_URLCONF = 'setup.urls'
 
@@ -120,7 +143,6 @@ TEMPLATES = [
 ]
 
 # Storage
-
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
@@ -130,35 +152,22 @@ STORAGES = {
     }
 }
 
-
 WHITENOISE_ALLOW_ALL_ORIGINS = True
 WHITENOISE_AUTOREFRESH = True
 
-
 WSGI_APPLICATION = 'setup.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/4.2/ref/settings/#databases
-
-if env('ENV') == 'production':
-    db_config = env.db()
-    print(f"DEBUG: DATABASE CONFIG (PRODUCTION): {db_config}")
-    DATABASES = {
-        'default': db_config
+# Database configuration
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': env('PGDATABASE'),
+        'USER': env('PGUSER'),
+        'PASSWORD': env('PGPASSWORD'),
+        'HOST': env('PGHOST'),
+        'PORT': env('PGPORT'),
     }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': env('PGDATABASE'),
-            'USER': env('PGUSER'),
-            'PASSWORD': env('PGPASSWORD'),
-            'HOST': env('PGHOST'),
-            'PORT': env('PGPORT'),
-        }
-    }
-
+}
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -171,7 +180,6 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-dropshippers.vercel.app",
     "https://rocktea-users.vercel.app"
 ]
-
 
 CORS_ALLOW_METHODS = [
     "DELETE",
@@ -198,7 +206,6 @@ CORS_ALLOW_HEADERS = [
 CLOUDINARY_STORAGE = {
     "CLOUDINARY_URL": env("CLOUDINARY_URL")
 }
-
 
 SIMPLE_JWT = {
     'USER_ID_FIELD': 'id',
@@ -228,7 +235,6 @@ REDIS_PORT = env("REDISPORT")
 REDIS_PASSWORD = env("REDISPASSWORD")
 REDIS_URL = env("REDIS_URL")
 
-# settings.py
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
@@ -242,8 +248,8 @@ CACHES = {
 
 sentry_sdk.init(
     dsn=env("DSN"),
-    traces_sample_rate=100,
-    profiles_sample_rate=100,
+    traces_sample_rate=1.0,  # Reduced from 100 to 1.0 (0-1 range)
+    profiles_sample_rate=1.0,
     integrations=[
         DjangoIntegration(
             transaction_style='url',
@@ -254,10 +260,7 @@ sentry_sdk.init(
     ],
 )
 
-
 # Password validation
-# https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -273,27 +276,16 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
-# https://docs.djangoproject.com/en/4.2/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
-
+# Static files
 STATIC_URL = 'static/'
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD  = 'django.db.models.BigAutoField'
 
 # AbstractUser
@@ -302,7 +294,6 @@ AUTH_USER_MODEL     = "mall.CustomUser"
 # Paystack
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY")
-
 TEST_KEY = env("TEST_KEY")
 
 cloudinary.config(
@@ -310,7 +301,8 @@ cloudinary.config(
   api_key       = env("CLOUDINARY_API_KEY"),
   api_secret    = env("CLOUDINARY_SECRET")
 )
-# Configure email backend (for development, use console backend)
+
+# Email configuration
 EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST          = 'smtp.gmail.com'
 EMAIL_PORT          = 587
@@ -318,11 +310,19 @@ EMAIL_USE_TLS       = True
 EMAIL_HOST_USER     = env('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
-# shipbubble api keys
+# Shipbubble API keys
 SHIPBUBBLE_API_KEY = env("SHIPBUBBLE_API_KEY")
 SHIPBUBBLE_API_URL = env("SHIPBUBBLE_API_URL")
 
-# Sending mails with brevo
+# Brevo email service
 SENDER_NAME = env("SENDER_NAME")
 SENDER_EMAIL = env("SENDER_EMAIL")
 BREVO_API_KEY = env("BREVO_API_KEY")
+
+# Print security status for verification
+print(f"\nSecurity Configuration Summary:", file=sys.stderr)
+print(f"DEBUG: {DEBUG}", file=sys.stderr)
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
+print(f"SECURE_HSTS_SECONDS: {SECURE_HSTS_SECONDS}", file=sys.stderr)
+print(f"X_FRAME_OPTIONS: {X_FRAME_OPTIONS}", file=sys.stderr)
+print(f"SECRET_KEY length: {len(SECRET_KEY)} characters", file=sys.stderr)
