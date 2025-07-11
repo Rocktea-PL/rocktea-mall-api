@@ -184,14 +184,19 @@ else:
             'PORT': env('PGPORT'),
         }
     }
+
+    REDIS_HOST = env("REDISHOST", default='localhost')
+    REDIS_PORT = env("REDISPORT", default='6379')
+    REDIS_PASSWORD = env("REDISPASSWORD", default=None)
+    REDIS_URL = env("REDIS_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
     
     # Real cache configuration
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": f"redis://{env('REDISHOST', default='localhost')}:{env('REDISPORT', default='6379')}/0",
+            "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
             "OPTIONS": {
-                "PASSWORD": env('REDISPASSWORD', default=''),
+                "PASSWORD": REDIS_PASSWORD,
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
             },
         }
