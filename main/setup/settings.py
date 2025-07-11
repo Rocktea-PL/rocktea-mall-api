@@ -21,12 +21,16 @@ from .config import load_env
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# env = environ.Env()
-# # Path to .env file - adjust to your structure
-# env_path = BASE_DIR / 'main' / 'setup' / '.env'
-# environ.Env.read_env(env_path)
+# Check if we're in a CI environment
+CI_ENVIRONMENT = os.environ.get('CI', False)
 
-env = load_env()
+if CI_ENVIRONMENT:
+    # Create a mock environment for CI
+    env = environ.Env()
+    print("CI environment detected - using mock settings", file=sys.stderr)
+else:
+    # Load real environment
+    env = load_env()
 
 
 # Quick-start development settings - unsuitable for production
@@ -42,7 +46,7 @@ if len(SECRET_KEY) < 50 or 'django-insecure' in SECRET_KEY:
     os.environ['SECRET_KEY'] = SECRET_KEY
 
 # Environment detection
-PRODUCTION = env('ENV') == 'production'
+PRODUCTION = env('ENV', default='development') == 'production'
 DEBUG = not PRODUCTION
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
@@ -144,32 +148,48 @@ WSGI_APPLICATION = 'setup.wsgi.application'
 # =====================
 # DATABASE & CACHE
 # =====================
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('PGDATABASE'),
-        'USER': env('PGUSER'),
-        'PASSWORD': env('PGPASSWORD'),
-        'HOST': env('PGHOST'),
-        'PORT': env('PGPORT'),
+# =====================
+# DATABASE & CACHE - WITH CI DEFAULTS
+# =====================
+if CI_ENVIRONMENT:
+    # Use SQLite for CI tests
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
-
-REDIS_HOST = env("REDISHOST")
-REDIS_PORT = env("REDISPORT")
-REDIS_PASSWORD = env("REDISPASSWORD")
-REDIS_URL = env("REDIS_URL")
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
-        "OPTIONS": {
-            "PASSWORD": REDIS_PASSWORD,
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
+    
+    # Mock cache for CI
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        }
     }
-}
+else:
+    # Real database configuration
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('PGDATABASE'),
+            'USER': env('PGUSER'),
+            'PASSWORD': env('PGPASSWORD'),
+            'HOST': env('PGHOST'),
+            'PORT': env('PGPORT'),
+        }
+    }
+    
+    # Real cache configuration
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": f"redis://{env('REDISHOST', default='localhost')}:{env('REDISPORT', default='6379')}/0",
+            "OPTIONS": {
+                "PASSWORD": env('REDISPASSWORD', default=''),
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+        }
+    }
 
 # =====================
 # REST FRAMEWORK
@@ -220,15 +240,15 @@ STORAGES = {
     }
 }
 
-# File Storage
+# Cloudinary with safe defaults
 CLOUDINARY_STORAGE = {
-    "CLOUDINARY_URL": env("CLOUDINARY_URL")
+    "CLOUDINARY_URL": env("CLOUDINARY_URL", default="cloudinary://dummy:dummy@dummy")
 }
 
 cloudinary.config(
-  cloud_name    = env("CLOUDINARY_NAME"),
-  api_key       = env("CLOUDINARY_API_KEY"),
-  api_secret    = env("CLOUDINARY_SECRET")
+  cloud_name=env("CLOUDINARY_NAME", default="dummy"),
+  api_key=env("CLOUDINARY_API_KEY", default="dummy"),
+  api_secret=env("CLOUDINARY_SECRET", default="dummy")
 )
 
 # =====================
@@ -250,20 +270,24 @@ DEFAULT_AUTO_FIELD  = 'django.db.models.BigAutoField'
 # =====================
 # EXTERNAL SERVICES
 # =====================
-# Sentry
-sentry_sdk.init(
-    dsn=env("DSN"),
-    traces_sample_rate=1.0,  # Reduced from 100 to 1.0 (0-1 range)
-    profiles_sample_rate=1.0,
-    integrations=[
-        DjangoIntegration(
-            transaction_style='url',
-            middleware_spans=True,
-            signals_spans=True,
-            cache_spans=True,
-        ),
-    ],
-)
+# Sentry - only initialize if DSN is provided
+sentry_dsn = env("DSN", default="")
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=env("DSN", default=""),
+        traces_sample_rate=1.0,  # Reduced from 100 to 1.0 (0-1 range)
+        profiles_sample_rate=1.0,
+        integrations=[
+            DjangoIntegration(
+                transaction_style='url',
+                middleware_spans=True,
+                signals_spans=True,
+                cache_spans=True,
+            ),
+        ],
+    )
+else:
+    print("Sentry not initialized - DSN not set", file=sys.stderr)
 
 # Email
 EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
@@ -274,18 +298,18 @@ EMAIL_USE_TLS       = True
 # EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 
 # Paystack
-TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
-TEST_SECRET_KEY = env("TEST_SECRET_KEY")
-TEST_KEY = env("TEST_KEY")
+TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY", default="")
+TEST_SECRET_KEY = env("TEST_SECRET_KEY", default="")
+TEST_KEY = env("TEST_KEY", default="")
 
 # Shipbubble API keys
-SHIPBUBBLE_API_KEY = env("SHIPBUBBLE_API_KEY")
-SHIPBUBBLE_API_URL = env("SHIPBUBBLE_API_URL")
+SHIPBUBBLE_API_KEY = env("SHIPBUBBLE_API_KEY", default="")
+SHIPBUBBLE_API_URL = env("SHIPBUBBLE_API_URL", default="")
 
 # Brevo email service
-SENDER_NAME = env("SENDER_NAME")
-SENDER_EMAIL = env("SENDER_EMAIL")
-BREVO_API_KEY = env("BREVO_API_KEY")
+SENDER_NAME = env("SENDER_NAME", default="")
+SENDER_EMAIL = env("SENDER_EMAIL", default="")
+BREVO_API_KEY = env("BREVO_API_KEY", default="")
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
