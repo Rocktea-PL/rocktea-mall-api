@@ -173,6 +173,8 @@ if CI_ENVIRONMENT:
             'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
         }
     }
+
+    REDIS_URL = "redis://dummy:6379/0" 
 else:
     # Real database configuration
     DATABASES = {
@@ -189,6 +191,7 @@ else:
     REDIS_HOST = env("REDISHOST", default='localhost')
     REDIS_PORT = env("REDISPORT", default='6379')
     REDIS_PASSWORD = env("REDISPASSWORD", default=None)
+    REDIS_URL = env("REDIS_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
     
     # Real cache configuration
     CACHES = {
