@@ -32,68 +32,45 @@ env = load_env()
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Generate new secret key if current one is insecure
-current_secret = env('SECRET_KEY')
-if len(current_secret) < 50 or 'django-insecure' in current_secret:
+# =====================
+# SECURITY CONFIGURATION
+# =====================
+SECRET_KEY = env('SECRET_KEY')
+if len(SECRET_KEY) < 50 or 'django-insecure' in SECRET_KEY:
     print("WARNING: Generating new secure SECRET_KEY", file=sys.stderr)
-    new_secret = get_random_secret_key()
-    os.environ['SECRET_KEY'] = new_secret
-    SECRET_KEY = new_secret
-else:
-    SECRET_KEY = current_secret
+    SECRET_KEY = get_random_secret_key()
+    os.environ['SECRET_KEY'] = SECRET_KEY
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'staticfiles/'),
-]
-
-# Static Files
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
-# Immediately re-set environment variable to prevent override
+# Environment detection
+PRODUCTION = env('ENV') == 'production'
+DEBUG = not PRODUCTION
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
-# Debug confirmation
-print(f"\nSettings.py confirmation - DEBUG: {DEBUG}", file=sys.stderr)
+# # SECURITY WARNING: don't run with debug turned on in production!
+# DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+# # Immediately re-set environment variable to prevent override
+# os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
-# After BASE_DIR definition
-print(f"\n\n=== PATH DEBUGGING ===", file=sys.stderr)
-print(f"Settings file: {__file__}", file=sys.stderr)
-print(f"BASE_DIR: {BASE_DIR}", file=sys.stderr)
-print(f"Static files dir: {os.path.join(BASE_DIR, 'staticfiles/')}", file=sys.stderr)
 
-# After env loading
-print(f"\nEnvironment Variables:", file=sys.stderr)
-print(f"DEBUG: {DEBUG}", file=sys.stderr)
-print(f"SECRET_KEY: {SECRET_KEY[:5]}...{SECRET_KEY[-5:]}", file=sys.stderr)
-print(f"PGHOST: {env('PGHOST')}", file=sys.stderr)
-
-# Security Settings
-if DEBUG:
-    ALLOWED_HOSTS = ["*", "localhost"]
-    # Debug-specific security settings
-    SECURE_SSL_REDIRECT = False
-    SESSION_COOKIE_SECURE = False
-    CSRF_COOKIE_SECURE = False
-else:
+# Security settings
+if PRODUCTION:
     ALLOWED_HOSTS = [
-        "12.0.0.1",
-        "rocktea-mall-api-test.up.railway.app",
+        "api-dev.yourockteamall.com",
         "rocktea-mall-api-production.up.railway.app",
-        "rocktea-mall.vercel.app",
-        "localhost",
         "18.217.233.199",
         socket.gethostname()
     ]
-    # Production security settings
     SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_BROWSER_XSS_FILTER = True
+else:
+    ALLOWED_HOSTS = ["*"]
+    SECURE_SSL_REDIRECT = False
 
-# Security headers - apply regardless of DEBUG mode
-SECURE_HSTS_SECONDS = 31536000  # 1 year
+# Security headers
+SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
@@ -101,7 +78,10 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 X_FRAME_OPTIONS = "DENY"
 
-# Application definition
+
+# =====================
+# APPLICATION CONFIG
+# =====================
 INSTALLED_APPS = [
     "django.contrib.admin",
     "mall.apps.MallConfig",
@@ -159,39 +139,11 @@ MIDDLEWARE = [
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
 ROOT_URLCONF = 'setup.urls'
-
-TEMPLATES = [
-    {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
-            ],
-        },
-    },
-]
-
-# Storage
-STORAGES = {
-    "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-    "media": {
-        "BACKEND": "storages.backends.cloudinary.MediaCloudinaryStorage",
-    }
-}
-
-WHITENOISE_ALLOW_ALL_ORIGINS = True
-WHITENOISE_AUTOREFRESH = True
-
 WSGI_APPLICATION = 'setup.wsgi.application'
 
-# Database configuration
+# =====================
+# DATABASE & CACHE
+# =====================
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -203,9 +155,143 @@ DATABASES = {
     }
 }
 
+REDIS_HOST = env("REDISHOST")
+REDIS_PORT = env("REDISPORT")
+REDIS_PASSWORD = env("REDISPASSWORD")
+REDIS_URL = env("REDIS_URL")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
+        "OPTIONS": {
+            "PASSWORD": REDIS_PASSWORD,
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+    }
+}
+
+# =====================
+# REST FRAMEWORK
+# =====================
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
+    ],
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ]
+}
+
+SIMPLE_JWT = {
+    'USER_ID_FIELD': 'id',
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+}
+
+
+# =====================
+# STATIC & MEDIA FILES
+# =====================
+# Static files
+STATIC_URL = 'static/'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'staticfiles/'),
+]
+
+# Static Files
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
+
+# Storage
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+    "media": {
+        "BACKEND": "storages.backends.cloudinary.MediaCloudinaryStorage",
+    }
+}
+
+# File Storage
+CLOUDINARY_STORAGE = {
+    "CLOUDINARY_URL": env("CLOUDINARY_URL")
+}
+
+cloudinary.config(
+  cloud_name    = env("CLOUDINARY_NAME"),
+  api_key       = env("CLOUDINARY_API_KEY"),
+  api_secret    = env("CLOUDINARY_SECRET")
+)
+
+# =====================
+# INTERNATIONALIZATION
+# =====================
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+# =====================
+# CUSTOM CONFIG
+# =====================
+# AbstractUser
+AUTH_USER_MODEL     = "mall.CustomUser"
+# Default primary key field type
+DEFAULT_AUTO_FIELD  = 'django.db.models.BigAutoField'
+
+# =====================
+# EXTERNAL SERVICES
+# =====================
+# Sentry
+sentry_sdk.init(
+    dsn=env("DSN"),
+    traces_sample_rate=1.0,  # Reduced from 100 to 1.0 (0-1 range)
+    profiles_sample_rate=1.0,
+    integrations=[
+        DjangoIntegration(
+            transaction_style='url',
+            middleware_spans=True,
+            signals_spans=True,
+            cache_spans=True,
+        ),
+    ],
+)
+
+# Email
+EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST          = 'smtp.gmail.com'
+EMAIL_PORT          = 587
+EMAIL_USE_TLS       = True
+# EMAIL_HOST_USER     = env('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
+
+# Paystack
+TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
+TEST_SECRET_KEY = env("TEST_SECRET_KEY")
+TEST_KEY = env("TEST_KEY")
+
+# Shipbubble API keys
+SHIPBUBBLE_API_KEY = env("SHIPBUBBLE_API_KEY")
+SHIPBUBBLE_API_URL = env("SHIPBUBBLE_API_URL")
+
+# Brevo email service
+SENDER_NAME = env("SENDER_NAME")
+SENDER_EMAIL = env("SENDER_EMAIL")
+BREVO_API_KEY = env("BREVO_API_KEY")
+
+# CORS
 CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://api-dev.yourockteamall.com",
     "https://rocktea-mall.vercel.app",
     "https://rocktea-mall-api-test.up.railway.app",
     "http://localhost:5174",
@@ -236,63 +322,27 @@ CORS_ALLOW_HEADERS = [
     "x-requested-with",
 ]
 
-# File Storage
-CLOUDINARY_STORAGE = {
-    "CLOUDINARY_URL": env("CLOUDINARY_URL")
-}
-
-SIMPLE_JWT = {
-    'USER_ID_FIELD': 'id',
-    "ACCESS_TOKEN_LIFETIME": timedelta(days=14),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
-}
-
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
-    ],
-    'DEFAULT_RENDERER_CLASSES': [
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
-    ],
-    'DEFAULT_FILTER_BACKENDS': [
-        'django_filters.rest_framework.DjangoFilterBackend',
-        'rest_framework.filters.SearchFilter',
-        'rest_framework.filters.OrderingFilter',
-    ]
-}
-
-REDIS_HOST = env("REDISHOST")
-REDIS_PORT = env("REDISPORT")
-REDIS_PASSWORD = env("REDISPASSWORD")
-REDIS_URL = env("REDIS_URL")
-
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/0",
-        "OPTIONS": {
-            "PASSWORD": REDIS_PASSWORD,
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+# =====================
+# TEMPLATES (Minimal)
+# =====================
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
         },
-    }
-}
+    },
+]
 
-sentry_sdk.init(
-    dsn=env("DSN"),
-    traces_sample_rate=1.0,  # Reduced from 100 to 1.0 (0-1 range)
-    profiles_sample_rate=1.0,
-    integrations=[
-        DjangoIntegration(
-            transaction_style='url',
-            middleware_spans=True,
-            signals_spans=True,
-            cache_spans=True,
-        ),
-    ],
-)
+WHITENOISE_ALLOW_ALL_ORIGINS = True
+WHITENOISE_AUTOREFRESH = True
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -310,57 +360,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
-
-# Static files
-STATIC_URL = 'static/'
-
-# Default primary key field type
-DEFAULT_AUTO_FIELD  = 'django.db.models.BigAutoField'
-
-# AbstractUser
-AUTH_USER_MODEL     = "mall.CustomUser"
-
-# Paystack
-TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY")
-TEST_SECRET_KEY = env("TEST_SECRET_KEY")
-TEST_KEY = env("TEST_KEY")
-
-cloudinary.config(
-  cloud_name    = env("CLOUDINARY_NAME"),
-  api_key       = env("CLOUDINARY_API_KEY"),
-  api_secret    = env("CLOUDINARY_SECRET")
-)
-
-# Email configuration
-EMAIL_BACKEND       = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST          = 'smtp.gmail.com'
-EMAIL_PORT          = 587
-EMAIL_USE_TLS       = True
-# EMAIL_HOST_USER     = env('EMAIL_HOST_USER')
-# EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-
-# Shipbubble API keys
-SHIPBUBBLE_API_KEY = env("SHIPBUBBLE_API_KEY")
-SHIPBUBBLE_API_URL = env("SHIPBUBBLE_API_URL")
-
-# Brevo email service
-SENDER_NAME = env("SENDER_NAME")
-SENDER_EMAIL = env("SENDER_EMAIL")
-BREVO_API_KEY = env("BREVO_API_KEY")
-
 # ULTIMATE DEBUG OVERRIDE
 DEBUG = True
 os.environ['DJANGO_DEBUG'] = 'True'
-
-# Final verification
-print(f"\nFINAL SETTINGS CONFIRMATION:", file=sys.stderr)
-print(f"DEBUG: {DEBUG}", file=sys.stderr)
-print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
 
 
 # Add this at the VERY BOTTOM of settings.py
@@ -375,8 +377,3 @@ if settings.DEBUG != DEBUG:
     print(f"\nWARNING: DEBUG was changed from {DEBUG} to {settings.DEBUG}!", file=sys.stderr)
     print("Forcing DEBUG to original value...", file=sys.stderr)
     settings.DEBUG = DEBUG
-
-# Final verification
-print(f"\nFINAL DEBUG VALUE: {settings.DEBUG}", file=sys.stderr)
-print(f"FINAL ALLOWED_HOSTS: {settings.ALLOWED_HOSTS}", file=sys.stderr)
-# --------------------------------------------------
