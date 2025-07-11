@@ -319,7 +319,7 @@ EMAIL_USE_TLS       = True
 # Payment and shipping
 TEST_PUBLIC_KEY = env("TEST_PUBLIC_KEY", default="ci_dummy_public_key")
 TEST_SECRET_KEY = env("TEST_SECRET_KEY", default="ci_dummy_secret_key")
-TEST_KEY = env("TEST_KEY", default="ci_dummy_key")  # Add default value
+TEST_KEY = env("TEST_KEY", default="ci_dummy_key")
 
 # ... rest of the settings ...
 

@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 env = environ.Env()
 environ.Env.read_env()
 
-SECRET_KEY = env("TEST_KEY")
-PAYSTACK_SECRET_KEY = env("TEST_SECRET_KEY")
 SECRET_KEY = settings.TEST_KEY
 PAYSTACK_SECRET_KEY = settings.TEST_SECRET_KEY
 
