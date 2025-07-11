@@ -30,7 +30,16 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]
+# ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = [
+    "12.0.0.1",
+    "rocktea-mall-api-test.up.railway.app",
+    "rocktea-mall-api-production.up.railway.app",
+    "rocktea-mall.vercel.app",
+    "localhost",
+    "18.217.233.199"
+]
+
 
 # Application definition
 
