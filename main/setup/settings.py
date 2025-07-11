@@ -39,7 +39,7 @@ else:
 # =====================
 # SECURITY CONFIGURATION
 # =====================
-SECRET_KEY = env('SECRET_KEY')
+SECRET_KEY = env('SECRET_KEY', default=get_random_secret_key())
 if len(SECRET_KEY) < 50 or 'django-insecure' in SECRET_KEY:
     print("WARNING: Generating new secure SECRET_KEY", file=sys.stderr)
     SECRET_KEY = get_random_secret_key()
