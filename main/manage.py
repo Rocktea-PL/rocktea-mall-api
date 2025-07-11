@@ -3,9 +3,11 @@
 import os
 import sys
 
-
 def main():
     """Run administrative tasks."""
+    # FORCE DEBUG MODE AT THE VERY START
+    os.environ['DJANGO_DEBUG'] = 'True'
+    
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'setup.settings')
     try:
         from django.core.management import execute_from_command_line
@@ -15,8 +17,12 @@ def main():
             "available on your PYTHONPATH environment variable? Did you "
             "forget to activate a virtual environment?"
         ) from exc
+        
+    # Debug confirmation
+    from django.conf import settings
+    print(f"\nManage.py confirmation - DEBUG: {settings.DEBUG}", file=sys.stderr)
+    
     execute_from_command_line(sys.argv)
-
 
 if __name__ == '__main__':
     main()

@@ -1,12 +1,15 @@
+import os
+import sys
+
+# FORCE DEBUG FROM ENVIRONMENT FIRST
+os.environ['DJANGO_DEBUG'] = 'True'  # Add this line
 from pathlib import Path
 import environ
-import os
 from datetime import timedelta
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 import cloudinary
 import socket
-import sys  # Added for sys.stderr output
 from django.core.management.utils import get_random_secret_key  # For generating secure keys
 from .config import load_env
 
@@ -48,7 +51,12 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=False)  # Use boolean conversion
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+# Immediately re-set environment variable to prevent override
+os.environ['DJANGO_DEBUG'] = str(DEBUG)
+
+# Debug confirmation
+print(f"\nSettings.py confirmation - DEBUG: {DEBUG}", file=sys.stderr)
 
 # After BASE_DIR definition
 print(f"\n\n=== PATH DEBUGGING ===", file=sys.stderr)
@@ -344,6 +352,15 @@ SHIPBUBBLE_API_URL = env("SHIPBUBBLE_API_URL")
 SENDER_NAME = env("SENDER_NAME")
 SENDER_EMAIL = env("SENDER_EMAIL")
 BREVO_API_KEY = env("BREVO_API_KEY")
+
+# ULTIMATE DEBUG OVERRIDE
+DEBUG = True
+os.environ['DJANGO_DEBUG'] = 'True'
+
+# Final verification
+print(f"\nFINAL SETTINGS CONFIRMATION:", file=sys.stderr)
+print(f"DEBUG: {DEBUG}", file=sys.stderr)
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
 
 
 # Add this at the VERY BOTTOM of settings.py
