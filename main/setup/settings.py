@@ -147,6 +147,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Immediately set environment variable to prevent override
+os.environ['DJANGO_DEBUG'] = str(DEBUG)
+
 ROOT_URLCONF = 'setup.urls'
 
 TEMPLATES = [
@@ -342,10 +345,21 @@ SENDER_NAME = env("SENDER_NAME")
 SENDER_EMAIL = env("SENDER_EMAIL")
 BREVO_API_KEY = env("BREVO_API_KEY")
 
-# Print security status for verification
-print(f"\nSecurity Configuration Summary:", file=sys.stderr)
-print(f"DEBUG: {DEBUG}", file=sys.stderr)
-print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}", file=sys.stderr)
-print(f"SECURE_HSTS_SECONDS: {SECURE_HSTS_SECONDS}", file=sys.stderr)
-print(f"X_FRAME_OPTIONS: {X_FRAME_OPTIONS}", file=sys.stderr)
-print(f"SECRET_KEY length: {len(SECRET_KEY)} characters", file=sys.stderr)
+
+# Add this at the VERY BOTTOM of settings.py
+# --------------------------------------------------
+# DEBUG OVERRIDE - FORCE PROPER VALUE
+# --------------------------------------------------
+import sys
+from django.conf import settings
+
+# Check if DEBUG was changed by Django internals
+if settings.DEBUG != DEBUG:
+    print(f"\nWARNING: DEBUG was changed from {DEBUG} to {settings.DEBUG}!", file=sys.stderr)
+    print("Forcing DEBUG to original value...", file=sys.stderr)
+    settings.DEBUG = DEBUG
+
+# Final verification
+print(f"\nFINAL DEBUG VALUE: {settings.DEBUG}", file=sys.stderr)
+print(f"FINAL ALLOWED_HOSTS: {settings.ALLOWED_HOSTS}", file=sys.stderr)
+# --------------------------------------------------
