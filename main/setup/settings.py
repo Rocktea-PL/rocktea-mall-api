@@ -8,7 +8,7 @@ import environ
 from datetime import timedelta
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
-import cloudinary
+# import cloudinary
 import socket
 from django.core.management.utils import get_random_secret_key  # For generating secure keys
 from .config import load_env
@@ -97,7 +97,7 @@ INSTALLED_APPS = [
 
     # Third-party apps
     "django_phonenumbers",
-    "cloudinary_storage",
+    # "cloudinary_storage",
     'multiselectfield',
     'rest_framework_simplejwt',
     'rest_framework',
@@ -117,6 +117,12 @@ INSTALLED_APPS = [
     "products",
     "admin_orders",
 ]
+
+# Conditionally add Cloudinary only in non-CI environments
+if not CI_ENVIRONMENT:
+    INSTALLED_APPS.append("cloudinary_storage")
+    # INSTALLED_APPS.append("cloudinary")
+    print("Added Cloudinary to INSTALLED_APPS", file=sys.stderr)
 
 # Corrected middleware order with all security middleware
 MIDDLEWARE = [
@@ -230,27 +236,39 @@ STATICFILES_DIRS = [
 # Static Files
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
-# Storage
+# Storage configuration
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
-    },
-    "media": {
-        "BACKEND": "storages.backends.cloudinary.MediaCloudinaryStorage",
     }
 }
 
-# Cloudinary with safe defaults
-if not CI_ENVIRONMENT:
+# Media files storage
+if CI_ENVIRONMENT:
+    STORAGES["media"] = {
+        "BACKEND": "django.core.files.storage.FileSystemStorage"
+    }
+    print("Using FileSystemStorage for media in CI", file=sys.stderr)
+else:
+    STORAGES["media"] = {
+        "BACKEND": "storages.backends.cloudinary.MediaCloudinaryStorage"
+    }
+    
+    # Cloudinary configuration
     CLOUDINARY_STORAGE = {
-        "CLOUDINARY_URL": env("CLOUDINARY_URL")
+        "CLOUDINARY_URL": env("CLOUDINARY_URL", default="")
     }
 
-    cloudinary.config(
-        cloud_name=env("CLOUDINARY_NAME"),
-        api_key=env("CLOUDINARY_API_KEY"),
-        api_secret=env("CLOUDINARY_SECRET")
-    )
+    try:
+        import cloudinary
+        cloudinary.config(
+            cloud_name=env("CLOUDINARY_NAME", default=""),
+            api_key=env("CLOUDINARY_API_KEY", default=""),
+            api_secret=env("CLOUDINARY_SECRET", default="")
+        )
+        print("Cloudinary configured", file=sys.stderr)
+    except ImportError:
+        print("Cloudinary not available", file=sys.stderr)
 
 # =====================
 # INTERNATIONALIZATION
