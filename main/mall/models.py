@@ -1,15 +1,23 @@
+import os
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager, AbstractBaseUser
 from uuid import uuid4
 import random
 import string
 from phonenumber_field.modelfields import PhoneNumberField
-from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 from cloudinary.models import CloudinaryField
 from django.core.exceptions import ValidationError
+
+# Conditionally import Cloudinary storage
+if not os.environ.get('CI', False):
+    from cloudinary_storage.storage import RawMediaCloudinaryStorage
+else:
+    # Define a dummy storage for CI environment
+    from django.core.files.storage import FileSystemStorage
+    RawMediaCloudinaryStorage = FileSystemStorage
 
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -59,7 +67,7 @@ class CustomUser(AbstractUser):
     password = models.CharField(max_length=200)
     associated_domain = models.ForeignKey(
         "Store", on_delete=models.CASCADE, null=True)
-    profile_image = models.FileField(storage=RawMediaCloudinaryStorage, blank=True, null=True)
+    profile_image = models.FileField(storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, blank=True, null=True)
 
     # Registration Progress: This Records the User registration stage
     completed_steps = models.IntegerField(default=0)
@@ -111,9 +119,9 @@ class ServicesBusinessInformation(models.Model):
     location = models.CharField(max_length=250, null=True)
     business_photograph = models.FileField(storage=RawMediaCloudinaryStorage)
     business_photograph2 = models.FileField(
-        storage=RawMediaCloudinaryStorage, null=True)
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     business_photograph3 = models.FileField(
-        storage=RawMediaCloudinaryStorage, null=True)
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     charges = models.DecimalField(
         default=0.00, max_digits=12, decimal_places=2)
 
@@ -141,9 +149,9 @@ class Store(models.Model):
     name = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     TIN_number = models.BigIntegerField(null=True, blank=True)
-    logo = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+    logo = models.FileField(storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     cover_image = models.FileField(
-        storage=RawMediaCloudinaryStorage, null=True, blank=True)
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True, blank=True)
     year_of_establishment = models.DateField(
         validators=[YearValidator], null=True)
     category = models.ForeignKey(

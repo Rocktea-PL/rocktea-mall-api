@@ -260,10 +260,11 @@ if not CI_ENVIRONMENT:
     try:
         import cloudinary
         cloudinary.config(
-            cloud_name=env("CLOUDINARY_NAME"),
-            api_key=env("CLOUDINARY_API_KEY"),
-            api_secret=env("CLOUDINARY_SECRET")
+            cloud_name=env("CLOUDINARY_NAME", default=""),
+            api_key=env("CLOUDINARY_API_KEY", default=""),
+            api_secret=env("CLOUDINARY_SECRET", default="")
         )
+        print("Cloudinary configured", file=sys.stderr)
     except ImportError:
         pass
 
