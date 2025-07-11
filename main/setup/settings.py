@@ -11,7 +11,7 @@ import cloudinary
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 env = environ.Env()
-environ.Env.read_env()
+environ.Env.read_env(os.path.join(BASE_DIR, 'setup/.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -127,27 +127,24 @@ WSGI_APPLICATION = 'setup.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': env('PGDATABASE'),
-        'USER': env('PGUSER'),
-        'PASSWORD': env('PGPASSWORD'),
-        'HOST': env('PGHOST'),
-        'PORT': env('PGPORT'),
+if env('ENV') == 'production':
+    db_config = env.db()
+    print(f"DEBUG: DATABASE CONFIG (PRODUCTION): {db_config}")
+    DATABASES = {
+        'default': db_config
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': env('PGDATABASE'),
+            'USER': env('PGUSER'),
+            'PASSWORD': env('PGPASSWORD'),
+            'HOST': env('PGHOST'),
+            'PORT': env('PGPORT'),
+        }
+    }
 
-    },
-
-    #     'production': {
-    #         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    #         'NAME': env('DB_NAME'),
-    #         'USER': env('DB_USER'),
-    #         'PASSWORD': env('DB_PASSWORD'),
-    #         'HOST': env('DB_HOST'),
-    #         'PORT': env('DB_PORT'),
-    #     },
-    # }
-}
 
 CORS_ALLOW_ALL_ORIGINS = True
 
