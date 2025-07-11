@@ -47,7 +47,8 @@ if len(SECRET_KEY) < 50 or 'django-insecure' in SECRET_KEY:
 
 # Environment detection
 PRODUCTION = env('ENV', default='development') == 'production'
-DEBUG = not PRODUCTION
+# Debug settings
+DEBUG = env.bool('DJANGO_DEBUG', default=not PRODUCTION)
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
 # # SECURITY WARNING: don't run with debug turned on in production!
@@ -188,7 +189,6 @@ else:
     REDIS_HOST = env("REDISHOST", default='localhost')
     REDIS_PORT = env("REDISPORT", default='6379')
     REDIS_PASSWORD = env("REDISPASSWORD", default=None)
-    REDIS_URL = env("REDIS_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
     
     # Real cache configuration
     CACHES = {
@@ -213,7 +213,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer' if DEBUG else None,
     ],
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
@@ -245,41 +245,30 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+    "media": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage" if CI_ENVIRONMENT 
+                  else "storages.backends.cloudinary.MediaCloudinaryStorage"
     }
 }
 
-# Media files storage
-if CI_ENVIRONMENT:
-    STORAGES["media"] = {
-        "BACKEND": "django.core.files.storage.FileSystemStorage"
-    }
-    print("Using FileSystemStorage for media in CI", file=sys.stderr)
-else:
-    STORAGES["media"] = {
-        "BACKEND": "storages.backends.cloudinary.MediaCloudinaryStorage"
-    }
-    
-    # Cloudinary configuration
-    CLOUDINARY_STORAGE = {
-        "CLOUDINARY_URL": env("CLOUDINARY_URL", default="")
-    }
-
+if not CI_ENVIRONMENT:
+    CLOUDINARY_STORAGE = {"CLOUDINARY_URL": env("CLOUDINARY_URL", default="")}
     try:
         import cloudinary
         cloudinary.config(
-            cloud_name=env("CLOUDINARY_NAME", default=""),
-            api_key=env("CLOUDINARY_API_KEY", default=""),
-            api_secret=env("CLOUDINARY_SECRET", default="")
+            cloud_name=env("CLOUDINARY_NAME"),
+            api_key=env("CLOUDINARY_API_KEY"),
+            api_secret=env("CLOUDINARY_SECRET")
         )
-        print("Cloudinary configured", file=sys.stderr)
     except ImportError:
-        print("Cloudinary not available", file=sys.stderr)
+        pass
 
 # =====================
 # INTERNATIONALIZATION
 # =====================
 LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Africa/Lagos'
 USE_I18N = True
 USE_TZ = True
 
@@ -295,8 +284,7 @@ DEFAULT_AUTO_FIELD  = 'django.db.models.BigAutoField'
 # EXTERNAL SERVICES
 # =====================
 # Sentry - only initialize if DSN is provided
-sentry_dsn = env("DSN", default="")
-if sentry_dsn:
+if sentry_dsn := env("DSN", default=""):
     sentry_sdk.init(
         dsn=env("DSN", default=""),
         traces_sample_rate=1.0,  # Reduced from 100 to 1.0 (0-1 range)
