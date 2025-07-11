@@ -6,6 +6,7 @@ from datetime import timedelta
 import sentry_sdk
 from sentry_sdk.integrations.django import DjangoIntegration
 import cloudinary
+import socket
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,17 +29,21 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
-# ALLOWED_HOSTS = ["*"]
-ALLOWED_HOSTS = [
-    "12.0.0.1",
-    "rocktea-mall-api-test.up.railway.app",
-    "rocktea-mall-api-production.up.railway.app",
-    "rocktea-mall.vercel.app",
-    "localhost",
-    "18.217.233.199"
-]
+# Security Settings
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+else:
+    ALLOWED_HOSTS = [
+        "12.0.0.1",
+        "rocktea-mall-api-test.up.railway.app",
+        "rocktea-mall-api-production.up.railway.app",
+        "rocktea-mall.vercel.app",
+        "localhost",
+        "18.217.233.199",
+        socket.gethostname()
+    ]
 
 
 # Application definition
