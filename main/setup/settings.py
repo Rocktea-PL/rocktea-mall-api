@@ -8,6 +8,7 @@ import cloudinary
 import socket
 import sys  # Added for sys.stderr output
 from django.core.management.utils import get_random_secret_key  # For generating secure keys
+from .config import load_env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,10 +18,13 @@ from django.core.management.utils import get_random_secret_key  # For generating
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-env = environ.Env()
-# Path to .env file - adjust to your structure
-env_path = BASE_DIR / 'main' / 'setup' / '.env'
-environ.Env.read_env(env_path)
+# env = environ.Env()
+# # Path to .env file - adjust to your structure
+# env_path = BASE_DIR / 'main' / 'setup' / '.env'
+# environ.Env.read_env(env_path)
+
+env = load_env()
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -45,6 +49,18 @@ STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG', default=False)  # Use boolean conversion
+
+# After BASE_DIR definition
+print(f"\n\n=== PATH DEBUGGING ===", file=sys.stderr)
+print(f"Settings file: {__file__}", file=sys.stderr)
+print(f"BASE_DIR: {BASE_DIR}", file=sys.stderr)
+print(f"Static files dir: {os.path.join(BASE_DIR, 'staticfiles/')}", file=sys.stderr)
+
+# After env loading
+print(f"\nEnvironment Variables:", file=sys.stderr)
+print(f"DEBUG: {DEBUG}", file=sys.stderr)
+print(f"SECRET_KEY: {SECRET_KEY[:5]}...{SECRET_KEY[-5:]}", file=sys.stderr)
+print(f"PGHOST: {env('PGHOST')}", file=sys.stderr)
 
 # Security Settings
 if DEBUG:
