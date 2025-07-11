@@ -10,10 +10,17 @@ import sys  # Added for sys.stderr output
 from django.core.management.utils import get_random_secret_key  # For generating secure keys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# BASE_DIR = Path(__file__).resolve().parent.parent
+
+# env = environ.Env()
+# environ.Env.read_env(os.path.join(BASE_DIR, 'setup/.env'))
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env()
-environ.Env.read_env(os.path.join(BASE_DIR, 'setup/.env'))
+# Path to .env file - adjust to your structure
+env_path = BASE_DIR / 'main' / 'setup' / '.env'
+environ.Env.read_env(env_path)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
@@ -41,7 +48,7 @@ DEBUG = env.bool('DEBUG', default=False)  # Use boolean conversion
 
 # Security Settings
 if DEBUG:
-    ALLOWED_HOSTS = ["*"]
+    ALLOWED_HOSTS = ["*", "localhost"]
     # Debug-specific security settings
     SECURE_SSL_REDIRECT = False
     SESSION_COOKIE_SECURE = False
