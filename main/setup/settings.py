@@ -55,6 +55,7 @@ os.environ['DJANGO_DEBUG'] = str(DEBUG)
 if PRODUCTION:
     ALLOWED_HOSTS = [
         "api-dev.yourockteamall.com",
+        "api.yourockteamall.com",
         "rocktea-mall-api-production.up.railway.app",
         "18.217.233.199",
         socket.gethostname()
@@ -332,6 +333,11 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://api-dev.yourockteamall.com",
+    "https://api.yourockteamall.com",
+    "https://user-dev.yourockteamall.com",
+    "https://yourockteamall.com",
+    "https://dropshippers.yourockteamall.com",
+    "https://dropshippers-dev.yourockteamall.com",
     "https://rocktea-mall.vercel.app",
     "https://rocktea-mall-api-test.up.railway.app",
     "http://localhost:5174",
