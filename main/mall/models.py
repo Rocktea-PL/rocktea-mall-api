@@ -59,7 +59,7 @@ class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=250)
     last_name = models.CharField(max_length=250)
-    contact = PhoneNumberField(unique=True)
+    contact = PhoneNumberField(unique=True, null=True, blank=True)
     is_store_owner = models.BooleanField(default=False)
     is_consumer = models.BooleanField(default=False)
     is_logistics = models.BooleanField(default=False)

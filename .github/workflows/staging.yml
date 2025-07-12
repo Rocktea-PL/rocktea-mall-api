@@ -68,6 +68,7 @@ jobs:
           git pull origin test
           source venv/bin/activate
           pip install -r main/requirements.txt
+          python main/manage.py makemigrations
           python main/manage.py migrate
           sudo systemctl restart gunicorn-rocktea
           sudo systemctl restart nginx
