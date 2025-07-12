@@ -13,12 +13,6 @@ import socket
 from django.core.management.utils import get_random_secret_key  # For generating secure keys
 from .config import load_env
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-# BASE_DIR = Path(__file__).resolve().parent.parent
-
-# env = environ.Env()
-# environ.Env.read_env(os.path.join(BASE_DIR, 'setup/.env'))
-
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Check if we're in a CI environment
@@ -39,22 +33,21 @@ else:
 # =====================
 # SECURITY CONFIGURATION
 # =====================
-SECRET_KEY = env('SECRET_KEY', default=get_random_secret_key())
-if len(SECRET_KEY) < 50 or 'django-insecure' in SECRET_KEY:
-    print("WARNING: Generating new secure SECRET_KEY", file=sys.stderr)
+# Safely get SECRET_KEY without causing recursion
+try:
+    SECRET_KEY = env('SECRET_KEY')
+    if len(SECRET_KEY) < 50 or 'django-insecure' in SECRET_KEY:
+        raise ValueError("Invalid SECRET_KEY")
+except (KeyError, ValueError):
     SECRET_KEY = get_random_secret_key()
     os.environ['SECRET_KEY'] = SECRET_KEY
+    print("WARNING: Generated new secure SECRET_KEY", file=sys.stderr)
 
 # Environment detection
 PRODUCTION = env('ENV', default='development') == 'production'
 # Debug settings
 DEBUG = env.bool('DJANGO_DEBUG', default=not PRODUCTION)
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
-
-# # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
-# # Immediately re-set environment variable to prevent override
-# os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
 
 # Security settings
