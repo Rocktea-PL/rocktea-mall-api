@@ -13,7 +13,8 @@ from mall.models import (
    CustomUser, 
    Store, 
    Product,
-   ProductVariant
+   ProductVariant,
+   StoreProductPricing
    )
 from mall.serializers import ProductSerializer
 from decimal import Decimal
@@ -32,10 +33,22 @@ class OrderItemsSerializer(serializers.ModelSerializer):
    
    def to_representation(self, instance):
       representation=super(OrderItemsSerializer, self).to_representation(instance)
-      representation["product"]= [{"name": instance.product.name, "sku": instance.product.sku, "size": instance.product_variant.size, "color": instance.product_variant.colors}]
+      store_id = instance.userorder.store.id 
+      pricing = StoreProductPricing.objects.get(product=instance.product, store=store_id) 
+      retail_price = pricing.retail_price
+      representation["product"]= [
+         {
+            "id": instance.product.id, 
+            "name": instance.product.name, 
+            "sku": instance.product.sku, 
+            "size": instance.product_variant.size, 
+            "color": instance.product_variant.colors, 
+            "images": [image.images.url for image in instance.product.images.all()],
+            "price": retail_price,
+            "store": store_id
+         }
+      ]
       return representation
-
-
 
 class AssignedOrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
@@ -70,14 +83,13 @@ class AssignedOrderSerializer(serializers.ModelSerializer):
       cache.set(cache_key, representation, timeout=60 * 3)
       return representation
 
-
 class OrderSerializer(serializers.ModelSerializer):
    buyer = serializers.PrimaryKeyRelatedField(queryset=CustomUser.objects.all())
    total_price = serializers.DecimalField(max_digits=10, decimal_places=2)
    order_items = OrderItemsSerializer(many=True, read_only=True, source='items')
    created_at = serializers.SerializerMethodField()
    order_id = serializers.CharField(max_length=5, read_only=True)
-   status = serializers.CharField(max_length=9, read_only=True)
+   status = serializers.CharField(max_length=9) # , read_only=True
    delivery_code = serializers.CharField(max_length=5, read_only=True)
 
    # Logistics
@@ -85,8 +97,8 @@ class OrderSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = StoreOrder
-      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status']
-      read_only_fields = ['order_items', 'order_id', 'status']
+      fields = ['id', 'buyer', 'store', 'created_at', 'total_price', 'order_items', 'order_id', 'delivery_code', 'rider_assigned', 'status', 'tracking_id', 'tracking_url', 'tracking_status', 'shipping_fee', 'delivery_location']
+      read_only_fields = ['order_items', 'order_id'] # , 'status'
 
    def get_created_at(self, obj):
       return obj.created_at.strftime("%Y-%m-%d %H:%M:%S%p")
@@ -106,6 +118,9 @@ class OrderSerializer(serializers.ModelSerializer):
       representation['buyer'] = {"name": f"{instance.buyer.first_name} {instance.buyer.last_name}", "contact": str(getattr(instance.buyer, 'contact', None))}
       representation['store'] = instance.store.name
       representation['rider_assigned'] = self.get_assigned_rider(instance.id)
+      representation['tracking_id'] = instance.tracking_id
+      representation['tracking_url'] = instance.tracking_url
+      representation['tracking_status'] = instance.tracking_status
       cache.set(cache_key, representation, timeout=60*2)
       
       return representation
@@ -124,7 +139,6 @@ class OrderSerializer(serializers.ModelSerializer):
       else:
          return None
 
-
 class CartItemSerializer(serializers.ModelSerializer):
    product = serializers.SerializerMethodField()
    
@@ -134,8 +148,6 @@ class CartItemSerializer(serializers.ModelSerializer):
       
    def get_product(self, obj):
       return {"id": obj.product.id, "name": obj.product.name, "images": [image.images.url for image in obj.product.images.all()] if obj.product.name else None} if obj.product.name else None
-
-
 
 class CartSerializer(serializers.ModelSerializer):
    items = CartItemSerializer(many=True, read_only=True)
@@ -148,14 +160,26 @@ class CartSerializer(serializers.ModelSerializer):
    def get_user(self, obj):
       return f"{obj.user.first_name} {obj.user.last_name}"
 
+   def validate_items(self, value):
+      if not value:
+         raise serializers.ValidationError("Items cannot be empty.")
+      for item in value:
+         if 'product_variant' not in item or 'quantity' not in item or 'price' not in item:
+               raise serializers.ValidationError("Each item must include 'product_variant', 'quantity', and 'price'.")
+      return value
+
+   def create(self, validated_data):
+      items_data = validated_data.pop('items')
+      cart = Cart.objects.create(**validated_data)
+      for item_data in items_data:
+         CartItem.objects.create(cart=cart, **item_data)
+      return cart
 
 class OrderDeliverySerializer(serializers.ModelSerializer):
    class Meta:
       model = OrderDeliveryConfirmation
       fields = ['id', 'userorder', 'code']
       
-
-
 class AssignOrderSerializer(serializers.ModelSerializer):
    class Meta:
       model = AssignOrder
@@ -191,7 +215,6 @@ class AssignOrderSerializer(serializers.ModelSerializer):
       representation['order'] = order_info
 
       return representation
-
 
 class PaymentHistorySerializers(serializers.ModelSerializer):
    class Meta:

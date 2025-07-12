@@ -1,18 +1,26 @@
+import os
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager, AbstractBaseUser
 from uuid import uuid4
 import random
 import string
 from phonenumber_field.modelfields import PhoneNumberField
-from cloudinary_storage.storage import RawMediaCloudinaryStorage
 from .validator import YearValidator
 from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
+from cloudinary.models import CloudinaryField
+from django.core.exceptions import ValidationError
 
+# Conditionally import Cloudinary storage
+if not os.environ.get('CI', False):
+    from cloudinary_storage.storage import RawMediaCloudinaryStorage
+else:
+    # Define a dummy storage for CI environment
+    from django.core.files.storage import FileSystemStorage
+    RawMediaCloudinaryStorage = FileSystemStorage
 
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
-
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -37,7 +45,6 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password=password, **extra_fields)
 
-
 # StoreOwner models
 class CustomUser(AbstractUser):
     SERVICE_TYPE = (
@@ -52,7 +59,7 @@ class CustomUser(AbstractUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=250)
     last_name = models.CharField(max_length=250)
-    contact = PhoneNumberField()
+    contact = PhoneNumberField(unique=True, null=True, blank=True)
     is_store_owner = models.BooleanField(default=False)
     is_consumer = models.BooleanField(default=False)
     is_logistics = models.BooleanField(default=False)
@@ -60,7 +67,7 @@ class CustomUser(AbstractUser):
     password = models.CharField(max_length=200)
     associated_domain = models.ForeignKey(
         "Store", on_delete=models.CASCADE, null=True)
-    profile_image = models.FileField(storage=RawMediaCloudinaryStorage)
+    profile_image = models.FileField(storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, blank=True, null=True)
 
     # Registration Progress: This Records the User registration stage
     completed_steps = models.IntegerField(default=0)
@@ -68,6 +75,8 @@ class CustomUser(AbstractUser):
     # Services Extension
     type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
     is_services = models.BooleanField(default=False)
+    is_verified = models.BooleanField(default=False)
+    verification_token = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
@@ -85,12 +94,12 @@ class CustomUser(AbstractUser):
             self.username = self._generate_unique_username()
         return super().save(*args, **kwargs)
 
+
     def _generate_unique_username(self):
         return "".join(random.choices(string.ascii_uppercase + string.ascii_lowercase + string.digits, k=7))
 
     def __str__(self):
         return self.first_name
-
 
 class ServicesBusinessInformation(models.Model):
     EXPERIENCE = (
@@ -110,15 +119,14 @@ class ServicesBusinessInformation(models.Model):
     location = models.CharField(max_length=250, null=True)
     business_photograph = models.FileField(storage=RawMediaCloudinaryStorage)
     business_photograph2 = models.FileField(
-        storage=RawMediaCloudinaryStorage, null=True)
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     business_photograph3 = models.FileField(
-        storage=RawMediaCloudinaryStorage, null=True)
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     charges = models.DecimalField(
         default=0.00, max_digits=12, decimal_places=2)
 
     def __str__(self):
         return self.name
-
 
 class Wallet(models.Model):
     store = models.OneToOneField('Store', on_delete=models.CASCADE, null=True)
@@ -128,11 +136,10 @@ class Wallet(models.Model):
     pending_balance = models.DecimalField(
         max_digits=10, decimal_places=2, default=0.00)
     nuban = models.CharField(max_length=10, unique=True, null=True)
-    bank_code = models.IntegerField(null=True)
+    bank_code = models.CharField(null=True)
 
     def __str__(self):
         return self.store.name
-
 
 class Store(models.Model):
     id = models.CharField(max_length=36, default=uuid4,
@@ -142,9 +149,9 @@ class Store(models.Model):
     name = models.CharField(max_length=150, unique=True)
     email = models.EmailField(unique=True)
     TIN_number = models.BigIntegerField(null=True, blank=True)
-    logo = models.FileField(storage=RawMediaCloudinaryStorage, null=True)
+    logo = models.FileField(storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     cover_image = models.FileField(
-        storage=RawMediaCloudinaryStorage, null=True, blank=True)
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True, blank=True)
     year_of_establishment = models.DateField(
         validators=[YearValidator], null=True)
     category = models.ForeignKey(
@@ -169,6 +176,7 @@ class Store(models.Model):
     whatsapp = models.URLField(null=True, blank=True)
     instagram = models.URLField(null=True, blank=True)
     twitter = models.URLField(null=True, blank=True)
+    has_made_payment = models.BooleanField(default=False)
 
     class Meta:
         # Add an index for the 'uid' field
@@ -180,7 +188,11 @@ class Store(models.Model):
 
     def __str__(self):
         return self.name
-
+    
+    def save(self, *args, **kwargs):
+        if self.has_made_payment:
+            self.completed = True
+        super().save(*args, **kwargs)
 
 class Product(models.Model):
     UPLOAD_STATUS = (
@@ -219,7 +231,12 @@ class Product(models.Model):
             models.Index(fields=['sku'], name='product_sku_skux'),
             models.Index(fields=['name'], name='product_name_namex'),
             models.Index(fields=['category'],
-                         name='product_category_categoryx')
+                         name='product_category_categoryx'),
+            models.Index(fields=['subcategory'], name='product_subcategory_idx'),
+            models.Index(fields=['producttype'], name='product_producttype_idx'),
+            models.Index(fields=['brand'], name='product_brand_idx'),
+            models.Index(fields=['is_available'], name='product_available_idx'),
+            models.Index(fields=['upload_status'], name='product_status_idx'),
         ]
 
     def formatted_created_at(self):
@@ -231,14 +248,47 @@ class Product(models.Model):
         #    self.serial_number = generate_unique_code()
         if not self.sku:
             self.sku = self._generate_sku()
+
+        try:
+            self.full_clean()  # Run model validation
+        except ValidationError as e:
+            # Combine all errors into a single message
+            error_message = " ".join(e.messages)
+            raise ValidationError(error_message)
         return super().save(*args, **kwargs)
 
     def _generate_sku(self):
-        return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        while True:
+            sku = "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            if not Product.objects.filter(sku=sku).exists():
+                return sku
+            
+    def clean(self):
+        """Validate that category, subcategory, and producttype are related"""
+        
+        errors = []
+        
+        # Check category-subcategory relationship
+        if self.subcategory and self.category:
+            if self.subcategory.category != self.category:
+                errors.append("Selected subcategory does not belong to the selected category.")
+        
+        # Check subcategory-producttype relationship
+        if self.producttype and self.subcategory:
+            if self.producttype.subcategory != self.subcategory:
+                errors.append("Selected product type does not belong to the selected subcategory.")
+        
+        # Check category-producttype relationship
+        if self.producttype and self.category:
+            if self.producttype.subcategory.category != self.category:
+                errors.append("Selected product type does not belong to the selected category.")
+        
+        if errors:
+            # Combine all errors into a single message
+            raise ValidationError(" ".join(errors))
 
     def __str__(self):
         return self.name
-
 
 class ProductRating(models.Model):
    product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -246,8 +296,7 @@ class ProductRating(models.Model):
    
    def __str__(self):
       return self.product.id
-   
-   
+
 class ProductImage(models.Model):
     images = models.FileField(storage=RawMediaCloudinaryStorage)
 
@@ -255,7 +304,6 @@ class ProductImage(models.Model):
         indexes = [
             models.Index(fields=['images'], name='product_images_imagesx')
         ]
-
 
 class ProductVariant(models.Model):
     COLOR_CHOICES = [
@@ -291,16 +339,29 @@ class ProductVariant(models.Model):
     def __str__(self):
         return ', '.join(product.name for product in self.product.all())
 
-
 class StoreProductPricing(models.Model):
     product = models.ForeignKey(
-        Product, on_delete=models.CASCADE, related_name='varied_products', null=True)
-    store = models.ForeignKey('Store', on_delete=models.CASCADE)
+        Product, 
+        on_delete=models.CASCADE, 
+        related_name='store_pricings',  # Changed for clarity
+        null=True
+    )
+    store = models.ForeignKey(
+        'Store', 
+        on_delete=models.CASCADE,
+        related_name='pricings'  # Add explicit related_name
+    )
     retail_price = models.DecimalField(max_digits=11, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['store', 'product']),
+            models.Index(fields=['retail_price']),
+        ]
 
     def __str__(self):
-        return f"{self.store} - ${self.retail_price}"
-
+        return f"{self.store.name} - {self.product.name} (${self.retail_price})"
 
 class Category(models.Model):
     CHOICES = (
@@ -327,7 +388,6 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-
 class SubCategories(models.Model):
     category = models.ForeignKey(
         Category, related_name="subcategories", on_delete=models.CASCADE)
@@ -335,13 +395,13 @@ class SubCategories(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['name'], name='subcategories_name_namex')
+            models.Index(fields=['name'], name='subcategories_name_namex'),
+            models.Index(fields=['category'], name='subcategories_category_idx')
         ]
+        unique_together = ('category', 'name')
 
     def __str__(self):
-        return self.name
-
-
+        return f"{self.category.name} - {self.name}"
 class ProductTypes(models.Model):
     subcategory = models.ForeignKey(
         SubCategories, related_name="producttypes", on_delete=models.CASCADE)
@@ -349,12 +409,12 @@ class ProductTypes(models.Model):
 
     class Meta:
         indexes = [
-            models.Index(fields=['name'], name='producttypes_name_namex')
+            models.Index(fields=['name'], name='producttypes_name_namex'),
+            models.Index(fields=['subcategory'], name='producttypes_subcategory_idx')
         ]
 
     def __str__(self):
-        return self.name
-
+        return f"{self.subcategory.name} - {self.name}"
 
 class ProductReview(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, null=True)
@@ -364,14 +424,12 @@ class ProductReview(models.Model):
     def __str__(self):
         return self.user.first_name
 
-
 class DropshipperReview(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
     review = models.TextField(null=True, blank=False)
 
     def __str__(self):
         return self.user.first_name
-
 
 class Brand(models.Model):
     producttype = models.ManyToManyField(ProductTypes)
@@ -385,7 +443,6 @@ class Brand(models.Model):
     def __str__(self):
         return self.name
 
-
 class Cart(models.Model):
     user = models.ForeignKey(CustomUser, limit_choices_to={
                              "is_consumer": True}, on_delete=models.CASCADE)
@@ -393,12 +450,10 @@ class Cart(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveIntegerField(default=1)
 
-
 class Wishlist(models.Model):
     user = models.ForeignKey(CustomUser, limit_choices_to={
                              "is_consumer": True}, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-
 
 class MarketPlace(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, db_index=True)
@@ -408,7 +463,6 @@ class MarketPlace(models.Model):
 
     def __repr__(self):
         return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"
-
 
 class ReportUser(models.Model):
     OFFENSE = (
@@ -443,7 +497,6 @@ class ReportUser(models.Model):
                 string.ascii_uppercase + string.digits, k=10))
         return super().save(*args, **kwargs)
 
-
 class Notification(models.Model):
     recipient = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, null=True)
@@ -451,7 +504,6 @@ class Notification(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)
-
 
 class PromoPlans(models.Model):
     purpose = models.CharField(max_length=200)
@@ -470,14 +522,12 @@ class PromoPlans(models.Model):
             self.code = promo_code
         super(PromoPlans, self).save(*args, **kwargs)
 
-
 class BuyerBehaviour(models.Model):
     question = models.CharField(
         max_length=200, default="How satisfied are you with our services?")
     user = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, limit_choices_to={"is_consumer": True})
     answer = models.IntegerField(null=True)
-
 
 class ShippingData(models.Model):
     STATE_CHOICES = (

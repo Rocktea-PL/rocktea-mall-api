@@ -1,8 +1,14 @@
-from .views import MyProducts
+from .views import MyProducts, DropshipperAdminViewSet
 from django.urls import path
-# from .dashboard_datas.order_data import MyOrders
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register(r'admin/dropshippers', DropshipperAdminViewSet, basename='admin-dropshippers')
+
 
 urlpatterns = [
    path('products', MyProducts.as_view(), name='my-products'),
-   # path('my-orders', MyOrders.as_view(), name='my-order')
-]
+   path('admin/dropshippers/<uuid:id>/delete-all', 
+         DropshipperAdminViewSet.as_view({'delete': 'destroy'}),
+         name='admin-dropshipper-delete'),
+] + router.urls

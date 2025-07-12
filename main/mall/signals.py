@@ -1,4 +1,4 @@
-from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification
+from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification, CustomUser
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
@@ -28,7 +28,3 @@ def create_marketplace(sender, instance, created, **kwargs):
       notification_message = f"{store.name} you just added a new product to your Marketplace."
 
       Notification.objects.create(store=store, message=notification_message)
-
-
-
-

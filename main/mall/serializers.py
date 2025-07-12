@@ -46,15 +46,8 @@ from django.core.cache import cache
 from setup.celery import app
 from django.http import Http404
 from django.db.models import Q
-from django.conf import settings
-import cloudinary
-import cloudinary.uploader
-
-cloudinary.config(
-    cloud_name=settings.CLOUDINARY_NAME,  # Ensure this is correct
-    api_key=settings.CLOUDINARY_API_KEY,         # Ensure this is correct
-    api_secret=settings.CLOUDINARY_API_SECRET    # Ensure this is correct
-)
+from order.models import PaystackWebhook
+from mall.payments.verify_payment import verify_paystack_transaction
 # from .store_features.get_store_id import get_store_instance
 #Push
 
@@ -82,7 +75,6 @@ class LogisticSerializer(ModelSerializer):
          user.save()
       return user
 
-
 class OperationsSerializer(ModelSerializer):
    class Meta:
       model = CustomUser
@@ -107,7 +99,6 @@ class OperationsSerializer(ModelSerializer):
          user.set_password(password)
          user.save()
       return user
-
 
 class StoreOwnerSerializer(ModelSerializer):
     shipping_address = serializers.CharField(required=False, max_length=500)
@@ -142,12 +133,48 @@ class StoreOwnerSerializer(ModelSerializer):
         # Confirm the user as a store owner
         user.is_store_owner = True
 
-        if password:
-            # Set and save the user's password only if a valid password is provided
-            user.set_password(password)
-            user.save()
-        return user
+      if password:
+         # Set and save the user's password only if a valid password is provided
+         user.set_password(password)
+         user.save()
+      return user
+   
+   def update(self, instance, validated_data):
+      # Check if a new profile_image is being provided
+      new_profile_image = validated_data.get('profile_image')
 
+      # If a new image is provided AND it's different from the current one
+      # OR if the client is sending null to clear the image
+      if 'profile_image' in validated_data and new_profile_image != instance.profile_image:
+         # Check if there was an old image to delete
+         if instance.profile_image:
+            try:
+               # Calling .delete() on the FieldFile instance should trigger Cloudinary deletion
+               # because cloudinary-storage hooks into this.
+               instance.profile_image.delete()
+            except Exception as e:
+               # Log or handle the error gracefully, but don't prevent the update from proceeding
+               print(f"Cloudinary deletion error during profile image update: {e}")
+      
+      # Handle password update separately as set_password doesn't go through setattr
+      password = validated_data.pop('password', None)
+      if password:
+         if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
+            raise ValidationError({"error":"Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
+         instance.set_password(password)
+      
+      # Update other fields passed in validated_data
+      for attr, value in validated_data.items():
+         setattr(instance, attr, value)
+      
+      instance.save()
+      return instance
+
+   def to_representation(self, instance):
+      representation = super().to_representation(instance)
+      # Remove the password from the serialized output
+      representation.pop('password', None)
+      return representation
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
    @classmethod
@@ -155,59 +182,96 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       token = super().get_token(user)
       token['email'] = user.email
       return token
-   
+
    def validate(self, attrs):
       data = super().validate(attrs)
-      user_id = self.user.id
+      user = self.user  # Already authenticated user from parent class
 
+      # Fix 1: Correct query to ensure single user
       try:
-         user = CustomUser.objects.get(Q(is_store_owner=True) | Q(is_logistics=True) and Q(id=user_id))
+         # Validate user type - Get current user with permissions
+         user = CustomUser.objects.get(
+               Q(id=user.id) & 
+               (Q(is_store_owner=True) | Q(is_logistics=True)))
       except CustomUser.DoesNotExist:
          raise ValidationError("User Does Not Exist")
+      except CustomUser.MultipleObjectsReturned:
+         raise ValidationError("Multiple users found - database inconsistency")
 
-      try:
-         store = Store.objects.get(owner=user)
-         print(store.name)
-         has_store = True
-      except Store.DoesNotExist:
-         has_store = False
-         
-      try:
-         user = ServicesBusinessInformation.objects.get(user=user_id)
-         has_service = True
-      except ServicesBusinessInformation.DoesNotExist:
-         has_service = False
-      
-      data['user_data'] = {
-      "id": self.user.id,
-      "first_name": self.user.first_name,
-      "last_name": self.user.last_name,
-      "email": self.user.email,
-      "username": self.user.username,
-      "contact": f"{self.user.contact}",
-      "is_storeowner": self.user.is_store_owner,
-      "has_store": has_store,
-      # "category": getattr(self.store,'category', None),
-      "is_services": self.user.is_services,
-      "is_logistics": self.user.is_logistics,
-      "is_operations": self.user.is_operations,
-      "has_service": has_service
-   }
+      # Fix 2: Simplified store/service checks
+      has_store = Store.objects.filter(owner=user).exists()
+      has_service = ServicesBusinessInformation.objects.filter(user=user).exists()
+
+      # Build user data
+      user_data = {
+         "id": user.id,
+         "first_name": user.first_name,
+         "last_name": user.last_name,
+         "email": user.email,
+         "username": user.username,
+         "contact": f"{user.contact}",
+         "is_storeowner": user.is_store_owner,
+         "has_store": has_store,
+         "is_services": user.is_services,
+         "is_logistics": user.is_logistics,
+         "is_operations": user.is_operations,
+         "has_service": has_service,
+      }
+
+      # Store-specific logic
       if has_store:
-         data['user_data']["store_id"] = self.user.owners.id
-         data['user_data']['theme'] = self.user.owners.theme
-         data['user_data']['category'] = self.user.owners.category.id
-         data['user_data']['domain_name'] = getattr(self.user.owners, 'domain_name', None)
-         data['user_data']['completed'] = self.user.owners.completed
-      
-      if data['user_data']['is_services']:
-         data['user_data']['type'] = self.user.type
+         store = Store.objects.get(owner=user)
+
+         # Enforce completed=True when payment exists (add this FIRST)
+         if store.has_made_payment:
+            store.completed = True  # Force completion if payment exists
+            store.save(update_fields=['completed'])
+
+         # Ensure completed is True if payment was made before
+         if store.has_made_payment and not store.completed:
+            store.completed = True
+            store.save()
+
+         user_data.update({
+            "store_id": store.id,
+            "theme": store.theme,
+            "category": store.category.id if store.category else None,
+            "domain_name": store.domain_name,
+            "completed": store.completed,
+            "hasMadePayment": store.has_made_payment
+         })
+
+         # Payment verification
+         try:
+            paystack_payment = PaystackWebhook.objects.get(
+               user=user,
+               purpose="dropshipping_payment"
+            )
+            
+            if paystack_payment.status == 'Pending':
+               payment_data = verify_paystack_transaction(paystack_payment.reference)
+               if payment_data and payment_data.get('data', {}).get('status') == 'success':
+                  paystack_payment.status = 'Success'
+                  paystack_payment.data = payment_data
+                  paystack_payment.save()
+                  store.has_made_payment = True
+                  store.completed = True
+                  # store.save()
+                  store.save(update_fields=['has_made_payment', 'completed'])
+
+         except PaystackWebhook.DoesNotExist:
+            pass
+
+      user_data["hasMadePayment"] = store.has_made_payment
+
+      if user_data.get('is_services'):
+         user_data["type"] = user.type
 
       refresh = self.get_token(self.user)
-      data["refresh"] = str(refresh)
-      data["access"] = str(refresh.access_token)
+      user_data["refresh"] = str(refresh)
+      user_data["access"] = str(refresh.access_token)
+      data['user_data'] = user_data
       return data
-
 
 class CreateStoreSerializer(serializers.ModelSerializer):
    TIN_number = serializers.IntegerField(required=False)
@@ -285,7 +349,6 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          raise ValidationError("Sorry you have a store already")
       return ValidationError("Provide User")
 
-
 class ProductRatingSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductRating
@@ -296,50 +359,105 @@ class ProductRatingSerializer(serializers.ModelSerializer):
       representation["product"] = instance.product.name
       return representation
 
-
 class BrandSerializer(serializers.ModelSerializer):
    class Meta:
       model = Brand
       fields = '__all__'
 
+   def validate_name(self, value):
+      # Check if brand name already exists (for updates)
+      if self.instance and self.instance.name != value:
+         if Brand.objects.filter(name=value).exists():
+               raise serializers.ValidationError("A brand with this name already exists.")
+      elif not self.instance and Brand.objects.filter(name=value).exists():
+         raise serializers.ValidationError("A brand with this name already exists.")
+      return value
 
 class SubCategorySerializer(serializers.ModelSerializer):
+   category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), read_only=False)
+
    class Meta:
       model = SubCategories
       fields = '__all__'
-      
-   def to_representation(self, instance):
-      representation = super(SubCategorySerializer, self).to_representation(instance)
-      representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
-      return representation
 
+   def validate(self, data):
+      # Check for unique subcategory name within the same category
+      category = data.get('category')
+      name = data.get('name')
+      
+      if category and name:
+         query = SubCategories.objects.filter(category=category, name=name)
+         if self.instance:
+            query = query.exclude(pk=self.instance.pk)
+         
+         if query.exists():
+            raise serializers.ValidationError(
+               "A subcategory with this name already exists in this category."
+            )
+      
+      return data
+      
+   # def to_representation(self, instance):
+   #    representation = super(SubCategorySerializer, self).to_representation(instance)
+   #    representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
+   #    return representation
 
 class CategorySerializer(serializers.ModelSerializer):
    class Meta:
       model = Category
       fields = '__all__'
 
+   def validate_name(self, value):
+      # Check if category name already exists (for updates)
+      if self.instance and self.instance.name != value:
+         if Category.objects.filter(name=value).exists():
+            raise serializers.ValidationError("A category with this name already exists.")
+      elif not self.instance and Category.objects.filter(name=value).exists():
+         raise serializers.ValidationError("A category with this name already exists.")
+      return value
 
 class ProductTypesSerializer(serializers.ModelSerializer):
+   subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    class Meta:
       model = ProductTypes
       fields = '__all__'
-      
-   def to_representation(self, instance):
-      representation = super(ProductTypesSerializer, self).to_representation(instance)
-      representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
-      return representation
 
+   def validate(self, data):
+      # Check for unique product type name within the same subcategory
+      subcategory = data.get('subcategory')
+      name = data.get('name')
+      
+      if subcategory and name:
+         query = ProductTypes.objects.filter(subcategory=subcategory, name=name)
+         if self.instance:
+            query = query.exclude(pk=self.instance.pk)
+         
+         if query.exists():
+            raise serializers.ValidationError(
+               "A product type with this name already exists in this subcategory."
+            )
+      
+      return data
+      
+   # def to_representation(self, instance):
+   #    representation = super(ProductTypesSerializer, self).to_representation(instance)
+   #    representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
+   #    return representation
 
 class ProductImageSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductImage
-      fields = '__all__'
+      fields = ['id', 'images']
 
+   def get_url(self, obj):
+      if obj.images:
+         return obj.images.url
+      return None
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
    size = serializers.CharField(required=False)
+   product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all(), many=True)
    
    class Meta:
       model = ProductVariant
@@ -353,7 +471,6 @@ class ProductVariantSerializer(serializers.ModelSerializer):
       representation['wholesale_price'] = '{:,.2f}'.format(instance.wholesale_price)
 
       return representation
-
 
 class StoreProductPricingSerializer(serializers.ModelSerializer):
    product = serializers.PrimaryKeyRelatedField(queryset=Product.objects.all())
@@ -371,21 +488,19 @@ class StoreProductPricingSerializer(serializers.ModelSerializer):
       representation['retail_price'] = '{:,.2f}'.format(retail_price_float)
       return representation
 
-
 class ProductSerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all())
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
    brand = serializers.PrimaryKeyRelatedField(queryset=Brand.objects.all())
    producttype = serializers.PrimaryKeyRelatedField(queryset=ProductTypes.objects.all())
-   # storevariant = StoreProductVariantSerializer(read_only=True)
    product_variants = ProductVariantSerializer(read_only=True, many=True)
-
+   store = serializers.PrimaryKeyRelatedField(queryset=Store.objects.all(), many=True, required=False)
    
    class Meta:
       model = Product
       fields = ['id', 'sku', 'name', 'description', 'quantity', 
                'is_available', 'created_at', 'on_promo', 'upload_status', 'category', 'subcategory', 
-               'brand', "producttype",'images', "product_variants"]
+               'brand', "producttype",'images', "product_variants", 'store']
       read_only_fields = ('id', "sku")
       extra_kwargs = {
          'size': {'required': False}
@@ -425,12 +540,39 @@ class ProductSerializer(serializers.ModelSerializer):
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 5 mins
       return representation
 
+class SimpleProductSerializer(serializers.ModelSerializer):
+   unit_sold = serializers.SerializerMethodField()
+   price = serializers.SerializerMethodField()
+   date = serializers.SerializerMethodField()
+
+   class Meta:
+      model = Product
+      fields = ['id', 'name', 'unit_sold', 'sku', 'price', 'date']
+
+   def get_unit_sold(self, obj):
+      return getattr(obj.sales_count, 'sales_count', 0)
+
+   def get_price(self, obj):
+      store = self.context.get('store')
+      if not store:
+         return None  # Store context is missing
+      try:
+         pricing = StoreProductPricing.objects.get(product=obj, store=store)
+         return "{:.2f}".format(pricing.retail_price)
+      except StoreProductPricing.DoesNotExist:
+         return None
+      except Exception as e:
+         # Log the error for debugging
+         print(f"Error fetching price: {e}")
+         return None
+
+   def get_date(self, obj):
+      return obj.created_at.strftime("%Y-%m-%d %H:%M:%S")
 
 class ServicesBusinessInformationSerializer(serializers.ModelSerializer):
    class Meta:
       model = ServicesBusinessInformation
       fields = "__all__"
-
 
 class MarketPlaceSerializer(serializers.ModelSerializer):
    store = serializers.UUIDField(source='store_id', read_only=True)
@@ -529,7 +671,6 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
    def serialize_product_variants(self, variants):
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
-
 class ProductDetailSerializer(serializers.ModelSerializer):
    class Meta:
       model = Product
@@ -573,7 +714,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
    def serialize_product_variants(self, variants):
       return [{"id": variant.id, "size": variant.size, "color": variant.colors, "wholesale_price": variant.wholesale_price} for variant in variants]
 
-
 class WalletSerializer(serializers.ModelSerializer):
    class Meta:
       model = Wallet
@@ -584,7 +724,6 @@ class WalletSerializer(serializers.ModelSerializer):
       representation = super(WalletSerializer, self).to_representation(instance)
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
       return representation
-
 
 class ReportUserSerializer(serializers.ModelSerializer):
    other = serializers.CharField(required=False)
@@ -602,32 +741,27 @@ class ReportUserSerializer(serializers.ModelSerializer):
       }
       return representation
 
-
 class NotificationSerializer(serializers.ModelSerializer):
    class Meta:
       model = Notification
       fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']
       
-
 class PromoPlanSerializer(serializers.ModelSerializer):
    class Meta:
       model = PromoPlans
       fields = ['id', 'purpose', 'store', 'category', 'code']
-
 
 # Pre-Structure for Data Analyst
 class BuyerBehaviourSerializer(serializers.ModelSerializer):
    class Meta:
       model = BuyerBehaviour
       fields = "__all__"
-      
-      
+    
 class ShippingDataSerializer(serializers.ModelSerializer):
    class Meta:
       model = ShippingData
       fields = "__all__"
-      
-      
+  
 class ProductReviewSerializer(serializers.ModelSerializer):
    class Meta:
       model = ProductReview
@@ -638,8 +772,7 @@ class ProductReviewSerializer(serializers.ModelSerializer):
       representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
       representation['product'] = instance.product.name
       return representation
-   
-   
+
 class DropshipperReviewSerializer(serializers.ModelSerializer):
    class Meta:
       model = DropshipperReview
@@ -649,4 +782,10 @@ class DropshipperReviewSerializer(serializers.ModelSerializer):
       representation = super(DropshipperReviewSerializer, self).to_representation(instance)
       representation['user'] = f"{instance.user.first_name} {instance.user.last_name}"
       return representation
-   
+
+class ResetPasswordEmailRequestSerializer(serializers.Serializer):
+   email = serializers.EmailField()
+
+class ResetPasswordConfirmSerializer(serializers.Serializer):
+   token = serializers.CharField()
+   password = serializers.CharField()

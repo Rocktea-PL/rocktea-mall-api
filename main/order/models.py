@@ -7,12 +7,13 @@ from rest_framework import status
 from rest_framework.serializers import ValidationError
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+from django.contrib.postgres.fields import JSONField
 
 
 class StoreOrder(models.Model):
    STATUS_CHOICES = (
       ("Pending", "Pending"),
-      ("nmpleted", "Completed"),
+      ("Completed", "Completed"),
       ("Enroute", "Enroute"),
       ("Delivered", "Delivered"),
       ("Returned", "Returned")
@@ -27,6 +28,17 @@ class StoreOrder(models.Model):
    delivery_code = models.CharField(max_length=5, null=True, unique=True)
    delivery_location = models.CharField(max_length=200, null=True)
    state = models.ForeignKey('State', on_delete=models.CASCADE, null=True)
+   tracking_id = models.CharField(max_length=100, null=True, blank=True) 
+   tracking_url = models.URLField(max_length=200, null=True, blank=True) 
+   tracking_status = models.CharField(max_length=50, null=True, blank=True)
+   shipping_fee = models.DecimalField(decimal_places=2, max_digits=11, default=0.00, null=True)
+
+   class Meta:
+      indexes = [
+         models.Index(fields=['status']),
+         models.Index(fields=['store', 'status']),
+         models.Index(fields=['total_price']),
+      ]
    
    def save(self, *args, **kwargs):
       if not self.order_sn:
@@ -37,7 +49,6 @@ class StoreOrder(models.Model):
          self.delivery_code = "".join(rand.choices(string.ascii_uppercase + string.digits, k=5))
       return super(StoreOrder, self).save(*args, **kwargs)
 
-
 class PaymentHistory(models.Model):
    store = models.ForeignKey(Store, on_delete=models.CASCADE)
    order = models.ForeignKey(StoreOrder, on_delete=models.CASCADE)
@@ -46,7 +57,6 @@ class PaymentHistory(models.Model):
 
    def __str__(self):
       return self.order.sn
-
 
 class State(models.Model):
    STATE_CHOICES = (
@@ -96,12 +106,9 @@ class State(models.Model):
    def __str__(self):
       return self.state
 
-
-
 class AssignOrder(models.Model):
    order = models.ManyToManyField(StoreOrder)
    rider = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, limit_choices_to={'is_logistics':True}, null=True)
-
 
 class OrderItems(models.Model):
    userorder = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='items', null=True)
@@ -112,7 +119,6 @@ class OrderItems(models.Model):
 
    def __str__(self):
       return self.created_at
-
 
 class OrderDeliveryConfirmation(models.Model):
    userorder = models.ForeignKey('StoreOrder', on_delete=models.DO_NOTHING)
@@ -137,13 +143,11 @@ class OrderDeliveryConfirmation(models.Model):
       except StoreOrder.DoesNotExist:
          raise ValidationError("Store Order Not Found")
 
-
 class Cart(models.Model):
    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='user_cart', null=True)
    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='stores_cart', null=True)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
    price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
-
 
 class CartItem(models.Model):
    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name='items')
@@ -154,4 +158,18 @@ class CartItem(models.Model):
    price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
    
    def __str__(self):
-      return self.cart.id
+    return str(self.cart.id)  # Convert to string
+
+class PaystackWebhook(models.Model):
+   user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='owner')
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='store_mall', null=True)
+   reference = models.CharField(max_length=64, null=True)
+   data = models.JSONField(null=True, blank=True)  # To store the entire response data from Paystack
+   created_at = models.DateTimeField(auto_now_add=True)
+   total_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
+   status = models.CharField(max_length=20, default='Pending')  # To store the status of the transaction
+   order = models.ForeignKey(StoreOrder, on_delete=models.SET_NULL, null=True, blank=True)  # New field for order ID
+   purpose = models.CharField(max_length=50, default="order")  # New field for payment purpose
+
+   def __str__(self):
+      return self.reference

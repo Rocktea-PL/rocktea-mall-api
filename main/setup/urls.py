@@ -5,6 +5,7 @@ from rest_framework import routers
 from mall.views import (
         CreateStoreOwner,
         GetCategories,
+        CategoryViewSet,
         CreateStore,
         ProductViewSet,
         MarketPlaceView,
@@ -37,21 +38,24 @@ from order.views import (
     ViewOrders, 
     OrderDeliverView, 
     AllOrders,
-    PaymentHistoryView
-    )
+    PaymentHistoryView,
+    InitiatePayment,
+    ShipbubbleViewSet,
+    Paystack
+)
 
 from order.logistics.assign_order import AssignOrderView
 from services.views import (
     SignUpServices,
     ServicesCategoryView
     )
+from dashboards.views import AdminDashboardView, DropshipperAnalyticsView
 
-from tenants.views import TenantSignUp
+from tenants.views import TenantSignUp, VerifyEmail
 from django.urls import path
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
-
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -66,7 +70,6 @@ schema_view = get_schema_view(
     permission_classes=(permissions.AllowAny,),
 )
 
-
 router = routers.DefaultRouter()
 # Store Owner
 
@@ -74,10 +77,12 @@ router.register('storeowner', CreateStoreOwner, basename="user")
 router.register('dropshippers/store', GetStoreDropshippers, basename="dropship")
 
 router.register('categories', GetCategories, basename='categories')
+router.register('category', CategoryViewSet, basename='category')
 
 router.register('create/store', CreateStore, basename='create-store')
 
 router.register('signup/user', TenantSignUp, basename="signup-tenant")
+# router.register('verify-email', VerifyEmail, basename="verify-email")
 
 # Products
 router.register('products', ProductViewSet, basename='products')
@@ -105,6 +110,9 @@ router.register('buyer-behaviour', BuyerBehaviourView, basename='buyerbehavior')
 router.register(r'wallet', WalletView, basename='wallets')
 router.register('payment/history', PaymentHistoryView, basename='payment')
 
+# Payment initialization
+router.register('payment/initialize', InitiatePayment, basename='payment-initializer')
+
 # Services
 router.register('signup/services', SignUpServices, basename='signup-services')
 router.register('services-category', ServicesCategoryView,basename='service-cat')
@@ -125,6 +133,12 @@ router.register('promo/', PromoPlansView, basename='promos')
 # ShippingData
 router.register('shipping-data', ShippingDataView, basename='shipping_data')
 
+# shipping with shipbubble
+router.register('shipbubble', ShipbubbleViewSet, basename='shipbubble')
+
+# Paystack
+router.register('paystack', Paystack, basename='paystack')
+
 
 
 urlpatterns = [
@@ -135,7 +149,15 @@ urlpatterns = [
     path('store/', include("tenants.urls")),
     path('dropshippers/', include('dropshippers.urls')),
     path('order/', include('order.urls')),
-    path('service/', include('services.urls'))
+    path('service/', include('services.urls')),
+    path('api/', include([
+        path('admin/products/', include('products.urls')),
+        path('accounts/', include('accounts.urls')),
+        path('admin/orders/', include('admin_orders.urls')),
+        path('admin/', include('dashboards.urls')),
+    ])),
+
+    path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
 ]
 
 urlpatterns += router.urls
