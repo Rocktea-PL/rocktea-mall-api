@@ -48,6 +48,9 @@ from django.http import Http404
 from django.db.models import Q
 from order.models import PaystackWebhook
 from mall.payments.verify_payment import verify_paystack_transaction
+from django.contrib.sites.shortcuts import get_current_site
+from urllib.parse import urlparse
+import datetime
 # from .store_features.get_store_id import get_store_instance
 
 class LogisticSerializer(ModelSerializer):
@@ -124,6 +127,69 @@ class StoreOwnerSerializer(ModelSerializer):
          # Set and save the user's password only if a valid password is provided
          user.set_password(password)
          user.save()
+
+      request = self.context.get("request")
+      current_site = get_current_site(request).domain if request else "yourockteamall.com"
+      protocol = request.scheme if request else "https"
+      login_url = f"{protocol}://{current_site}/login"
+
+      # Fallback to referer for better frontend targeting
+      if request:
+         referer = request.META.get("HTTP_REFERER", "")
+         if referer and 'swagger' not in referer.lower():
+               parsed_referer = urlparse(referer)
+               login_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/login"
+
+      # Send welcome email
+      try:
+         from setup.utils import sendEmail  # Import inside function to avoid circular imports
+         subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
+         content = f"""
+         <html>
+         <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
+               <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+                  <img src="https://yourockteamall.com/logo.png" alt="Rocktea Mall" style="max-width: 200px; margin-bottom: 20px;">
+                  <h2 style="color: #2d3748;">Welcome to Rocktea Mall, {user.first_name}!</h2>
+                  
+                  <p>We're thrilled to have you join our community of innovative dropshippers. 
+                  Your journey to building a successful e-commerce business starts now!</p>
+
+                  <p>At Rocktea Mall, we are committed to providing you with a seamless and rewarding experience. You now have access to a vast catalog of products, powerful tools to manage your store, and a community dedicated to your success.</p>
+                  <p>Here are your first steps to kickstart your business:</p>
+                  <ol>
+                     <li>Log in to your dashboard using your registered email and password.</li>
+                     <li>Explore our product catalog and start adding products to your store.</li>
+                     <li>Familiarize yourself with your new merchant panel – it's designed to make your life easier!</li>
+                  </ol>
+                  
+                  <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
+                  <p style="text-align: center;">
+                     <a href="{login_url}" class="button">Login</a>
+                  </p>
+                  <p>We look forward to seeing your success!</p>
+                  
+                  <p>We're here to support your success every step of the way. Feel free to reply to this email 
+                  if you have any questions!</p>
+                  
+                  <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
+                  <p style="text-align: center;">
+                     <a href="YOUR_ROCKTEA_MALL_LOGIN_URL" class="button">Login</a>
+                  </p>
+                  <p>We look forward to seeing your success!</p>
+                  
+                  <div style="margin-top: 30px; font-size: 0.9em; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                     <p>Best regards,</p>
+                     <p>Rocktea Mall - Powering Your E-commerce Dreams</p>
+                     <p>&copy; {datetime.now().year} Rocktea Mall. All rights reserved.</p>
+                  </div>
+               </div>
+         </body>
+         </html>
+         """
+         sendEmail(user.email, content, subject)
+      except Exception as e:
+         # Log but don't prevent user creation
+         print(f"Failed to send welcome email: {str(e)}")
       return user
    
    def update(self, instance, validated_data):

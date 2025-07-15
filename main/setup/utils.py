@@ -18,7 +18,8 @@ def sendEmail(recipientEmail, content, subject):
                 }
             ],
             "subject": subject,
-            "htmlContent": content
+            "htmlContent": content,
+            "tags": ["welcome-email", "dropshipper-onboarding"]
         }
         headers = {
             "accept": "application/json",
@@ -29,7 +30,9 @@ def sendEmail(recipientEmail, content, subject):
 
         response = requests.post(url, json=payload, headers=headers)
 
+        logger.info(f"Email sent to {recipientEmail}: {response.status_code}")
+
         print(response.text)
     except Exception as e:
-        logger.error(e)
+        logger.error(f"Email sending failed: {str(e)}")
         return None
