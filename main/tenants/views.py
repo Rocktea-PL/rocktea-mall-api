@@ -61,20 +61,28 @@ class VerifyEmail(APIView):
       ],
       responses={
          200: openapi.Response(
-            description="Email verified successfully",
-            examples={
-               "application/json": {
-                  "message": "Email successfully verified"
+               description="Email verified successfully",
+               examples={
+                  "application/json": {
+                     "message": "Email successfully verified"
+                  }
                }
-            }
          ),
          400: openapi.Response(
-            description="Bad request",
-            examples={
-               "application/json": {
-                  "error": "Token is required"
+               description="Bad request",
+               examples={
+                  "application/json": {
+                     "error": "Token is required"
+                  }
                }
-            }
+         ),
+         404: openapi.Response(  # Added 404 response
+               description="Not found",
+               examples={
+                  "application/json": {
+                     "error": "Invalid token"
+                  }
+               }
          )
       }
    )
@@ -90,18 +98,28 @@ class VerifyEmail(APIView):
          return Response({'error': 'Token is required'}, status=status.HTTP_400_BAD_REQUEST)
       
       try:
+         # Get user by verification_token (should be indexed in model)
          user = CustomUser.objects.get(verification_token=token)
+         
+         # Create token generator instance
          token_generator = PasswordResetTokenGenerator()
+         
          if token_generator.check_token(user, token):
-            user.is_verified = True
-            user.is_active = True
-            user.verification_token = None
-            user.save()
-            return Response({'message': 'Email successfully verified'}, status=status.HTTP_200_OK)
-         return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
+            # Only update if not already verified
+            if not user.is_verified:
+               user.is_verified = True
+               user.is_active = True
+               user.verification_token = None  # Invalidate after use
+               user.verification_token_created_at = None
+               user.save()
+               return Response({'message': 'Email successfully verified'}, status=status.HTTP_200_OK)
+            else:
+               return Response({'message': 'Email is already verified'}, status=status.HTTP_200_OK)
+         else:
+            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
                
       except CustomUser.DoesNotExist:
-         return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+         return Response({'error': 'Invalid token'}, status=status.HTTP_404_NOT_FOUND)
       except Exception as e:
          logger.error(f"Email verification error: {str(e)}")
          return Response({'error': 'An error occurred during verification'}, status=status.HTTP_400_BAD_REQUEST)

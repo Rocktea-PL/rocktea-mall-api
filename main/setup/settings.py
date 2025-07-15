@@ -327,6 +327,9 @@ SENDER_NAME = env("SENDER_NAME", default="")
 SENDER_EMAIL = env("SENDER_EMAIL", default="")
 BREVO_API_KEY = env("BREVO_API_KEY", default="")
 
+# 24 hours expiration
+EMAIL_VERIFICATION_TIMEOUT = 86400
+
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 

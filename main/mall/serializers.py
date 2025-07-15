@@ -50,7 +50,8 @@ from order.models import PaystackWebhook
 from mall.payments.verify_payment import verify_paystack_transaction
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
-import datetime
+from django.utils import timezone
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 # from .store_features.get_store_id import get_store_instance
 
 class LogisticSerializer(ModelSerializer):
@@ -128,17 +129,25 @@ class StoreOwnerSerializer(ModelSerializer):
          user.set_password(password)
          user.save()
 
+      token_generator = PasswordResetTokenGenerator()
+      token = token_generator.make_token(user)
+      user.verification_token = token
+      user.verification_token_created_at = timezone.now()
+      user.save()
+
       request = self.context.get("request")
       current_site = get_current_site(request).domain if request else "yourockteamall.com"
       protocol = request.scheme if request else "https"
-      login_url = f"{protocol}://{current_site}/login"
+      domain_name = f"{protocol}://{current_site}"
+      verify_email_url = f"{domain_name}/verify-email?token="+str(token)
 
       # Fallback to referer for better frontend targeting
       if request:
          referer = request.META.get("HTTP_REFERER", "")
          if referer and 'swagger' not in referer.lower():
-               parsed_referer = urlparse(referer)
-               login_url = f"{parsed_referer.scheme}://{parsed_referer.hostname}/login"
+            parsed_referer = urlparse(referer)
+            domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
+            verify_email_url = f"{domain_name}/verify-email?token={token}"
 
       # Send welcome email
       try:
@@ -164,23 +173,25 @@ class StoreOwnerSerializer(ModelSerializer):
                   
                   <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
                   <p style="text-align: center;">
-                     <a href="{login_url}" class="button">Login</a>
+                     <a href="{verify_email_url}" class="button">Verify Account</a>
                   </p>
                   <p>We look forward to seeing your success!</p>
                   
                   <p>We're here to support your success every step of the way. Feel free to reply to this email 
                   if you have any questions!</p>
+
+                  <p>If the button doesn't work, copy and paste this URL into your browser:<br>
+                  <code style="word-wrap:break-word;color:#4f46e5">{verify_email_url}</code></p>
+                    
+                  <p>If you didn't create an account, please ignore this email.</p>
                   
                   <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
-                  <p style="text-align: center;">
-                     <a href="YOUR_ROCKTEA_MALL_LOGIN_URL" class="button">Login</a>
-                  </p>
                   <p>We look forward to seeing your success!</p>
                   
                   <div style="margin-top: 30px; font-size: 0.9em; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 20px;">
                      <p>Best regards,</p>
                      <p>Rocktea Mall - Powering Your E-commerce Dreams</p>
-                     <p>&copy; {datetime.now().year} Rocktea Mall. All rights reserved.</p>
+                     <p>&copy; {timezone.now().year} Rocktea Mall. All rights reserved.</p>
                   </div>
                </div>
          </body>
