@@ -330,6 +330,8 @@ BREVO_API_KEY = env("BREVO_API_KEY", default="")
 # 24 hours expiration
 EMAIL_VERIFICATION_TIMEOUT = 86400
 
+# APPEND_SLASH = False
+
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 
