@@ -245,6 +245,53 @@ class ProductViewSet(viewsets.ModelViewSet):
                status=status.HTTP_500_INTERNAL_SERVER_ERROR
          )
       
+   @action(detail=True, methods=['delete'], permission_classes=[IsAuthenticated], url_path='remove-from-store')
+   @transaction.atomic
+   def remove_product_from_store(self, request, pk=None):
+      """
+      Allows store owners to remove a product from a specific store they own
+      """
+      # Extract store ID from query parameters
+      store_id = request.query_params.get('mall')
+      if not store_id:
+         return Response(
+               {"error": "Missing 'mall' query parameter specifying the store ID."},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      # Validate store existence and user ownership
+      try:
+         store = Store.objects.get(id=store_id)
+      except Store.DoesNotExist:
+         return Response(
+               {"error": "Store not found."},
+               status=status.HTTP_404_NOT_FOUND
+         )
+      
+      # Check if user owns the store
+      if not request.user.is_superuser and not store.owners.filter(id=request.user.id).exists():
+         return Response(
+               {"error": "You are not an owner of this store."},
+               status=status.HTTP_403_FORBIDDEN
+         )
+      
+      # Get the product
+      product = get_object_or_404(Product, pk=pk)
+      
+      # Remove product-store association
+      pricing = StoreProductPricing.objects.filter(store=store, product=product).first()
+      if not pricing:
+         return Response(
+               {"error": "This product is not available in your store."},
+               status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      pricing.delete()
+      return Response(
+         {"message": "Product successfully removed from your store"},
+         status=status.HTTP_204_NO_CONTENT
+      )
+      
 class ProductRatingViewSet(viewsets.ModelViewSet):
    queryset = ProductRating.objects.select_related("product")
    serializer_class = ProductRatingSerializer

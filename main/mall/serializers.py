@@ -48,6 +48,10 @@ from django.http import Http404
 from django.db.models import Q
 from order.models import PaystackWebhook
 from mall.payments.verify_payment import verify_paystack_transaction
+from django.contrib.sites.shortcuts import get_current_site
+from urllib.parse import urlparse
+from django.utils import timezone
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 # from .store_features.get_store_id import get_store_instance
 
 class LogisticSerializer(ModelSerializer):
@@ -124,6 +128,79 @@ class StoreOwnerSerializer(ModelSerializer):
          # Set and save the user's password only if a valid password is provided
          user.set_password(password)
          user.save()
+
+      token_generator = PasswordResetTokenGenerator()
+      token = token_generator.make_token(user)
+      user.verification_token = token
+      user.verification_token_created_at = timezone.now()
+      user.save()
+
+      request = self.context.get("request")
+      current_site = get_current_site(request).domain if request else "yourockteamall.com"
+      protocol = request.scheme if request else "https"
+      domain_name = f"{protocol}://{current_site}"
+      verify_email_url = f"{domain_name}/verify-email?token="+str(token)
+
+      # Fallback to referer for better frontend targeting
+      if request:
+         referer = request.META.get("HTTP_REFERER", "")
+         if referer and 'swagger' not in referer.lower():
+            parsed_referer = urlparse(referer)
+            domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
+            verify_email_url = f"{domain_name}/verify-email?token={token}"
+
+      # Send welcome email
+      try:
+         from setup.utils import sendEmail  # Import inside function to avoid circular imports
+         subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
+         content = f"""
+         <html>
+         <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
+               <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+                  <img src="https://yourockteamall.com/logo.png" alt="Rocktea Mall" style="max-width: 200px; margin-bottom: 20px;">
+                  <h2 style="color: #2d3748;">Welcome to Rocktea Mall, {user.first_name}!</h2>
+                  
+                  <p>We're thrilled to have you join our community of innovative dropshippers. 
+                  Your journey to building a successful e-commerce business starts now!</p>
+
+                  <p>At Rocktea Mall, we are committed to providing you with a seamless and rewarding experience. You now have access to a vast catalog of products, powerful tools to manage your store, and a community dedicated to your success.</p>
+                  <p>Here are your first steps to kickstart your business:</p>
+                  <ol>
+                     <li>Log in to your dashboard using your registered email and password.</li>
+                     <li>Explore our product catalog and start adding products to your store.</li>
+                     <li>Familiarize yourself with your new merchant panel – it's designed to make your life easier!</li>
+                  </ol>
+                  
+                  <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
+                  <p style="text-align: center;">
+                     <a href="{verify_email_url}" class="button">Verify Account</a>
+                  </p>
+                  <p>We look forward to seeing your success!</p>
+                  
+                  <p>We're here to support your success every step of the way. Feel free to reply to this email 
+                  if you have any questions!</p>
+
+                  <p>If the button doesn't work, copy and paste this URL into your browser:<br>
+                  <code style="word-wrap:break-word;color:#4f46e5">{verify_email_url}</code></p>
+                    
+                  <p>If you didn't create an account, please ignore this email.</p>
+                  
+                  <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
+                  <p>We look forward to seeing your success!</p>
+                  
+                  <div style="margin-top: 30px; font-size: 0.9em; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+                     <p>Best regards,</p>
+                     <p>Rocktea Mall - Powering Your E-commerce Dreams</p>
+                     <p>&copy; {timezone.now().year} Rocktea Mall. All rights reserved.</p>
+                  </div>
+               </div>
+         </body>
+         </html>
+         """
+         sendEmail(user.email, content, subject)
+      except Exception as e:
+         # Log but don't prevent user creation
+         print(f"Failed to send welcome email: {str(e)}")
       return user
    
    def update(self, instance, validated_data):
@@ -174,20 +251,67 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       data = super().validate(attrs)
       user = self.user  # Already authenticated user from parent class
 
-      # Fix 1: Correct query to ensure single user
+      # Get user with permissions (allow all valid users)
       try:
-         # Validate user type - Get current user with permissions
-         user = CustomUser.objects.get(
-               Q(id=user.id) & 
-               (Q(is_store_owner=True) | Q(is_logistics=True)))
+         user = CustomUser.objects.get(id=user.id)
       except CustomUser.DoesNotExist:
          raise ValidationError("User Does Not Exist")
       except CustomUser.MultipleObjectsReturned:
          raise ValidationError("Multiple users found - database inconsistency")
 
-      # Fix 2: Simplified store/service checks
-      has_store = Store.objects.filter(owner=user).exists()
-      has_service = ServicesBusinessInformation.objects.filter(user=user).exists()
+      # Initialize store-related variables
+      has_store = False
+      store_id = None
+      theme = None
+      category = None
+      domain_name = None
+      completed = False
+      has_made_payment = False
+
+      # Only check for store if user is a store owner
+      if user.is_store_owner:
+         has_store = Store.objects.filter(owner=user).exists()
+         
+         if has_store:
+            store = Store.objects.get(owner=user)
+            
+            # Enforce completed=True when payment exists
+            if store.has_made_payment:
+                store.completed = True
+                store.save(update_fields=['completed'])
+            
+            # Update store-related variables
+            store_id = store.id
+            theme = store.theme
+            category = store.category.id if store.category else None
+            domain_name = store.domain_name
+            completed = store.completed
+            has_made_payment = store.has_made_payment
+            
+            # Payment verification
+            try:
+                paystack_payment = PaystackWebhook.objects.get(
+                    user=user,
+                    purpose="dropshipping_payment"
+                )
+                
+                if paystack_payment.status == 'Pending':
+                    payment_data = verify_paystack_transaction(paystack_payment.reference)
+                    if payment_data and payment_data.get('data', {}).get('status') == 'success':
+                        paystack_payment.status = 'Success'
+                        paystack_payment.data = payment_data
+                        paystack_payment.save()
+                        store.has_made_payment = True
+                        store.completed = True
+                        store.save(update_fields=['has_made_payment', 'completed'])
+                        has_made_payment = True
+                        completed = True
+
+            except PaystackWebhook.DoesNotExist:
+                pass
+
+      # Service check
+      has_service = ServicesBusinessInformation.objects.filter(user=user).exists() if user.is_services else False
 
       # Build user data
       user_data = {
@@ -203,58 +327,18 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          "is_logistics": user.is_logistics,
          "is_operations": user.is_operations,
          "has_service": has_service,
+         "store_id": store_id,
+         "theme": theme,
+         "category": category,
+         "domain_name": domain_name,
+         "completed": completed,
+         "hasMadePayment": has_made_payment
       }
 
-      # Store-specific logic
-      if has_store:
-         store = Store.objects.get(owner=user)
-
-         # Enforce completed=True when payment exists (add this FIRST)
-         if store.has_made_payment:
-            store.completed = True  # Force completion if payment exists
-            store.save(update_fields=['completed'])
-
-         # Ensure completed is True if payment was made before
-         if store.has_made_payment and not store.completed:
-            store.completed = True
-            store.save()
-
-         user_data.update({
-            "store_id": store.id,
-            "theme": store.theme,
-            "category": store.category.id if store.category else None,
-            "domain_name": store.domain_name,
-            "completed": store.completed,
-            "hasMadePayment": store.has_made_payment
-         })
-
-         # Payment verification
-         try:
-            paystack_payment = PaystackWebhook.objects.get(
-               user=user,
-               purpose="dropshipping_payment"
-            )
-            
-            if paystack_payment.status == 'Pending':
-               payment_data = verify_paystack_transaction(paystack_payment.reference)
-               if payment_data and payment_data.get('data', {}).get('status') == 'success':
-                  paystack_payment.status = 'Success'
-                  paystack_payment.data = payment_data
-                  paystack_payment.save()
-                  store.has_made_payment = True
-                  store.completed = True
-                  # store.save()
-                  store.save(update_fields=['has_made_payment', 'completed'])
-
-         except PaystackWebhook.DoesNotExist:
-            pass
-
-      user_data["hasMadePayment"] = store.has_made_payment
-
-      if user_data.get('is_services'):
+      if user.is_services:
          user_data["type"] = user.type
 
-      refresh = self.get_token(self.user)
+      refresh = self.get_token(user)
       user_data["refresh"] = str(refresh)
       user_data["access"] = str(refresh.access_token)
       data['user_data'] = user_data

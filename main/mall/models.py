@@ -76,7 +76,8 @@ class CustomUser(AbstractUser):
     type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
     is_services = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
-    verification_token = models.CharField(max_length=255, blank=True, null=True)
+    verification_token = models.CharField(max_length=255, blank=True, null=True, db_index=True)
+    verification_token_created_at = models.DateTimeField(null=True, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
