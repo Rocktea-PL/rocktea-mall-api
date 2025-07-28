@@ -53,10 +53,17 @@ os.environ['DJANGO_DEBUG'] = str(DEBUG)
 # Security settings
 if PRODUCTION:
     ALLOWED_HOSTS = [
+        "rocktea-mall.vercel.app",
+        "rocktea-dropshippers.vercel.app",
+        "rocktea-users.vercel.app",
+
+        # API Domains
         "api-dev.yourockteamall.com",
         "api.yourockteamall.com",
         "rocktea-mall-api-production.up.railway.app",
-        "18.217.233.199",
+        "rocktea-mall-api-test.up.railway.app", # Keep test API if it's still used
+
+        # Frontend Domains (if they hit this Django app directly for any reason, e.g., static files)
         "user-dev.yourockteamall.com",
         "www.user-dev.yourockteamall.com",
         "yourockteamall.com",
@@ -69,11 +76,11 @@ if PRODUCTION:
         "www.admin.yourockteamall.com",
         "admin-dev.yourockteamall.com",
         "www.admin-dev.yourockteamall.com",
-        "rocktea-mall.vercel.app",
-        "rocktea-mall-api-test.up.railway.app",
-        "rocktea-mall.vercel.app",
-        "rocktea-dropshippers.vercel.app",
-        "rocktea-users.vercel.app",
+        
+        # Direct IP access
+        "18.217.233.199",
+        
+        # Internal hostname resolution
         socket.gethostname()
     ]
     SECURE_SSL_REDIRECT = True
@@ -350,22 +357,54 @@ EMAIL_VERIFICATION_TIMEOUT = 86400
 # APPEND_SLASH = False
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = True
+if not PRODUCTION:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        # Local development origins
+        "http://localhost:5174",
+        "http://localhost:5173",
+        "http://127.0.0.1:8000", # If your frontend runs here during dev
+
+        # Your production/staging frontend origins
+        "https://user-dev.yourockteamall.com",
+        "https://www.user-dev.yourockteamall.com",
+        "https://yourockteamall.com",
+        "https://www.yourockteamall.com",
+        "https://dropshippers.yourockteamall.com",
+        "https://www.dropshippers.yourockteamall.com",
+        "https://dropshippers-dev.yourockteamall.com",
+        "https://www.dropshippers-dev.yourockteamall.com",
+        "https://admin.yourockteamall.com",
+        "https://www.admin.yourockteamall.com",
+        "https://admin-dev.yourockteamall.com",
+        "https://www.admin-dev.yourockteamall.com",
+    ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "https://api-dev.yourockteamall.com",
-    "https://api.yourockteamall.com",
-    "https://user-dev.yourockteamall.com",
-    "https://yourockteamall.com",
-    "https://dropshippers.yourockteamall.com",
-    "https://dropshippers-dev.yourockteamall.com",
     "https://rocktea-mall.vercel.app",
     "https://rocktea-mall-api-test.up.railway.app",
+    "https://rocktea-dropshippers.vercel.app",
+    "https://rocktea-users.vercel.app",
+
+    # Local development origins
     "http://localhost:5174",
     "http://localhost:5173",
     "http://127.0.0.1:8000",
-    "https://rocktea-dropshippers.vercel.app",
-    "https://rocktea-users.vercel.app"
+
+    # Your production/staging frontend origins
+    "https://user-dev.yourockteamall.com",
+    "https://www.user-dev.yourockteamall.com",
+    "https://yourockteamall.com",
+    "https://www.yourockteamall.com",
+    "https://dropshippers.yourockteamall.com",
+    "https://www.dropshippers.yourockteamall.com",
+    "https://dropshippers-dev.yourockteamall.com",
+    "https://www.dropshippers-dev.yourockteamall.com",
+    "https://admin.yourockteamall.com",
+    "https://www.admin.yourockteamall.com",
+    "https://admin-dev.yourockteamall.com",
+    "https://www.admin-dev.yourockteamall.com",
 ]
 
 CORS_ALLOW_METHODS = [
