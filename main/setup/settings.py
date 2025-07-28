@@ -57,6 +57,15 @@ if PRODUCTION:
         "api.yourockteamall.com",
         "rocktea-mall-api-production.up.railway.app",
         "18.217.233.199",
+        "user-dev.yourockteamall.com",
+        "yourockteamall.com",
+        "dropshippers.yourockteamall.com",
+        "dropshippers-dev.yourockteamall.com",
+        "rocktea-mall.vercel.app",
+        "rocktea-mall-api-test.up.railway.app",
+        "rocktea-mall.vercel.app",
+        "rocktea-dropshippers.vercel.app",
+        "rocktea-users.vercel.app",
         socket.gethostname()
     ]
     SECURE_SSL_REDIRECT = True
