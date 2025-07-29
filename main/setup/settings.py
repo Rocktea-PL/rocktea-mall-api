@@ -7,6 +7,7 @@ from pathlib import Path
 import environ
 from datetime import timedelta
 import sentry_sdk
+import logging
 from sentry_sdk.integrations.django import DjangoIntegration
 # import cloudinary
 import socket
@@ -445,6 +446,19 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
 ]
+
+# import cloudinary
+# import cloudinary.uploader
+# import cloudinary.api
+
+# cloudinary.config(
+#     cloud_name='your_cloud_name',  # Replace with your cloud name
+#     api_key='your_api_key',         # Replace with your API key
+#     api_secret='your_api_secret'    # Replace with your API secret
+# )
+
+# Use cloudinary_storage for media file uploads
+# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # =====================
 # TEMPLATES (Minimal)
