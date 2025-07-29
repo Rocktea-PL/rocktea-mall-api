@@ -72,4 +72,5 @@ jobs:
           python main/manage.py makemigrations
           python main/manage.py migrate
           sudo systemctl restart gunicorn-rocktea
+          sudo systemctl restart celery-worker-rocktea.service
           sudo systemctl restart nginx
