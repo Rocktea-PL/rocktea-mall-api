@@ -163,6 +163,8 @@ MIDDLEWARE = [
     
     # Clickjacking protection
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
+    'mall.middleware.RequestMiddleware',
 ]
 
 # Immediately set environment variable to prevent override
@@ -372,6 +374,10 @@ ROUTE53_DEV_HOSTED_ZONE_ID = env('ROUTE53_DEV_HOSTED_ZONE_ID', default='')
 
 # AWS Region for Route 53 API calls (e.g., 'us-east-1', 'eu-west-2')
 AWS_REGION_NAME = env('AWS_REGION_NAME', default='us-east-1')
+AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='')
+AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')
+
+
 
 # APPEND_SLASH = False
 
