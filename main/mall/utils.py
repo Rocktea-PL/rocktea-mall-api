@@ -55,8 +55,8 @@ def determine_environment_config(request=None):
             }
     
     # Fallback to settings-based determination
-    if hasattr(settings, 'PRODUCTION'):
-        if settings.PRODUCTION == 'production':
+    if hasattr(settings, 'ENVIRONMENT'):
+        if settings.ENVIRONMENT == 'production':
             return {
                 'target_domain': 'yourockteamall.com',
                 'hosted_zone_id': settings.ROUTE53_PRODUCTION_HOSTED_ZONE_ID,

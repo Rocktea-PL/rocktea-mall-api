@@ -46,6 +46,7 @@ except (KeyError, ValueError):
 
 # Environment detection
 PRODUCTION = env('ENV', default='development') == 'production'
+ENVIRONMENT = env('ENVIRONMENT', default='development') == 'production'
 # Debug settings
 DEBUG = env.bool('DJANGO_DEBUG', default=not PRODUCTION)
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
