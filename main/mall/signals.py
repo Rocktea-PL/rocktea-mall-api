@@ -21,8 +21,7 @@ def create_marketplace(sender, instance, created, **kwargs):
       store = get_object_or_404(Store, id=related_store_id)
 
       # Now we can create the MarketPlace object
-      MarketPlace.objects.get_or_create(
-         store=store, product=related_product)
+      MarketPlace.objects.get_or_create(store=store, product=related_product)
       
       # Create Notification with the correct store name
       notification_message = f"{store.name} you just added a new product to your Marketplace."

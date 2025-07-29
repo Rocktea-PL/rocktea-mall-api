@@ -10,6 +10,11 @@ from django.core.cache import cache
 from order.models import StoreOrder
 from order.shipbubble_service import ShipbubbleService
 
+import requests
+from django.conf import settings
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
 logger = logging.getLogger(__name__)
 
 @app.task(bind=True, max_retries=3, retry_backoff=60)
@@ -70,7 +75,6 @@ def check_shipping_status(self):
                 order.tracking_status = status
                 order.save()
                 logger.info(f"Updated status for order {order.id} to {status}")
-
 # @app.task(bind=True, max_retries=3, retry_backoff=60)
 # def cancel_unpaid_shipments(self):
 #     shipbubble_service = ShipbubbleService()
