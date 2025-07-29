@@ -93,11 +93,10 @@ from urllib.parse import urlparse
 
 from order.pagination import CustomPagination
 from django.db.models import Sum, Count, Q
+from setup.utils import get_store_domain
+from django.utils import timezone
 
 handler = DomainNameHandler()
-
-def get_store_domain(request):
-   return request.META.get("HTTP_ORIGIN")
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -139,12 +138,23 @@ class CreateStore(viewsets.ModelViewSet):
    def get_queryset(self):
       # Extracting the domain name from the request
       # if user is None or user.is_store_owner is False:
+      # This queryset is for retrieving existing stores, not for creation.
+      # It correctly filters based on the domain from the request.
       domain = handler.process_request(store_domain=get_store_domain(self.request))
       # Filter stores based on domain_name
       queryset = Store.objects.filter(id=domain)
       return queryset
    
+   def perform_create(self, serializer):
+      # DRF's perform_create automatically passes request.user to serializer.save()
+      # when serializer.create() is called.
+      # We need to ensure the request object is available in the serializer context
+      # for the signal to access get_current_site (or request.get_host()).
+      serializer.save()
+   
    def get_serializer_context(self):
+      # Crucial for passing the request to the serializer's create method
+      # and subsequently to the signal.
       return {'request': self.request}
 
 class GetStoreDropshippers(viewsets.ModelViewSet):
@@ -951,20 +961,21 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
    else:
       base_url = absurl
 
-   email_plaintext_message = f"Please use the following link to reset your password: {base_url}"
+   subject = "Reset your password - Rockteamall!"
 
-   """ send_mail(
-      # title:
-      "Password Reset for {title}".format(title="Your Website Title"),
-      # message:
-      email_plaintext_message,
-      # from:
-      settings.EMAIL_HOST_USER,
-      # to:
-      [reset_password_token.user.email]
-   ) """
+   context = {
+      'full_name': reset_password_token.user.get_full_name() or reset_password_token.user.email, # Pass full_name or email
+      'confirmation_url': base_url,
+      'current_year': timezone.now().year,
+   }
 
-   sendEmail(reset_password_token.user.email, email_plaintext_message, "Password Reset for {title}".format(title="Your Website Title"))
+   sendEmail(
+      recipientEmail=reset_password_token.user.email,
+      template_name='emails/reset_email.html',
+      context=context,
+      subject=subject,
+      tags=["forgot-password", "reset-email"]
+   )
 
 class CustomResetPasswordConfirm(generics.GenericAPIView):
    serializer_class = ResetPasswordConfirmSerializer

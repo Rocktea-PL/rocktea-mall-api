@@ -1,38 +1,23 @@
 import requests
 from django.conf import settings
 import logging
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+from .tasks import send_email_task
+
 logger = logging.getLogger(__name__)
 
-def sendEmail(recipientEmail, content, subject):
+def get_store_domain(request):
+   return request.META.get("HTTP_ORIGIN")
+
+# The sendEmail function now dispatches the task
+def sendEmail(recipientEmail: str, template_name: str, context: dict, subject: str, tags: list = None):
+    """
+    Dispatches an email sending task to Celery for background processing.
+    """
     try:
-        url = "https://api.brevo.com/v3/smtp/email"
-
-        payload = {
-            "sender": {
-                "name": settings.SENDER_NAME,
-                "email": settings.SENDER_EMAIL,
-            },
-            "to": [
-                {
-                    "email": recipientEmail
-                }
-            ],
-            "subject": subject,
-            "htmlContent": content,
-            "tags": ["welcome-email", "dropshipper-onboarding"]
-        }
-        headers = {
-            "accept": "application/json",
-            'api-key': settings.BREVO_API_KEY,
-            "content-type": "application/json",
-
-        }
-
-        response = requests.post(url, json=payload, headers=headers)
-
-        logger.info(f"Email sent to {recipientEmail}: {response.status_code}")
-
-        print(response.text)
+        # Call the Celery task asynchronously
+        send_email_task.delay(recipientEmail, template_name, context, subject, tags)
+        logger.info(f"Email sending task for {recipientEmail} with subject '{subject}' dispatched to Celery.")
     except Exception as e:
-        logger.error(f"Email sending failed: {str(e)}")
-        return None
+        logger.error(f"Failed to dispatch email task to Celery for {recipientEmail}: {str(e)}")

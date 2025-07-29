@@ -352,8 +352,26 @@ SENDER_NAME = env("SENDER_NAME", default="")
 SENDER_EMAIL = env("SENDER_EMAIL", default="")
 BREVO_API_KEY = env("BREVO_API_KEY", default="")
 
+# Celery Configuration
+CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
 # 24 hours expiration
 EMAIL_VERIFICATION_TIMEOUT = 86400
+
+# AWS Route 53 DNS Configuration
+# IMPORTANT: Replace with the actual Hosted Zone IDs you copied from Route 53
+# ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='Z0123456789ABCDEF') 
+# ROUTE53_DEV_HOSTED_ZONE_ID = env('ROUTE53_DEV_HOSTED_ZONE_ID', default='ZFEDCBA9876543210')
+ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='') 
+ROUTE53_DEV_HOSTED_ZONE_ID = env('ROUTE53_DEV_HOSTED_ZONE_ID', default='')
+
+# AWS Region for Route 53 API calls (e.g., 'us-east-1', 'eu-west-2')
+AWS_REGION_NAME = env('AWS_REGION_NAME', default='us-east-1')
 
 # APPEND_SLASH = False
 
@@ -448,7 +466,7 @@ CORS_ALLOW_HEADERS = [
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'main/templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

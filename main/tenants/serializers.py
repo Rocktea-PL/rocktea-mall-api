@@ -8,12 +8,15 @@ from setup.utils import sendEmail
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 from django.urls import reverse
+from django.utils import timezone
 
 # Generate verification token and send email
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 
 # Send verification email in background
 from threading import Thread
+
+from setup.utils import get_store_domain
 
 import logging  # Add this import at the top of your file
 
@@ -22,10 +25,6 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.ERROR)  # Set the logging level
 
 handler = DomainNameHandler()
-
-def get_store_domain(request):
-   return request.META.get("HTTP_ORIGIN")
-
 
 class StoreUserSignUpSerializer(serializers.ModelSerializer):
     profile_image = serializers.ImageField(required=False)
@@ -64,13 +63,14 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
         token = token_generator.make_token(user)
         user.verification_token = token
         user.save()
+        firstName = user.get_full_name() or user.email
 
         def send_verification_email():
             try:
                 sendValidateTokenEmail(
                     token=token,
                     email=user.email,
-                    firstName=user.first_name,
+                    firstName=firstName,
                     request=self.context['request']
                 )
             except Exception as e:
@@ -163,24 +163,18 @@ def sendValidateTokenEmail(token, email, firstName, request):
         # Fall back to backend URL
         base_url = absurl
     try:
-        content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Welcome to Rocktea Mall</title>
-        </head>
-        <body>
-            <p>Dear {firstName},</p>
-            <p>We're thrilled to have you join our platform! To ensure the security of your account, we need to verify your email address. Please click the link below to confirm your email and start exploring all that our platform has to offer.</p>
-            <a href="{base_url}">Verify Email</a>
-            <p>You can also copy and paste below link to your broswer</p>
-            <p>{base_url}</p>
-            <p>Thank you for choosing Rocktea Mall. We can't wait to help you achieve your tech goals!</p>
-            <p>Best regards,<br>Rocktea Mall</p>
-        </body>
-        </html>
-        """
-
-        sendEmail(email, content, "Verify Your Email and Unlock Your Account")
+        subject = "Verify Your Email and Unlock Your Account - Rockteamall!"
+        context = {
+            'full_name': firstName,
+            'confirmation_url': base_url,
+            'current_year': timezone.now().year,
+         }
+        sendEmail(
+            recipientEmail=email,
+            template_name='emails/user_welcome.html',
+            context=context,
+            subject=subject,
+            tags=["user-registration", "user-onboarding"]
+        )
     except Exception:
         return None

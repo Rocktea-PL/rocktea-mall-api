@@ -1,14 +1,16 @@
 from rest_framework import serializers
 from mall.serializers import StoreOwnerSerializer
-from mall.models import CustomUser
 from order.models import Store
 from django.db.models import Sum, Count, Q
+from mall.models import CustomUser, Store
+from datetime import datetime, timezone
+from django.utils.timezone import now
 
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = Store
         fields = [
-            'id', 'name', 'email', 'domain_name', 'completed', 
+            'id', 'name', 'domain_name', 'completed', 
             'has_made_payment', 'created_at', 'logo', 'cover_image'
         ]
         extra_kwargs = {
@@ -16,13 +18,6 @@ class StoreSerializer(serializers.ModelSerializer):
             'cover_image': {'allow_null': True},
             'domain_name': {'allow_null': True}
         }
-
-# dropshippers/serializers.py
-from rest_framework import serializers
-from mall.models import CustomUser, Store
-from django.db.models import Sum, Count, Q
-from datetime import datetime, timezone
-from django.utils.timezone import now
 
 class DropshipperDetailSerializer(serializers.ModelSerializer):
     """Detailed serializer for dropshipper admin view"""
@@ -201,7 +196,6 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             Store.objects.create(
                 owner=user,
                 name=company_name,
-                email=user.email,
                 has_made_payment=True
             )
         

@@ -10,6 +10,7 @@ from multiselectfield import MultiSelectField
 from django.contrib.postgres.fields import ArrayField
 from cloudinary.models import CloudinaryField
 from django.core.exceptions import ValidationError
+from django.utils.text import slugify
 
 # Conditionally import Cloudinary storage
 if not os.environ.get('CI', False):
@@ -148,7 +149,7 @@ class Store(models.Model):
     owner = models.OneToOneField(CustomUser, related_name="owners",
                                  on_delete=models.CASCADE, limit_choices_to={"is_store_owner": True})
     name = models.CharField(max_length=150, unique=True)
-    email = models.EmailField(unique=True)
+    # email = models.EmailField(unique=True)
     TIN_number = models.BigIntegerField(null=True, blank=True)
     logo = models.FileField(storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, null=True)
     cover_image = models.FileField(
@@ -157,8 +158,8 @@ class Store(models.Model):
         validators=[YearValidator], null=True)
     category = models.ForeignKey(
         'Category', on_delete=models.CASCADE, null=True)
-    domain_name = models.CharField(max_length=100, null=True, unique=True)
-
+    domain_name = models.CharField(max_length=255, null=True, unique=True, blank=True)
+    dns_record_created = models.BooleanField(default=False)
     completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -191,6 +192,15 @@ class Store(models.Model):
         return self.name
     
     def save(self, *args, **kwargs):
+        # Generate slug if not already set
+        if not self.slug and self.name:
+            self.slug = slugify(self.name)
+            # Ensure slug uniqueness if there's a possibility of collision
+            original_slug = self.slug
+            counter = 1
+            while Store.objects.filter(slug=self.slug).exists():
+                self.slug = f"{original_slug}-{counter}"
+                counter += 1
         if self.has_made_payment:
             self.completed = True
         super().save(*args, **kwargs)

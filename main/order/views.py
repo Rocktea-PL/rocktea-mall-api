@@ -71,14 +71,13 @@ import hashlib
 from django.conf import settings
 # from workshop.decorators import store_domain_required
 
+from setup.utils import get_store_domain
+
 # Get an instance of a logger
 logger = logging.getLogger(__name__)
 
 secret = settings.TEST_SECRET_KEY
 handler = DomainNameHandler()
-
-def get_store_domain(request):
-   return request.META.get("HTTP_ORIGIN", None)
 
 """ @csrf_exempt
 def paystack_webhook(request):

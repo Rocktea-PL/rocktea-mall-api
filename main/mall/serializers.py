@@ -44,7 +44,6 @@ from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
 from setup.celery import app
-from django.http import Http404
 from django.db.models import Q
 from order.models import PaystackWebhook
 from mall.payments.verify_payment import verify_paystack_transaction
@@ -53,6 +52,8 @@ from urllib.parse import urlparse
 from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 # from .store_features.get_store_id import get_store_instance
+
+logger = logging.getLogger(__name__)
 
 class LogisticSerializer(ModelSerializer):
    class Meta:
@@ -133,7 +134,7 @@ class StoreOwnerSerializer(ModelSerializer):
       token = token_generator.make_token(user)
       user.verification_token = token
       user.verification_token_created_at = timezone.now()
-      user.save()
+      user.save(update_fields=['verification_token', 'verification_token_created_at']) # Save token fields
 
       request = self.context.get("request")
       current_site = get_current_site(request).domain if request else "yourockteamall.com"
@@ -153,54 +154,25 @@ class StoreOwnerSerializer(ModelSerializer):
       try:
          from setup.utils import sendEmail  # Import inside function to avoid circular imports
          subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
-         content = f"""
-         <html>
-         <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
-               <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-                  <img src="https://yourockteamall.com/logo.png" alt="Rocktea Mall" style="max-width: 200px; margin-bottom: 20px;">
-                  <h2 style="color: #2d3748;">Welcome to Rocktea Mall, {user.first_name}!</h2>
-                  
-                  <p>We're thrilled to have you join our community of innovative dropshippers. 
-                  Your journey to building a successful e-commerce business starts now!</p>
-
-                  <p>At Rocktea Mall, we are committed to providing you with a seamless and rewarding experience. You now have access to a vast catalog of products, powerful tools to manage your store, and a community dedicated to your success.</p>
-                  <p>Here are your first steps to kickstart your business:</p>
-                  <ol>
-                     <li>Log in to your dashboard using your registered email and password.</li>
-                     <li>Explore our product catalog and start adding products to your store.</li>
-                     <li>Familiarize yourself with your new merchant panel – it's designed to make your life easier!</li>
-                  </ol>
-                  
-                  <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
-                  <p style="text-align: center;">
-                     <a href="{verify_email_url}" class="button">Verify Account</a>
-                  </p>
-                  <p>We look forward to seeing your success!</p>
-                  
-                  <p>We're here to support your success every step of the way. Feel free to reply to this email 
-                  if you have any questions!</p>
-
-                  <p>If the button doesn't work, copy and paste this URL into your browser:<br>
-                  <code style="word-wrap:break-word;color:#4f46e5">{verify_email_url}</code></p>
-                    
-                  <p>If you didn't create an account, please ignore this email.</p>
-                  
-                  <p>We're here to support you every step of the way. If you have any questions or need assistance, our support team is ready to help.</p>
-                  <p>We look forward to seeing your success!</p>
-                  
-                  <div style="margin-top: 30px; font-size: 0.9em; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-                     <p>Best regards,</p>
-                     <p>Rocktea Mall - Powering Your E-commerce Dreams</p>
-                     <p>&copy; {timezone.now().year} Rocktea Mall. All rights reserved.</p>
-                  </div>
-               </div>
-         </body>
-         </html>
-         """
-         sendEmail(user.email, content, subject)
+         context = {
+            'full_name': user.get_full_name() or user.email, # Pass full_name or email
+            'confirmation_url': verify_email_url,
+            'current_year': timezone.now().year,
+         }
+         sendEmail(
+            recipientEmail=user.email,
+            template_name='emails/dropshippers_welcome.html',
+            context=context,
+            subject=subject,
+            tags=["user-onboarding", "email-verification"]
+         )
       except Exception as e:
          # Log but don't prevent user creation
          print(f"Failed to send welcome email: {str(e)}")
+         logger.error(f"Failed to send user welcome email to {user.email}: {str(e)}")
+         logger.error(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
+         print(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
+
       return user
    
    def update(self, instance, validated_data):
@@ -351,22 +323,24 @@ class CreateStoreSerializer(serializers.ModelSerializer):
 
    class Meta:
       model = Store
-      fields = ("id", "owner", "name", "email", "TIN_number", "logo", "year_of_establishment", "category", 
+      fields = ("id", "owner", "name", "TIN_number", "logo", "year_of_establishment", "category", 
                "domain_name", "theme",  "card_elevation", "background_color", "patterns", "color_gradient", 
                "button_color", "card_elevation", "card_view","card_color", "facebook", "whatsapp", "twitter", 
                "instagram")
       extra_kwargs = {
-               "background_color": {"required":False},
-               "patterns": {"required":False},
-               "color_gradient": {"required":False},
-               "button_color": {"required":False},
-               "card_elevation": {"required":False},
-               "card_view": {"required":False},
-                     }
-      read_only_fields = ("owner",)
+         "background_color": {"required":False},
+         "patterns": {"required":False},
+         "color_gradient": {"required":False},
+         "button_color": {"required":False},
+         "card_elevation": {"required":False},
+         "card_view": {"required":False},
+         "card_color": {"required": False},
+         "domain_name": {"read_only": True},
+      }
+      read_only_fields = ("owner", "domain_name", "id")
 
    def validate_TIN_number(self, value):
-      if isinstance(value, str) and len(value) != 9:  # Check if TIN number has exactly 9 characters
+      if value is not None and value != '' and (not isinstance(value, str) or len(value) != 9 or not value.isdigit()):  # Check if TIN number has exactly 9 characters
          raise ValidationError("Invalid TIN number. It should be 9 characters long.")
       return value
 
@@ -374,8 +348,8 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       # check the file extension
       if value:
          file_extension = value.name.split('.')[-1].lower()
-         if file_extension not in ['png']:
-               raise ValidationError("Invalid Image format. Only PNG is allowed.")
+         if file_extension not in ['png', 'jpg', 'jpeg', 'svg']:
+               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG, SVG are allowed.")
       return value
       
    def validate_owner(self, value):
@@ -389,36 +363,47 @@ class CreateStoreSerializer(serializers.ModelSerializer):
       return value
    
    def update(self, instance, validated_data):
-      for field in ["name", "email", "TIN_number", "logo", "year_of_establishment", "category", "theme", "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view","facebook", "whatsapp", "twitter", "instagram"]:
-         setattr(instance, field, validated_data.get(
-            field, getattr(instance, field)))
+      # for field in ["name", "TIN_number", "logo", "year_of_establishment", "category", "theme", "card_elevation", "background_color", "patterns", "color_gradient", "button_color", "card_elevation", "card_view","facebook", "whatsapp", "twitter", "instagram"]:
+      #    setattr(instance, field, validated_data.get(
+      #       field, getattr(instance, field)))
 
-      instance.save()  # Move this outside the loop to save the instance after updating all fields
+      # instance.save()
+      # return instance
+      # Iterate over all fields in validated_data and update instance
+      for attr, value in validated_data.items():
+         setattr(instance, attr, value)
+      instance.save()
       return instance
 
    def create(self, validated_data):
       owner = self.context['request'].user
+        
+      # Check if user already owns a store
+      if Store.objects.filter(owner=owner).exists():
+         raise ValidationError("You already have a store. Only one store per user is allowed.")
 
       try:
-            store = Store.objects.create(owner=owner, **validated_data)
+         # The slug will be generated in the model's save method if not provided
+         store = Store.objects.create(owner=owner, **validated_data)
       except IntegrityError as e:
          if 'duplicate key' in str(e).lower():
-               raise ValidationError("You already have a store, Only one store per user is allowed.")
+            # This catches if 'name' or 'slug' is duplicated
+            raise ValidationError("A store with this name or slug already exists.")
          else:
-               raise NotFoundError("An error occurred while creating the store. Please try again later.")
+            raise NotFoundError("An error occurred while creating the store. Please try again later.")
 
       return store
    
-   def get_owner(self, value):
-      if value:
-         try:
-            owner = CustomUser.objects.get(is_store_owner=True, id=value)
-         except CustomUser.DoesNotExist:
-            raise ValidationError("User Does Not Exist or Is Not a Store Owner")
-         return value
-      if Store.objects.filter(owner=owner).exists:
-         raise ValidationError("Sorry you have a store already")
-      return ValidationError("Provide User")
+   # def get_owner(self, value):
+   #    if value:
+   #       try:
+   #          owner = CustomUser.objects.get(is_store_owner=True, id=value)
+   #       except CustomUser.DoesNotExist:
+   #          raise ValidationError("User Does Not Exist or Is Not a Store Owner")
+   #       return value
+   #    if Store.objects.filter(owner=owner).exists:
+   #       raise ValidationError("Sorry you have a store already")
+   #    return ValidationError("Provide User")
 
 class ProductRatingSerializer(serializers.ModelSerializer):
    class Meta:
@@ -657,9 +642,9 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       product_prices = {}
       for size_id in size_ids:
          try:
-            price = Price.objects.get(product=product, size=size_id).price
+            price = StoreProductPricing.objects.get(product=product, size=size_id).retail_price
             product_prices[size_id] = price
-         except Price.DoesNotExist:
+         except StoreProductPricing.DoesNotExist:
             logging.error("An Error Unexpectedly Occurred")
       return product_prices
    

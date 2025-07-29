@@ -8,10 +8,9 @@ from django.shortcuts import get_object_or_404
 from rest_framework.parsers import JSONParser
 from workshop.processor import DomainNameHandler
 
-handler = DomainNameHandler()
+from setup.utils import get_store_domain
 
-def get_store_domain(request):
-   return request.META.get("HTTP_ORIGIN")
+handler = DomainNameHandler()
 
 class MyProducts(APIView):
    """

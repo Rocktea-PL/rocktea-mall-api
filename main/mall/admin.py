@@ -38,7 +38,7 @@ admin.site.register(Product, ProductList)
 
 
 class StoreList(admin.ModelAdmin):
-    list_display = ["name", "email", "domain_name", "completed"]
+    list_display = ["name", "domain_name", "completed"]
     list_select_related = ["owner", "category"]
     list_per_page = 10
 
