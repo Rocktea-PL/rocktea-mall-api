@@ -145,13 +145,6 @@ class CreateStore(viewsets.ModelViewSet):
       queryset = Store.objects.filter(id=domain)
       return queryset
    
-   def perform_create(self, serializer):
-      # DRF's perform_create automatically passes request.user to serializer.save()
-      # when serializer.create() is called.
-      # We need to ensure the request object is available in the serializer context
-      # for the signal to access get_current_site (or request.get_host()).
-      serializer.save()
-   
    def get_serializer_context(self):
       # Crucial for passing the request to the serializer's create method
       # and subsequently to the signal.
