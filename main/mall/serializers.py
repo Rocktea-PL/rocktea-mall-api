@@ -124,6 +124,7 @@ class StoreOwnerSerializer(ModelSerializer):
       user = CustomUser.objects.create(**validated_data)
       # Confirm the user as a store owner
       user.is_store_owner = True
+      user.is_active = False
 
       if password:
          # Set and save the user's password only if a valid password is provided

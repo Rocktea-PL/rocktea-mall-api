@@ -64,6 +64,7 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           cd ~/django-app/prod
+          git reset --hard HEAD
           git pull origin master
           source venv/bin/activate
           pip install -r main/requirements.txt
