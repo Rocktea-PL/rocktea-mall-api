@@ -96,6 +96,8 @@ from django.db.models import Sum, Count, Q
 from setup.utils import get_store_domain
 from django.utils import timezone
 
+from .utils import get_store_from_request
+
 handler = DomainNameHandler()
 
 # Set up logging
@@ -136,14 +138,13 @@ class CreateStore(viewsets.ModelViewSet):
    serializer_class = CreateStoreSerializer
 
    def get_queryset(self):
-      # Extracting the domain name from the request
-      # if user is None or user.is_store_owner is False:
-      # This queryset is for retrieving existing stores, not for creation.
-      # It correctly filters based on the domain from the request.
-      domain = handler.process_request(store_domain=get_store_domain(self.request))
-      # Filter stores based on domain_name
-      queryset = Store.objects.filter(id=domain)
-      return queryset
+      # Use the new helper function
+      store = get_store_from_request(self.request)
+      if store:
+         return Store.objects.filter(id=store.id)
+      else:
+         # Return empty queryset if no store found
+         return Store.objects.none()
    
    def get_serializer_context(self):
       # Crucial for passing the request to the serializer's create method

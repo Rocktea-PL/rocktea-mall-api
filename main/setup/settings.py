@@ -66,6 +66,8 @@ if PRODUCTION:
         "rocktea-mall-api-test.up.railway.app", # Keep test API if it's still used
 
         # Frontend Domains (if they hit this Django app directly for any reason, e.g., static files)
+        '.yourockteamall.com',  # Allows any subdomain of yourockteamall.com
+        '.user-dev.yourockteamall.com',
         "user-dev.yourockteamall.com",
         "www.user-dev.yourockteamall.com",
         "yourockteamall.com",
@@ -166,6 +168,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
     'mall.middleware.RequestMiddleware',
+    'mall.middleware.SubdomainMiddleware',
 ]
 
 # Immediately set environment variable to prevent override
