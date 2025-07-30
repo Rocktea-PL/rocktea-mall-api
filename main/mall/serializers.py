@@ -52,6 +52,7 @@ from urllib.parse import urlparse
 from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 # from .store_features.get_store_id import get_store_instance
+from .utils import generate_store_slug, determine_environment_config, generate_store_domain
 
 logger = logging.getLogger(__name__)
 
@@ -318,92 +319,107 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       return data
 
 class CreateStoreSerializer(serializers.ModelSerializer):
-    TIN_number = serializers.IntegerField(required=False)
-    logo = serializers.FileField(required=False)
-    year_of_establishment = serializers.DateField(required=False)
+   TIN_number = serializers.IntegerField(required=False)
+   logo = serializers.FileField(required=False)
+   year_of_establishment = serializers.DateField(required=False)
 
-    class Meta:
-        model = Store
-        fields = ("id", "owner", "name", "TIN_number", "logo", "year_of_establishment", "category", 
-                 "domain_name", "theme", "card_elevation", "background_color", "patterns", "color_gradient", 
-                 "button_color", "card_elevation", "card_view", "card_color", "facebook", "whatsapp", "twitter", 
-                 "instagram")
-        extra_kwargs = {
-            "background_color": {"required": False},
-            "patterns": {"required": False},
-            "color_gradient": {"required": False},
-            "button_color": {"required": False},
-            "card_elevation": {"required": False},
-            "card_view": {"required": False},
-        }
-        read_only_fields = ("owner", "domain_name")  # domain_name is now read-only
+   class Meta:
+      model = Store
+      fields = (
+         "id", "name", "TIN_number", "logo", "year_of_establishment", "category", 
+         "domain_name", "slug", "theme", "card_elevation", "background_color", 
+         "patterns", "color_gradient", "button_color", "card_view", "card_color", 
+         "facebook", "whatsapp", "twitter", "instagram"
+      )
+      extra_kwargs = {
+         "background_color": {"required": False},
+         "patterns": {"required": False},
+         "color_gradient": {"required": False},
+         "button_color": {"required": False},
+         "card_elevation": {"required": False},
+         "card_view": {"required": False},
+      }
+      read_only_fields = ("domain_name", "slug")
 
-    def validate_TIN_number(self, value):
-        if isinstance(value, str) and len(value) != 9:
-            raise ValidationError("Invalid TIN number. It should be 9 characters long.")
-        return value
+   def validate_TIN_number(self, value):
+      if value and len(str(value)) != 9:
+         raise ValidationError("Invalid TIN number. It should be 9 digits long.")
+      return value
 
-    def validate_logo(self, value):
-        if value:
-            file_extension = value.name.split('.')[-1].lower()
-            if file_extension not in ['png']:
-                raise ValidationError("Invalid Image format. Only PNG is allowed.")
-        return value
-        
-    def validate_owner(self, value):
-        if value is None:
-            return value
+   def validate_logo(self, value):
+      if value:
+         file_extension = value.name.split('.')[-1].lower()
+         if file_extension not in ['png', 'jpg', 'jpeg']:
+               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG are allowed.")
+      return value
+   
+   def validate_name(self, value):
+      """Validate store name"""
+      if len(value.strip()) < 2:
+         raise ValidationError("Store name must be at least 2 characters long.")
+      
+      # Check for existing store with same name
+      if self.instance:  # Update case
+         if Store.objects.filter(name=value).exclude(id=self.instance.id).exists():
+               raise ValidationError("A store with this name already exists.")
+      else:  # Create case
+         if Store.objects.filter(name=value).exists():
+               raise ValidationError("A store with this name already exists.")
+      
+      return value.strip()
+   
+   def create(self, validated_data):
+      user = self.context['request'].user
+      
+      # Check if user already has a store
+      if Store.objects.filter(owner=user).exists():
+         raise ValidationError("You already have a store. Only one store per user is allowed.")
 
-        try:
-            user = CustomUser.objects.get(is_store_owner=True, id=value)
-        except CustomUser.DoesNotExist:
-            raise ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
-        return value
-    
-    def validate_name(self, value):
-        """Validate store name for DNS compatibility"""
-        if len(value.strip()) < 2:
-            raise ValidationError("Store name must be at least 2 characters long.")
-        
-        # Check for existing store with same name
-        if self.instance:  # Update case
-            if Store.objects.filter(name=value).exclude(id=self.instance.id).exists():
-                raise ValidationError("A store with this name already exists.")
-        else:  # Create case
-            if Store.objects.filter(name=value).exists():
-                raise ValidationError("A store with this name already exists.")
-        
-        return value
-    
-    def update(self, instance, validated_data):
-        # Remove domain_name from validated_data if present (it's read-only)
-        validated_data.pop('domain_name', None)
-        
-        for field in ["name", "TIN_number", "logo", "year_of_establishment", "category", "theme", 
-                     "card_elevation", "background_color", "patterns", "color_gradient", "button_color", 
-                     "card_view", "facebook", "whatsapp", "twitter", "instagram"]:
-            if field in validated_data:
-                setattr(instance, field, validated_data[field])
+      try:
+         # Create store with owner
+         validated_data['owner'] = user
+         
+         # Generate slug and domain
+         slug = generate_store_slug(validated_data['name'])
+         env_config = determine_environment_config(self.context.get('request'))
+         
+         # Generate domain name
+         full_domain = generate_store_domain(slug, env_config['environment'])
+         validated_data['domain_name'] = f"https://{full_domain}?mallcli={{store_id}}"
+         validated_data['slug'] = slug
+         
+         store = Store.objects.create(**validated_data)
+         
+         # Update domain name with actual store ID
+         store.domain_name = f"https://{full_domain}?mallcli={store.id}"
+         store.save(update_fields=['domain_name'])
+         
+         return store
+         
+      except IntegrityError as e:
+         if 'duplicate key' in str(e).lower():
+               raise ValidationError("You already have a store. Only one store per user is allowed.")
+         else:
+               raise ValidationError("An error occurred while creating the store. Please try again later.")
 
-        instance.save()
-        return instance
+   def update(self, instance, validated_data):
+      # Remove read-only fields
+      validated_data.pop('domain_name', None)
+      validated_data.pop('slug', None)
+      
+      # Update allowed fields
+      allowed_fields = [
+         "name", "TIN_number", "logo", "year_of_establishment", "category", "theme", 
+         "card_elevation", "background_color", "patterns", "color_gradient", "button_color", 
+         "card_view", "card_color", "facebook", "whatsapp", "twitter", "instagram"
+      ]
+      
+      for field in allowed_fields:
+         if field in validated_data:
+               setattr(instance, field, validated_data[field])
 
-    def create(self, validated_data):
-        owner = self.context['request'].user
-        
-        # Check if user already has a store
-        if Store.objects.filter(owner=owner).exists():
-            raise ValidationError("You already have a store. Only one store per user is allowed.")
-
-        try:
-            store = Store.objects.create(owner=owner, **validated_data)
-        except IntegrityError as e:
-            if 'duplicate key' in str(e).lower():
-                raise ValidationError("You already have a store. Only one store per user is allowed.")
-            else:
-                raise NotFoundError("An error occurred while creating the store. Please try again later.")
-
-        return store
+      instance.save()
+      return instance
 
 class ProductRatingSerializer(serializers.ModelSerializer):
    class Meta:

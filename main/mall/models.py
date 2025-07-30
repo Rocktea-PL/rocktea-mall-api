@@ -158,6 +158,7 @@ class Store(models.Model):
         validators=[YearValidator], null=True)
     category = models.ForeignKey(
         'Category', on_delete=models.CASCADE, null=True)
+    slug = models.SlugField(max_length=200, unique=True, blank=True)
     domain_name = models.CharField(max_length=255, null=True, unique=True, blank=True)
     dns_record_created = models.BooleanField(default=False)
     completed = models.BooleanField(default=False)
@@ -185,7 +186,8 @@ class Store(models.Model):
         indexes = [
             models.Index(fields=['id'], name='store_id_idx'),
             models.Index(fields=['owner'], name='store_owner_ownerx'),
-            models.Index(fields=['name'], name='store_name_namex')
+            models.Index(fields=['name'], name='store_name_namex'),
+            models.Index(fields=['slug'], name='store_slug_idx'),
         ]
 
     def __str__(self):
@@ -194,13 +196,16 @@ class Store(models.Model):
     def save(self, *args, **kwargs):
         # Generate slug if not already set
         if not self.slug and self.name:
-            self.slug = slugify(self.name)
-            # Ensure slug uniqueness if there's a possibility of collision
-            original_slug = self.slug
+            base_slug = slugify(self.name)
+            slug = base_slug
             counter = 1
-            while Store.objects.filter(slug=self.slug).exists():
-                self.slug = f"{original_slug}-{counter}"
+            
+            # Ensure slug uniqueness
+            while Store.objects.filter(slug=slug).exclude(id=self.id).exists():
+                slug = f"{base_slug}-{counter}"
                 counter += 1
+            
+            self.slug = slug
         if self.has_made_payment:
             self.completed = True
         super().save(*args, **kwargs)

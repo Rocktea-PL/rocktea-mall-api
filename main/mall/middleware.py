@@ -4,7 +4,9 @@ import logging
 _thread_local = threading.local()
 logger = logging.getLogger(__name__)
 
+
 class RequestMiddleware:
+    """Store request in thread local storage for signals"""
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -17,126 +19,83 @@ class RequestMiddleware:
                 delattr(_thread_local, 'request')
         return response
 
+
 def get_current_request():
     """Get the current request from thread local storage."""
     return getattr(_thread_local, 'request', None)
 
+
 class SubdomainMiddleware:
-    """
-    Middleware to handle subdomain routing and store identification.
-    Updated for your specific domain structure.
-    """
+    """Simple subdomain middleware for store identification"""
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        # Extract subdomain information
-        host = request.get_host()
+        # Extract host information
+        host = request.get_host().split(':')[0]  # Remove port if present
         
-        # Parse the host to extract subdomain
-        subdomain_info = self.parse_subdomain(host)
+        # Initialize request attributes
+        request.store = None
+        request.subdomain = None
+        request.is_store_subdomain = False
         
-        # Add subdomain info to request
-        request.subdomain = subdomain_info['subdomain']
-        request.domain = subdomain_info['domain']
-        request.is_subdomain = subdomain_info['is_subdomain']
-        request.environment = subdomain_info['environment']
-        
-        logger.info(f"Request host: {host}, subdomain: {request.subdomain}, environment: {request.environment}")
-        
-        # If it's a store subdomain, try to find the store
-        if request.is_subdomain and request.subdomain:
-            try:
-                from .models import Store
-                
-                # Look for store by domain name (contains the full URL)
-                full_domain_https = f"https://{host}"
-                store = Store.objects.filter(
-                    domain_name__icontains=host
-                ).first()
-                
-                if not store:
-                    # Try to find by mallcli parameter if present
-                    mall_id = request.GET.get('mallcli')
-                    if mall_id:
-                        store = Store.objects.filter(id=mall_id).first()
-                        logger.info(f"Found store by mallcli parameter: {store}")
-                
-                request.store = store
-                if store:
-                    logger.info(f"Found store: {store.name} (ID: {store.id})")
-                else:
-                    logger.warning(f"No store found for host: {host}")
-                
-            except Exception as e:
-                logger.error(f"Error finding store for host {host}: {e}")
-                request.store = None
-        else:
-            request.store = None
+        # Check if this is a store subdomain
+        if self._is_store_subdomain(host):
+            subdomain = self._extract_subdomain(host)
+            request.subdomain = subdomain
+            request.is_store_subdomain = True
+            
+            # Try to find the store
+            store = self._find_store_by_subdomain(subdomain, request)
+            request.store = store
+            
+            if store:
+                logger.info(f"Found store: {store.name} for subdomain: {subdomain}")
+            else:
+                logger.warning(f"No store found for subdomain: {subdomain}")
         
         response = self.get_response(request)
         return response
     
-    def parse_subdomain(self, host):
-        """
-        Parse the host to extract subdomain information.
-        Updated for your specific domain structure.
-        """
-        # Remove port if present
-        host = host.split(':')[0]
-        
-        # Define your base domains based on your setup
-        domain_configs = [
-            {
-                'domain': 'user-dev.yourockteamall.com',
-                'environment': 'dev',
-                'is_store_domain': True
-            },
-            {
-                'domain': 'yourockteamall.com', 
-                'environment': 'prod',
-                'is_store_domain': True
-            },
-            {
-                'domain': 'dropshippers.yourockteamall.com',
-                'environment': 'prod',
-                'is_store_domain': False
-            },
-            {
-                'domain': 'dropshippers-dev.yourockteamall.com',
-                'environment': 'dev', 
-                'is_store_domain': False
-            }
+    def _is_store_subdomain(self, host):
+        """Check if host is a store subdomain"""
+        store_domains = [
+            'yourockteamall.com',
+            'user-dev.yourockteamall.com'
         ]
         
-        for config in domain_configs:
-            base_domain = config['domain']
+        for domain in store_domains:
+            if host.endswith('.' + domain) and host != domain:
+                return True
+        return False
+    
+    def _extract_subdomain(self, host):
+        """Extract subdomain from host"""
+        if host.endswith('.user-dev.yourockteamall.com'):
+            return host.replace('.user-dev.yourockteamall.com', '')
+        elif host.endswith('.yourockteamall.com'):
+            return host.replace('.yourockteamall.com', '')
+        return None
+    
+    def _find_store_by_subdomain(self, subdomain, request):
+        """Find store by subdomain or mallcli parameter"""
+        if not subdomain:
+            return None
             
-            if host == base_domain:
-                # This is the main domain, no subdomain
-                return {
-                    'subdomain': None,
-                    'domain': base_domain,
-                    'is_subdomain': False,
-                    'environment': config['environment'],
-                    'is_store_domain': config['is_store_domain']
-                }
-            elif host.endswith('.' + base_domain):
-                # This is a subdomain
-                subdomain = host[:-len('.' + base_domain)]
-                return {
-                    'subdomain': subdomain,
-                    'domain': base_domain,
-                    'is_subdomain': True,
-                    'environment': config['environment'],
-                    'is_store_domain': config['is_store_domain']
-                }
-        
-        # If no match found, treat as unknown
-        return {
-            'subdomain': None,
-            'domain': host,
-            'is_subdomain': False,
-            'environment': 'unknown',
-            'is_store_domain': False
-        }
+        try:
+            from .models import Store
+            
+            # First try to find by slug
+            store = Store.objects.filter(slug=subdomain).first()
+            
+            if not store:
+                # Try to find by mallcli parameter
+                mall_id = request.GET.get('mallcli')
+                if mall_id:
+                    store = Store.objects.filter(id=mall_id).first()
+            
+            return store
+            
+        except Exception as e:
+            logger.error(f"Error finding store for subdomain {subdomain}: {e}")
+            return None

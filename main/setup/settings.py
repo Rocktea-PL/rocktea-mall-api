@@ -371,17 +371,18 @@ EMAIL_VERIFICATION_TIMEOUT = 86400
 
 # AWS Route 53 DNS Configuration
 # IMPORTANT: Replace with the actual Hosted Zone IDs you copied from Route 53
-# ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='Z0123456789ABCDEF') 
-# ROUTE53_DEV_HOSTED_ZONE_ID = env('ROUTE53_DEV_HOSTED_ZONE_ID', default='ZFEDCBA9876543210')
-ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='') 
-ROUTE53_DEV_HOSTED_ZONE_ID = env('ROUTE53_DEV_HOSTED_ZONE_ID', default='')
+ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='')
 
 # AWS Region for Route 53 API calls (e.g., 'us-east-1', 'eu-west-2')
 AWS_REGION_NAME = env('AWS_REGION_NAME', default='us-east-1')
 AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='')
 AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')
 
-
+# Domain Configuration
+STORE_DOMAINS = {
+    'dev': 'user-dev.yourockteamall.com',
+    'prod': 'yourockteamall.com'
+}
 
 # APPEND_SLASH = False
 

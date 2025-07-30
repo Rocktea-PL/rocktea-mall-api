@@ -5,25 +5,34 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def get_route53_client():
+    """Get Route53 client with AWS credentials"""
     return boto3.client(
         "route53",
-        region_name=settings.AWS_REGION_NAME,
+        region_name=getattr(settings, 'AWS_REGION_NAME', 'us-east-1'),
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
     )
 
+
 def create_cname_record(zone_id, subdomain, target):
     """
-    Creates a CNAME record that points *subdomain* → *target* using Route 53.
+    Creates a CNAME record that points subdomain → target using Route 53.
     """
+    if not zone_id:
+        logger.error("No hosted zone ID provided")
+        return None
+        
     try:
-        response = get_route53_client().change_resource_record_sets(
+        client = get_route53_client()
+        
+        response = client.change_resource_record_sets(
             HostedZoneId=zone_id,
             ChangeBatch={
                 "Changes": [
                     {
-                        "Action": "UPSERT",  # Changed to UPSERT to handle existing records
+                        "Action": "UPSERT",
                         "ResourceRecordSet": {
                             "Name": subdomain,
                             "Type": "CNAME",
@@ -34,45 +43,14 @@ def create_cname_record(zone_id, subdomain, target):
                 ]
             }
         )
-        logger.info(f"Created CNAME {subdomain} → {target}: {response['ChangeInfo']['Id']}")
+        
+        logger.info(f"Successfully created CNAME record: {subdomain} → {target}")
         return response
+        
     except ClientError as e:
-        if e.response["Error"]["Code"] == "InvalidChangeBatch":
-            logger.warning(f"CNAME already exists for {subdomain}")
-        else:
-            logger.exception("Route53 create_cname_record failed")
+        error_code = e.response.get("Error", {}).get("Code", "Unknown")
+        logger.error(f"Route53 error ({error_code}): {e}")
         return None
-
-def create_alias_record(zone_id, subdomain, target_zone_id, target):
-    """
-    Creates an ALIAS (A) record that points *subdomain* → *target* using Route 53.
-    Only use this for AWS resources like ALB, CloudFront, etc.
-    """
-    try:
-        response = get_route53_client().change_resource_record_sets(
-            HostedZoneId=zone_id,
-            ChangeBatch={
-                "Changes": [
-                    {
-                        "Action": "UPSERT",
-                        "ResourceRecordSet": {
-                            "Name": subdomain,
-                            "Type": "A",
-                            "AliasTarget": {
-                                "HostedZoneId": target_zone_id,
-                                "DNSName": target,
-                                "EvaluateTargetHealth": False,
-                            },
-                        }
-                    }
-                ]
-            }
-        )
-        logger.info(f"Created alias {subdomain} → {target}: {response['ChangeInfo']['Id']}")
-        return response
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "InvalidChangeBatch":
-            logger.warning(f"Alias already exists for {subdomain}")
-        else:
-            logger.exception("Route53 create_alias_record failed")
+    except Exception as e:
+        logger.error(f"Unexpected error creating DNS record: {e}")
         return None

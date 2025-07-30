@@ -133,23 +133,17 @@ class CreateOperationsAccount(viewsets.ModelViewSet):
    serializer_class = OperationsSerializer
 
 class CreateStore(viewsets.ModelViewSet):
-   # queryset = Store.objects.all()  # You can uncomment this if you want to retrieve all stores
+    serializer_class = CreateStoreSerializer
 
-   serializer_class = CreateStoreSerializer
-
-   def get_queryset(self):
-      # Use the new helper function
-      store = get_store_from_request(self.request)
-      if store:
-         return Store.objects.filter(id=store.id)
-      else:
-         # Return empty queryset if no store found
-         return Store.objects.none()
+    def get_queryset(self):
+        store = get_store_from_request(self.request)
+        if store:
+            return Store.objects.filter(id=store.id)
+        else:
+            return Store.objects.none()
    
-   def get_serializer_context(self):
-      # Crucial for passing the request to the serializer's create method
-      # and subsequently to the signal.
-      return {'request': self.request}
+    def get_serializer_context(self):
+        return {'request': self.request}
 
 class GetStoreDropshippers(viewsets.ModelViewSet):
    queryset = Store.objects.all() 
