@@ -1,34 +1,17 @@
 from django.dispatch import receiver
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save
 from django.shortcuts import get_object_or_404
 import logging
 
 from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification
-from .utils import generate_store_slug, determine_environment_config, generate_store_domain
+from .utils import determine_environment_config, generate_store_domain
 from .middleware import get_current_request
 from workshop.route53 import create_cname_record
 
-logger = logging.getLogger(__name__)
+from setup.utils import sendEmail
+from django.utils import timezone
 
-# @receiver(pre_save, sender=Store)
-# def generate_store_domain_info(sender, instance, **kwargs):
-#     """
-#     Generate domain information before saving the store.
-#     This ensures consistency and happens only once.
-#     """
-#     if not instance.domain_name and not instance.dns_record_created:
-#         # Generate slug from store name
-#         slug = generate_store_slug(instance.name)
-        
-#         # Get environment configuration
-#         request = get_current_request()
-#         env_config = determine_environment_config(request)
-        
-#         # Generate full domain
-#         full_domain = f"{slug}.{env_config['target_domain']}"
-#         instance.domain_name = f"https://{full_domain}?mallcli={instance.id}"
-        
-#         logger.info(f"Generated domain for store {instance.name}: {instance.domain_name}")
+logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):
@@ -63,8 +46,24 @@ def create_store_dns_record(sender, instance, created, **kwargs):
             # Update store with DNS info
             instance.dns_record_created = True
             instance.save(update_fields=['dns_record_created'])
-            
-            logger.info(f"Successfully created DNS record: {full_domain} -> {env_config['target_domain']}")
+
+            # Build the clickable URL
+            final_url = f"https://{full_domain}?mallcli={instance.id}"
+
+            subject = "Your Dropshipper Store is Live – Welcome!"
+            context = {
+                "full_name": instance.owner.get_full_name() or instance.owner.email,
+                "store_name": instance.name,
+                "store_domain": final_url,
+                'current_year': timezone.now().year,
+            }
+            sendEmail(
+                recipientEmail=instance.owner.email,
+                template_name='emails/store_welcome.html',
+                context=context,
+                subject=subject,
+                tags=["store-created", "domain-provisioned"]
+            )
         else:
             logger.error(f"Failed to create DNS record for store {instance.name}")
             
