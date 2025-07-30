@@ -8,7 +8,7 @@ from workshop.exceptions import (
    ValidationError, 
    AuthenticationFailedError, 
    NotFoundError
-   )
+)
 
 from .models import (
    CustomUser, 
@@ -870,3 +870,103 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
 class ResetPasswordConfirmSerializer(serializers.Serializer):
    token = serializers.CharField()
    password = serializers.CharField()
+
+class ResendVerificationSerializer(serializers.Serializer):
+   email = serializers.EmailField(required=True)
+   
+   def validate_email(self, value):
+      """Validate that the email exists and needs verification"""
+      try:
+         user = CustomUser.objects.get(email=value)
+      except CustomUser.DoesNotExist:
+         raise ValidationError("No account found with this email address.")
+      
+      if user.is_active:
+         raise ValidationError("This account is already active.")
+      
+      if user.is_verified:
+         raise ValidationError("This account is already verified.")
+      
+      # Check if user is a store owner (adjust based on your requirements)
+      if not user.is_store_owner:
+         raise ValidationError("This feature is only available for store owners.")
+      
+      return value
+   
+   def save(self):
+      """Generate new verification token and send email"""
+      email = self.validated_data['email']
+      user = CustomUser.objects.get(email=email)
+      
+      # Check rate limiting - prevent spam (max 3 requests per hour)
+      if user.verification_token_created_at:
+         time_since_last_request = timezone.now() - user.verification_token_created_at
+         if time_since_last_request.total_seconds() < 1200:  # 20 minutes
+               raise ValidationError({
+                  "error": "Please wait at least 20 minutes before requesting another verification email."
+               })
+      
+      # Generate new token
+      token_generator = PasswordResetTokenGenerator()
+      token = token_generator.make_token(user)
+      
+      # Update user with new token
+      user.verification_token = token
+      user.verification_token_created_at = timezone.now()
+      user.save(update_fields=['verification_token', 'verification_token_created_at'])
+      
+      # Send verification email
+      request = self.context.get("request")
+      self._send_verification_email(user, token, request)
+      
+      return user
+   
+   def _send_verification_email(self, user, token, request):
+      """Send verification email with proper error handling"""
+      try:
+         # Build verification URL
+         verification_url = self._build_verification_url(token, request)
+         
+         # Import sendEmail function
+         from setup.utils import sendEmail
+         
+         subject = "Email Verification - Rocktea Mall"
+         context = {
+               'full_name': user.get_full_name() or user.email,
+               'confirmation_url': verification_url,
+               'current_year': timezone.now().year,
+         }
+         
+         sendEmail(
+            recipientEmail=user.email,
+            template_name='emails/resend_email_verification.html',
+            context=context,
+            subject=subject,
+            tags=["email-verification", "resend-verification"]
+         )
+         
+         logger.info(f"Verification email resent successfully to {user.email}")
+         
+      except Exception as e:
+         logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+         raise ValidationError({
+               "error": "Failed to send verification email. Please try again later."
+         })
+   
+   def _build_verification_url(self, token, request):
+      """Build verification URL with proper domain handling"""
+      if request:
+         current_site = get_current_site(request).domain
+         protocol = request.scheme
+         domain_name = f"{protocol}://{current_site}"
+         
+         # Check referer for better frontend targeting
+         referer = request.META.get("HTTP_REFERER", "")
+         if referer and 'swagger' not in referer.lower():
+               parsed_referer = urlparse(referer)
+               if parsed_referer.hostname:
+                  domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
+      else:
+         domain_name = "https://yourockteamall.com"
+      
+      return f"{domain_name}/verify-email?token={token}"

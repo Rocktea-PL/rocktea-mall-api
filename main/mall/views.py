@@ -26,7 +26,8 @@ from .serializers import (
    ProductRatingSerializer,
    DropshipperReviewSerializer,
    ResetPasswordEmailRequestSerializer,
-   ResetPasswordConfirmSerializer
+   ResetPasswordConfirmSerializer,
+   ResendVerificationSerializer,
 )
 from django.http import Http404
 from .models import (
@@ -96,7 +97,14 @@ from django.db.models import Sum, Count, Q
 from setup.utils import get_store_domain
 from django.utils import timezone
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
+
 from .utils import get_store_from_request
+from workshop.exceptions import (
+   ValidationError
+)
 
 handler = DomainNameHandler()
 
@@ -987,3 +995,46 @@ class CustomResetPasswordConfirm(generics.GenericAPIView):
          return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
       except ResetPasswordToken.DoesNotExist:
          return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+class EmailVerificationViewSet(viewsets.ViewSet):
+   """
+   Handle email verification token operations
+   """
+   renderer_classes = [JSONRenderer]
+   
+   @method_decorator([csrf_exempt, never_cache])
+   @action(detail=False, methods=['post'], url_path='resend-verification')
+   def resend_verification(self, request):
+      """
+      Resend email verification token to user
+      """
+      serializer = ResendVerificationSerializer(
+         data=request.data, 
+         context={'request': request}
+      )
+      
+      if serializer.is_valid():
+         try:
+               user = serializer.save()
+               return Response({
+                  'success': True,
+                  'message': f'Verification email has been sent to {user.email}. Please check your inbox and spam folder.',
+                  'email': user.email
+               }, status=status.HTTP_200_OK)
+               
+         except ValidationError as e:
+               return Response({
+                  'success': False,
+                  'error': e.detail if hasattr(e, 'detail') else str(e)
+               }, status=status.HTTP_400_BAD_REQUEST)
+         except Exception as e:
+               logger.error(f"Unexpected error in resend verification: {str(e)}")
+               return Response({
+                  'success': False,
+                  'error': 'An unexpected error occurred. Please try again later.'
+               }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+      
+      return Response({
+         'success': False,
+         'errors': serializer.errors
+      }, status=status.HTTP_400_BAD_REQUEST)
