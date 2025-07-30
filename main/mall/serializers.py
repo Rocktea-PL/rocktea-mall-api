@@ -225,6 +225,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       data = super().validate(attrs)
       user = self.user  # Already authenticated user from parent class
 
+      # 2. Reject non-verified or inactive accounts
+      if not user.is_active:
+         raise ValidationError("User account is inactive. Please contact support.")
+      if not user.is_verified:
+         raise ValidationError("User account not verified. Please check your email for verification instructions.")
+      
+      if not user.is_store_owner:
+         raise ValidationError("Access denied. Only store owners can log in here.")
+
       # Get user with permissions (allow all valid users)
       try:
          user = CustomUser.objects.get(id=user.id)

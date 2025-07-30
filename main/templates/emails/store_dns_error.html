@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔧 Store Created - Technical Issue</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      max-width: 600px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      background: #ffffff;
+      margin: 20px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .error-badge {
+      background: #dc2626;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    .error-box {
+      background: #fef2f2;
+      padding: 25px;
+      border-radius: 10px;
+      border-left: 5px solid #dc2626;
+      margin: 25px 0;
+    }
+    .resolution-steps {
+      background: #f0f9ff;
+      padding: 20px;
+      border-radius: 10px;
+      border-left: 5px solid #0ea5e9;
+      margin: 25px 0;
+    }
+    .footer {
+      background: #f1f5f9;
+      padding: 30px;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+    .logo {
+      max-width: 180px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="https://yourockteamall.com/logo.png" alt="RockTeaMall" class="logo">
+      <h1>🔧 Store Created</h1>
+      <p>Technical issue with domain setup</p>
+    </div>
+
+    <div class="content">
+      <div class="error-badge">🔧 Technical Issue</div>
+      
+      <p>Hi {{ first_name }},</p>
+      
+      <p>Your store <strong>{{ store_name }}</strong> has been successfully created! However, we encountered a technical issue while setting up your custom domain.</p>
+
+      <div class="error-box">
+        <h3>🔧 Technical Details</h3>
+        <p><strong>Store Name:</strong> {{ store_name }}</p>
+        <p><strong>Store ID:</strong> {{ store_id }}</p>
+        <p><strong>Error Reference:</strong> {{ error_reference }}</p>
+        <p><strong>Status:</strong> Domain setup encountered an error</p>
+      </div>
+
+      <div class="resolution-steps">
+        <h3>🛠️ What We're Doing</h3>
+        <ul>
+          <li>✅ Your store data is safe and secure</li>
+          <li>🚨 Our technical team has been automatically notified</li>
+          <li>🔍 We're investigating the root cause</li>
+          <li>🔄 We'll retry the domain setup automatically</li>
+          <li>📧 You'll receive an update once resolved</li>
+        </ul>
+      </div>
+
+      <p><strong>Expected Resolution Time:</strong> 2-4 hours</p>
+
+      <p>Your store content and settings are completely safe. You can continue configuring your store while we resolve the domain issue.</p>
+
+      <p><strong>Need immediate assistance?</strong> Contact our technical support team at <a href="mailto:{{ support_email }}">{{ support_email }}</a></p>
+
+      <p><strong>Please include this information:</strong></p>
+      <ul>
+        <li>Store ID: {{ store_id }}</li>
+        <li>Error Reference: {{ error_reference }}</li>
+        <li>Your email: {{ full_name }}</li>
+      </ul>
+
+      <p>We sincerely apologize for this inconvenience and appreciate your patience while we resolve this technical issue.</p>
+    </div>
+
+    <div class="footer">
+      <p><strong>RockTeaMall Technical Team</strong></p>
+      <p>Emergency Support: {{ support_email }}</p>
+      <p>Error Reference: {{ error_reference }}</p>
+      <p>&copy; {{ current_year }} RockTeaMall. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

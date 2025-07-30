@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎉 Your Store is Live – RockTeaMall</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      max-width: 600px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      background: #ffffff;
+      margin: 20px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: bold;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .success-badge {
+      background: #10b981;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    .store-info {
+      background: #f8fafc;
+      padding: 25px;
+      border-radius: 10px;
+      border-left: 5px solid #667eea;
+      margin: 25px 0;
+    }
+    .button {
+      display: inline-block;
+      padding: 15px 30px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      margin: 20px 0;
+      font-weight: bold;
+      font-size: 16px;
+      transition: transform 0.2s;
+    }
+    .button:hover {
+      transform: translateY(-2px);
+    }
+    .url-box {
+      background: #e2e8f0;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      word-break: break-all;
+      margin: 15px 0;
+      border: 1px dashed #cbd5e0;
+    }
+    .next-steps {
+      background: #fffbeb;
+      padding: 20px;
+      border-radius: 10px;
+      border-left: 5px solid #f59e0b;
+      margin: 25px 0;
+    }
+    .next-steps h3 {
+      color: #92400e;
+      margin-top: 0;
+    }
+    .next-steps ul {
+      color: #78350f;
+    }
+    .footer {
+      background: #f1f5f9;
+      padding: 30px;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+    .logo {
+      max-width: 180px;
+      margin-bottom: 20px;
+    }
+    .environment-badge {
+      background: #3b82f6;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="https://yourockteamall.com/logo.png" alt="RockTeaMall" class="logo">
+      <h1>🎉 Congratulations, {{ first_name }}!</h1>
+      <p>Your dropshipper store is now live and ready for business!</p>
+    </div>
+
+    <div class="content">
+      <div class="success-badge">✅ Store Successfully Created</div>
+      
+      <p>Great news! Your store <strong>{{ store_name }}</strong> has been successfully created and is now accessible through your custom domain.</p>
+
+      <div class="store-info">
+        <h3>🏪 Your Store Details</h3>
+        <p><strong>Store Name:</strong> {{ store_name }}</p>
+        <p><strong>Store ID:</strong> {{ store_id }}</p>
+        <p><strong>Environment:</strong> <span class="environment-badge">{{ environment }}</span></p>
+        <p><strong>Owner:</strong> {{ owner_email }}</p>
+      </div>
+
+      <h3>🌐 Access Your Store</h3>
+      <p>Your branded storefront is now live at:</p>
+      
+      <a href="{{ store_domain }}" class="button">🚀 Open My Store</a>
+
+      <p>If the button doesn't work, copy and paste this link into your browser:</p>
+      <div class="url-box">{{ store_domain }}</div>
+
+      <div class="next-steps">
+        <h3>🎯 What's Next?</h3>
+        <ul>
+          <li><strong>Customize Your Store:</strong> Add your logo, colors, and branding</li>
+          <li><strong>Add Products:</strong> Start adding products to your inventory</li>
+          <li><strong>Set Up Payments:</strong> Configure your payment methods</li>
+          <li><strong>Go Live:</strong> Share your store link and start selling!</li>
+        </ul>
+      </div>
+
+      <p><strong>🔗 Direct Store Link:</strong> <a href="{{ store_domain }}">{{ store_domain }}</a></p>
+
+      <p>Need help getting started? Our support team is here to assist you every step of the way.</p>
+
+      <p>Welcome to the RockTeaMall family!</p>
+    </div>
+
+    <div class="footer">
+      <p><strong>RockTeaMall Support Team</strong></p>
+      <p>Questions? Reply to this email – we're here to help!</p>
+      <p>&copy; {{ current_year }} RockTeaMall. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
