@@ -11,12 +11,15 @@ class StoreSerializer(serializers.ModelSerializer):
         model = Store
         fields = [
             'id', 'name', 'domain_name', 'completed', 
-            'has_made_payment', 'created_at', 'logo', 'cover_image'
+            'has_made_payment', 'created_at', 'logo', 'cover_image',
+            'TIN_number', 'year_of_establishment'
         ]
         extra_kwargs = {
             'logo': {'allow_null': True},
             'cover_image': {'allow_null': True},
-            'domain_name': {'allow_null': True}
+            'domain_name': {'allow_null': True},
+            'TIN_number': {'allow_null': True},
+            'year_of_establishment': {'allow_null': True}
         }
 
 class DropshipperDetailSerializer(serializers.ModelSerializer):
@@ -141,8 +144,13 @@ class DropshipperListSerializer(StoreOwnerSerializer):
 
 class DropshipperAdminSerializer(StoreOwnerSerializer):
     company_name = serializers.CharField(write_only=True, required=False, allow_null=True)
-    is_active = serializers.BooleanField(default=True, allow_null=True)
-    is_verified = serializers.BooleanField(default=True, allow_null=True)
+    TIN_number = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    logo = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    year_of_establishment = serializers.DateField(write_only=True, required=False, allow_null=True)
+    is_payment = serializers.BooleanField(write_only=True, default=False)
+    contact = serializers.CharField(write_only=True, required=False, allow_null=True)
+    username = serializers.CharField(write_only=True, required=False, allow_null=True)
+
     last_active = serializers.DateTimeField(source='last_login', read_only=True, allow_null=True)
     store = StoreSerializer(source='owners', read_only=True, allow_null=True)
     total_products = serializers.IntegerField(read_only=True, allow_null=True)
@@ -159,15 +167,14 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
     class Meta(StoreOwnerSerializer.Meta):
         fields = StoreOwnerSerializer.Meta.fields + (
-            'is_active', 'is_verified', 'company_name', 'date_joined', 
+            'company_name', 'date_joined', 'logo', 'contact', 'username'
             'last_active', 'store', 'total_products', 'total_products_available',
-            'total_products_sold', 'total_revenue', 'is_active_user'
+            'total_products_sold', 'total_revenue', 'is_active_user',
+            'TIN_number', 'year_of_establishment', 'is_payment'
         )
         read_only_fields = ('completed_steps', 'date_joined')
         extra_kwargs = {
             'password': {'write_only': True, 'required': False, 'allow_null': True},
-            'contact': {'allow_null': True},
-            'username': {'allow_null': True},
             'first_name': {'allow_null': True},
             'last_name': {'allow_null': True},
             'email': {'allow_null': True},
@@ -177,14 +184,24 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
     def create(self, validated_data):
         company_name = validated_data.pop('company_name', None)
         password = validated_data.pop('password', None)
-        
+        tin_number = validated_data.pop('TIN_number', None)
+        logo = validated_data.pop('logo', None)
+        year_of_establishment = validated_data.pop('year_of_establishment', None)
+        is_payment = validated_data.pop('is_payment', False)
+        contact = validated_data.pop('contact', None)
+        username = validated_data.pop('username', None)
+
         # Create user
         user = super().create(validated_data)
         
         # Set additional admin-managed fields
         user.is_store_owner = True
-        user.is_active = validated_data.get('is_active', True)
-        user.is_verified = validated_data.get('is_verified', True)
+        user.is_active = True
+        user.is_verified = True
+        if username:
+            user.username = username
+        if contact:
+            user.contact = contact
         
         if password:
             user.set_password(password)
@@ -196,7 +213,10 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             Store.objects.create(
                 owner=user,
                 name=company_name,
-                has_made_payment=True
+                TIN_number=tin_number,
+                logo=logo,
+                year_of_establishment=year_of_establishment,
+                has_made_payment=is_payment
             )
         
         return user
