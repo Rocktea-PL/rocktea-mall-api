@@ -138,42 +138,45 @@ class StoreOwnerSerializer(ModelSerializer):
       user.verification_token_created_at = timezone.now()
       user.save(update_fields=['verification_token', 'verification_token_created_at']) # Save token fields
 
-      request = self.context.get("request")
-      current_site = get_current_site(request).domain if request else "yourockteamall.com"
-      protocol = request.scheme if request else "https"
-      domain_name = f"{protocol}://{current_site}"
-      verify_email_url = f"{domain_name}/verify-email?token="+str(token)
+      # Check if the email should be sent
+      send_welcome_email = self.context.get('send_welcome_email', True)
+      if send_welcome_email:
+         request = self.context.get("request")
+         current_site = get_current_site(request).domain if request else "yourockteamall.com"
+         protocol = request.scheme if request else "https"
+         domain_name = f"{protocol}://{current_site}"
+         verify_email_url = f"{domain_name}/verify-email?token="+str(token)
 
-      # Fallback to referer for better frontend targeting
-      if request:
-         referer = request.META.get("HTTP_REFERER", "")
-         if referer and 'swagger' not in referer.lower():
-            parsed_referer = urlparse(referer)
-            domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
-            verify_email_url = f"{domain_name}/verify-email?token={token}"
+         # Fallback to referer for better frontend targeting
+         if request:
+            referer = request.META.get("HTTP_REFERER", "")
+            if referer and 'swagger' not in referer.lower():
+               parsed_referer = urlparse(referer)
+               domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
+               verify_email_url = f"{domain_name}/verify-email?token={token}"
 
-      # Send welcome email
-      try:
-         from setup.utils import sendEmail  # Import inside function to avoid circular imports
-         subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
-         context = {
-            'full_name': user.get_full_name() or user.email, # Pass full_name or email
-            'confirmation_url': verify_email_url,
-            'current_year': timezone.now().year,
-         }
-         sendEmail(
-            recipientEmail=user.email,
-            template_name='emails/dropshippers_welcome.html',
-            context=context,
-            subject=subject,
-            tags=["user-onboarding", "email-verification"]
-         )
-      except Exception as e:
-         # Log but don't prevent user creation
-         print(f"Failed to send welcome email: {str(e)}")
-         logger.error(f"Failed to send user welcome email to {user.email}: {str(e)}")
-         logger.error(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
-         print(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
+         # Send welcome email
+         try:
+            from setup.utils import sendEmail  # Import inside function to avoid circular imports
+            subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
+            context = {
+               'full_name': user.get_full_name() or user.email, # Pass full_name or email
+               'confirmation_url': verify_email_url,
+               'current_year': timezone.now().year,
+            }
+            sendEmail(
+               recipientEmail=user.email,
+               template_name='emails/dropshippers_welcome.html',
+               context=context,
+               subject=subject,
+               tags=["user-onboarding", "email-verification"]
+            )
+         except Exception as e:
+            # Log but don't prevent user creation
+            print(f"Failed to send welcome email: {str(e)}")
+            logger.error(f"Failed to send user welcome email to {user.email}: {str(e)}")
+            logger.error(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
+            print(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
 
       return user
    

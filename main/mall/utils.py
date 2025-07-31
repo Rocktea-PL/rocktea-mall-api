@@ -1,8 +1,5 @@
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.conf import settings
-import re
-from django.utils.text import slugify
-from .models import Store
 
 class EmailVerificationTokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
@@ -25,16 +22,40 @@ def determine_environment_config(request=None):
     # Default to development
     environment = 'dev'
     
+    # Check for localhost/development indicators first
+    if _is_server_running_locally():
+        return {
+            'environment': 'local',
+            'target_domain': None,
+            'hosted_zone_id': '',
+            'base_url': 'http://localhost:8000'
+        }
+    
+    # If server is not local, determine environment from request or settings
     if request and hasattr(request, 'get_host'):
         host = request.get_host()
-        if 'yourockteamall.com' in host and 'dev' not in host:
+        
+        # Check for dev environment
+        if 'dev.yourockteamall.com' in host or 'dropshippers-dev.yourockteamall.com' in host:
+            environment = 'dev'
+        # Check for production domain  
+        elif 'yourockteamall.com' in host and 'dev' not in host:
             environment = 'prod'
     
-    # You can also check Django settings
-    if settings.ENVIRONMENT == 'production':
-        environment = 'prod'
+    # Also check Django settings as fallback
+    if hasattr(settings, 'ENVIRONMENT'):
+        if settings.ENVIRONMENT == 'production':
+            environment = 'prod'
+        elif settings.ENVIRONMENT == 'development':
+            environment = 'dev'
     
     configs = {
+        'local': {
+            'environment': 'local',
+            'target_domain': None,
+            'hosted_zone_id': '',
+            'base_url': 'http://localhost:8000'
+        },
         'dev': {
             'environment': 'dev',
             'target_domain': 'user-dev.yourockteamall.com',
@@ -51,11 +72,45 @@ def determine_environment_config(request=None):
     
     return configs.get(environment, configs['dev'])
 
+def _is_server_running_locally():
+    """
+    Check if the Django server itself is running locally
+    """
+    # Check common indicators that server is running locally
+    
+    # Check DEBUG setting (usually True in local development)
+    if getattr(settings, 'DEBUG', False):
+        return True
+    
+    # Check for local development database settings
+    databases = getattr(settings, 'DATABASES', {})
+    default_db = databases.get('default', {})
+    db_host = default_db.get('HOST', '')
+    
+    if (db_host in ['localhost', '127.0.0.1', ''] or 
+        db_host.startswith('192.168.') or 
+        db_host.startswith('10.') or 
+        db_host.startswith('172.')):
+        return True
+    
+    # Check for development-specific settings
+    if hasattr(settings, 'ENVIRONMENT'):
+        if settings.ENVIRONMENT in ['local', 'development']:
+            return True
+    
+    # Check for local development indicators in allowed hosts
+    allowed_hosts = getattr(settings, 'ALLOWED_HOSTS', [])
+    local_hosts = ['localhost', '127.0.0.1', '0.0.0.0']
+    if any(host in allowed_hosts for host in local_hosts):
+        return True
+    
+    return False
 
 def generate_store_domain(store_slug, environment='dev'):
     """Generate full domain name for a store"""
-    config = determine_environment_config()
-    if environment == 'prod':
+    if environment == 'local':
+        return "http://localhost:8000"
+    elif environment == 'prod':
         return f"{store_slug}.yourockteamall.com"
     else:
         return f"{store_slug}.user-dev.yourockteamall.com"

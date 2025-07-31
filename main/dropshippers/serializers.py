@@ -5,6 +5,11 @@ from django.db.models import Sum, Count, Q
 from mall.models import CustomUser, Store
 from datetime import datetime, timezone
 from django.utils.timezone import now
+from django.db import transaction, IntegrityError
+from django.contrib.sites.shortcuts import get_current_site
+import re, logging
+
+logger = logging.getLogger(__name__)
 
 class StoreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -101,7 +106,7 @@ class DropshipperDetailSerializer(serializers.ModelSerializer):
             return {
                 'id': obj.owners.id,
                 'name': obj.owners.name,
-                'email': obj.owners.email,
+                'email': obj.owners.owner.email,
                 'domain_name': obj.owners.domain_name,
                 'logo': obj.owners.logo.url if obj.owners.logo else None,
                 'cover_image': obj.owners.cover_image.url if obj.owners.cover_image else None
@@ -167,7 +172,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
     class Meta(StoreOwnerSerializer.Meta):
         fields = StoreOwnerSerializer.Meta.fields + (
-            'company_name', 'date_joined', 'logo', 'contact', 'username'
+            'company_name', 'date_joined', 'logo', 'contact', 'username',
             'last_active', 'store', 'total_products', 'total_products_available',
             'total_products_sold', 'total_revenue', 'is_active_user',
             'TIN_number', 'year_of_establishment', 'is_payment'
@@ -183,40 +188,71 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
     def create(self, validated_data):
         company_name = validated_data.pop('company_name', None)
-        password = validated_data.pop('password', None)
-        tin_number = validated_data.pop('TIN_number', None)
-        logo = validated_data.pop('logo', None)
-        year_of_establishment = validated_data.pop('year_of_establishment', None)
-        is_payment = validated_data.pop('is_payment', False)
-        contact = validated_data.pop('contact', None)
-        username = validated_data.pop('username', None)
+        password     = validated_data.pop('password', None)
+        tin_number   = validated_data.pop('TIN_number', None)
+        logo         = validated_data.pop('logo', None)
+        year         = validated_data.pop('year_of_establishment', None)
+        is_payment   = validated_data.pop('is_payment', False)
+        contact      = validated_data.pop('contact', None)
+        username     = validated_data.pop('username', None)
 
-        # Create user
-        user = super().create(validated_data)
-        
-        # Set additional admin-managed fields
-        user.is_store_owner = True
-        user.is_active = True
-        user.is_verified = True
-        if username:
-            user.username = username
-        if contact:
-            user.contact = contact
-        
-        if password:
-            user.set_password(password)
-        
-        user.save()
-        
-        # Create store
-        if company_name:
-            Store.objects.create(
-                owner=user,
-                name=company_name,
-                TIN_number=tin_number,
-                logo=logo,
-                year_of_establishment=year_of_establishment,
-                has_made_payment=is_payment
-            )
-        
+        try:
+            with transaction.atomic():
+                # build the user **without** calling super().create
+                user = CustomUser(**validated_data)
+                user.is_store_owner = True
+                user.is_active = True
+                user.is_verified = True
+                if username:
+                    user.username = username
+                if contact:
+                    user.contact = contact
+                if password:
+                    user.set_password(password)
+                user.save()
+
+                if company_name:
+                    store = Store.objects.create(
+                        owner=user,
+                        name=company_name,
+                        TIN_number=tin_number,
+                        logo=logo,
+                        year_of_establishment=year,
+                        has_made_payment=is_payment
+                    )
+                    self.send_admin_created_email(user, store)
+        except IntegrityError as e:
+            if 'duplicate key value violates unique constraint "mall_store_name_key"' in str(e):
+                raise serializers.ValidationError({'company_name': 'A store with this name already exists.'})
+            raise
+        except Exception as e:
+            raise serializers.ValidationError({'non_field_errors': [str(e)]})
+
         return user
+
+    def send_admin_created_email(self, user, store):
+        request = self.context.get("request")
+        current_site = get_current_site(request).domain if request else "yourockteamall.com"
+        protocol = request.scheme if request else "https"
+        domain_name = f"{protocol}://{current_site}"
+
+        try:
+            from setup.utils import sendEmail  # Import inside function to avoid circular imports
+            subject = "Your Rocktea Mall Account Has Been Created"
+            context = {
+                'full_name': user.get_full_name() or user.email,  # Pass full_name or email
+                'store_name': store.name,
+                'dashboard_url': f"{domain_name}/dashboard",
+                'current_year': timezone.now().year,
+            }
+            sendEmail(
+                recipientEmail=user.email,
+                template_name='emails/admin_created_account.html',
+                context=context,
+                subject=subject,
+                tags=["admin-created-account"]
+            )
+        except Exception as e:
+            # Log but don't prevent user creation
+            print(f"Failed to send admin created email: {str(e)}")
+            logger.error(f"Failed to send admin created email to {user.email}: {str(e)}")

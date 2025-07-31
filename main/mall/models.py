@@ -11,6 +11,7 @@ from django.contrib.postgres.fields import ArrayField
 from cloudinary.models import CloudinaryField
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
+from django.core.validators import MinLengthValidator
 
 # Conditionally import Cloudinary storage
 if not os.environ.get('CI', False):
@@ -56,7 +57,7 @@ class CustomUser(AbstractUser):
 
     id = models.CharField(default=uuid4, unique=True,
                           primary_key=True, db_index=True, max_length=36)
-    username = models.CharField(max_length=7, unique=True)
+    username = models.CharField(max_length=50, validators=[MinLengthValidator(3)], unique=True)
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=250)
     last_name = models.CharField(max_length=250)
