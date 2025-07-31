@@ -3,26 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Rocktea Mall Account Has Been Created</title>
+    <title>Welcome to Rocktea Mall - Your Account is Ready!</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content {
+            padding: 30px;
+        }
+        .welcome-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .account-details {
+            background-color: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #2196F3;
+            margin: 20px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            margin: 20px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+        .feature-list {
+            background-color: #f0f9ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .feature-icon {
+            background-color: #10b981;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 14px;
+        }
+        .footer {
+            background-color: #2d3748;
+            color: #a0aec0;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .support-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .logo {
+            max-width: 180px;
+            height: auto;
+        }
+        @media (max-width: 600px) {
+            .content {
+                padding: 20px;
+            }
+            .header {
+                padding: 20px;
+            }
+        }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
-    <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
-        <img src="https://yourockteamall.com/logo.png" alt="Rocktea Mall" style="max-width: 200px; margin-bottom: 20px;">
-        <h2 style="color: #2d3748;">Hello {{full_name}},</h2>
+<body>
+    <div class="email-container">
+        <div class="header">
+            <img src="https://yourockteamall.com/logo.png" alt="Rocktea Mall" class="logo">
+            <h1 style="margin: 20px 0 0 0; font-size: 24px;">Welcome to Rocktea Mall!</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Your dropshipping journey begins now</p>
+        </div>
         
-        <p>Your Rocktea Mall account has been successfully created by an admin. You can now start managing your store and exploring our platform.</p>
+        <div class="content">
+            <h2 style="color: #2d3748; margin-top: 0;">Hello {{full_name}},</h2>
+            
+            <div class="welcome-section">
+                <p style="margin: 0; font-size: 16px;">
+                    🎉 <strong>Great news!</strong> An administrator has successfully created your Rocktea Mall account. 
+                    You're now part of our thriving community of successful dropshippers!
+                </p>
+            </div>
 
-        <p>Here are some important details:</p>
-        <ul>
-            <li><strong>Store Name:</strong> {{store_name}}</li>
-            <li><strong>Dashboard URL:</strong> <a href="{{dashboard_url}}">{{dashboard_url}}</a></li>
-        </ul>
+            <div class="account-details">
+                <h3 style="color: #1565c0; margin-top: 0;">Your Account Details</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin: 8px 0;"><strong>📧 Email:</strong> {{user_email}}</li>
+                    <li style="margin: 8px 0;"><strong>🏪 Store Name:</strong> {{store_name}}</li>
+                    <li style="margin: 8px 0;"><strong>📅 Account Created:</strong> Today</li>
+                    {% if has_password %}
+                    <li style="margin: 8px 0;"><strong>🔐 Status:</strong> Password set - You're ready to login!</li>
+                    {% else %}
+                    <li style="margin: 8px 0;"><strong>🔐 Status:</strong> Please contact admin for login credentials</li>
+                    {% endif %}
+                </ul>
+            </div>
+
+            <div style="text-align: center;">
+                <a href="{{dashboard_url}}" class="cta-button">Access Your Dashboard</a>
+            </div>
+
+            <div class="feature-list">
+                <h3 style="color: #2d3748; margin-top: 0;">What's Next? Here's what you can do:</h3>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">1</div>
+                    <div>
+                        <strong>Explore Your Dashboard</strong><br>
+                        Familiarize yourself with your merchant panel and all available tools
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">2</div>
+                    <div>
+                        <strong>Browse Our Product Catalog</strong><br>
+                        Discover thousands of products to add to your store
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">3</div>
+                    <div>
+                        <strong>Set Up Your Store</strong><br>
+                        Customize your store settings, payment methods, and shipping options
+                    </div>
+                </div>
+                
+                <div class="feature-item">
+                    <div class="feature-icon">4</div>
+                    <div>
+                        <strong>Start Adding Products</strong><br>
+                        Begin building your product inventory and start selling
+                    </div>
+                </div>
+            </div>
+
+            <div class="support-box">
+                <h3 style="color: #856404; margin-top: 0;">Need Help Getting Started?</h3>
+                <p style="margin-bottom: 0; color: #856404;">
+                    Our support team is here to help you succeed! Contact us at 
+                    <strong><a href="mailto:{{support_email}}" style="color: #856404;">{{support_email}}</a></strong> 
+                    or simply reply to this email with any questions.
+                </p>
+            </div>
+
+            <p style="color: #4a5568; font-size: 16px;">
+                At Rocktea Mall, we're committed to your success. You now have access to:
+            </p>
+            <ul style="color: #4a5568;">
+                <li>A vast catalog of high-quality products</li>
+                <li>Powerful store management tools</li>
+                <li>Automated order processing</li>
+                <li>Real-time analytics and reporting</li>
+                <li>24/7 customer support</li>
+                <li>A community of successful entrepreneurs</li>
+            </ul>
+
+            <p style="color: #4a5568; margin-bottom: 0;">
+                We're excited to see what you'll achieve with Rocktea Mall. Welcome aboard!
+            </p>
+        </div>
         
-        <p>If you have any questions or need assistance, our support team is ready to help. You can reply to this email for support.</p>
-        
-        <p>Best regards,</p>
-        <p>Rocktea Mall - Powering Your E-commerce Dreams</p>
-        <p>&copy; {{ current_year }} Rocktea Mall. All rights reserved.</p>
+        <div class="footer">
+            <p style="margin: 0 0 10px 0;">
+                <strong>Rocktea Mall</strong> - Powering Your E-commerce Dreams
+            </p>
+            <p style="margin: 0; opacity: 0.8;">
+                &copy; {{ current_year }} Rocktea Mall. All rights reserved.
+            </p>
+            <p style="margin: 10px 0 0 0; font-size: 12px; opacity: 0.7;">
+                This email was sent because an administrator created an account for you at Rocktea Mall.
+            </p>
+        </div>
     </div>
 </body>
 </html>

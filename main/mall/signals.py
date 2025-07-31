@@ -32,8 +32,6 @@ def create_store_dns_record(sender, instance, created, **kwargs):
 
         logger.info(f"Environment detected: {env_config['environment']} for store: {instance.name}")
         
-        logger.info(f"Creating DNS record for store: {instance.name} (ID: {instance.id})")
-        
         # Generate the subdomain
         full_domain = generate_store_domain(instance.slug, env_config['environment'])
         
@@ -41,22 +39,23 @@ def create_store_dns_record(sender, instance, created, **kwargs):
             logger.warning(f"No domain generated for store {instance.name} in environment {env_config['environment']}")
             return
         
-         # Skip DNS provisioning when server is running locally
+        # Skip DNS provisioning when server is running locally
         if env_config['environment'] == 'local':
             logger.info("Server running locally - skipping DNS provisioning and AWS calls")
+            # Build the clickable URL for local development
+            final_url = f"http://localhost:8000?mallcli={instance.id}"
             # Mark as completed locally but don't call AWS
-            instance.dns_record_created = True
-            instance.domain_name = full_domain
+            instance.dns_record_created = False  # Keep false since no actual DNS was created
+            instance.domain_name = final_url
             instance.save(update_fields=['dns_record_created', 'domain_name'])
-
-            # Build the clickable URL
-            final_url = f"https://{full_domain}?mallcli={instance.id}"
             
             # Send a local development email
             send_local_development_email(instance, final_url)
             return
         
-        # Create DNS record
+        logger.info(f"Creating DNS record for store: {instance.name} (ID: {instance.id})")
+        
+        # Create DNS record for dev/prod environments
         response = create_cname_record(
             zone_id=env_config['hosted_zone_id'],
             subdomain=full_domain,

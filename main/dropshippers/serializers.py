@@ -1,13 +1,12 @@
 from rest_framework import serializers
 from mall.serializers import StoreOwnerSerializer
 from order.models import Store
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum
 from mall.models import CustomUser, Store
-from datetime import datetime, timezone
-from django.utils.timezone import now
+from django.utils import timezone
 from django.db import transaction, IntegrityError
 from django.contrib.sites.shortcuts import get_current_site
-import re, logging
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +167,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         allow_null=True
     )
     is_active_user = serializers.BooleanField(read_only=True, allow_null=True)
-    profile_image = serializers.ImageField(allow_null=True)  # Add this
+    profile_image = serializers.ImageField(allow_null=True)
 
     class Meta(StoreOwnerSerializer.Meta):
         fields = StoreOwnerSerializer.Meta.fields + (
@@ -196,6 +195,9 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         contact      = validated_data.pop('contact', None)
         username     = validated_data.pop('username', None)
 
+        user = None
+        store = None
+        
         try:
             with transaction.atomic():
                 # build the user **without** calling super().create
@@ -211,6 +213,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                     user.set_password(password)
                 user.save()
 
+                # Only create store if company_name is provided
                 if company_name:
                     store = Store.objects.create(
                         owner=user,
@@ -220,7 +223,12 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         year_of_establishment=year,
                         has_made_payment=is_payment
                     )
+                    
+                # Only send email if both user and store creation were successful
+                # and we're still inside the successful transaction
+                if store:
                     self.send_admin_created_email(user, store)
+                    
         except IntegrityError as e:
             if 'duplicate key value violates unique constraint "mall_store_name_key"' in str(e):
                 raise serializers.ValidationError({'company_name': 'A store with this name already exists.'})
@@ -237,20 +245,24 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         domain_name = f"{protocol}://{current_site}"
 
         try:
-            from setup.utils import sendEmail  # Import inside function to avoid circular imports
-            subject = "Your Rocktea Mall Account Has Been Created"
+            from setup.utils import sendEmail
+            subject = "Welcome to Rocktea Mall - Your Account is Ready!"
             context = {
-                'full_name': user.get_full_name() or user.email,  # Pass full_name or email
+                'full_name': user.get_full_name() or user.email,
                 'store_name': store.name,
                 'dashboard_url': f"{domain_name}/dashboard",
+                'login_url': f"{domain_name}/login",
+                'support_email': "support@yourockteamall.com",  # Update with your actual support email
                 'current_year': timezone.now().year,
+                'user_email': user.email,
+                'has_password': bool(user.password),  # Check if password was set
             }
             sendEmail(
                 recipientEmail=user.email,
                 template_name='emails/admin_created_account.html',
                 context=context,
                 subject=subject,
-                tags=["admin-created-account"]
+                tags=["admin-created-account", "account-setup"]
             )
         except Exception as e:
             # Log but don't prevent user creation
