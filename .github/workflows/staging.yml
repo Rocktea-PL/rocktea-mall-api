@@ -8,7 +8,7 @@ on:
 
 env:
   DJANGO_SETTINGS_MODULE: setup.settings
-  PYTHON_VERSION: '3.12'
+  PYTHON_VERSION: '3.11'
   CI: 'true'
   SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
