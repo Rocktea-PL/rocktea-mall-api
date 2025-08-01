@@ -7,9 +7,7 @@ from pathlib import Path
 import environ
 from datetime import timedelta
 import sentry_sdk
-import logging
 from sentry_sdk.integrations.django import DjangoIntegration
-# import cloudinary
 import socket
 from django.core.management.utils import get_random_secret_key  # For generating secure keys
 from .config import load_env
@@ -46,7 +44,8 @@ except (KeyError, ValueError):
 
 # Environment detection
 PRODUCTION = env('ENV', default='development') == 'production'
-ENVIRONMENT = env('ENVIRONMENT', default='development') == 'production'
+ENVIRONMENT = env('ENVIRONMENT', default='development')
+ENV = env('ENV', default='development')
 # Debug settings
 DEBUG = env.bool('DJANGO_DEBUG', default=not PRODUCTION)
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
@@ -152,6 +151,13 @@ MIDDLEWARE = [
     # Security middleware must come first
     'django.middleware.security.SecurityMiddleware',
     
+    # Performance monitoring (disabled for now)
+    # 'mall.performance_middleware.PerformanceMonitoringMiddleware',
+    # 'mall.performance_middleware.CacheHitRateMiddleware',
+    
+    # File validation (simple version without python-magic)
+    'mall.simple_file_validation.SimpleFileUploadMiddleware',
+    
     # Other middleware
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
@@ -171,7 +177,7 @@ MIDDLEWARE = [
     'mall.middleware.SubdomainMiddleware',
 ]
 
-# Immediately set environment variable to prevent override
+# Set debug environment variable
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
 ROOT_URLCONF = 'setup.urls'
@@ -210,6 +216,7 @@ else:
             'PASSWORD': env('PGPASSWORD'),
             'HOST': env('PGHOST'),
             'PORT': env('PGPORT'),
+            'CONN_MAX_AGE': 600,
         }
     }
 
@@ -218,7 +225,7 @@ else:
     REDIS_PASSWORD = env("REDISPASSWORD", default=None)
     REDIS_URL = env("REDIS_URL", default=f"redis://{REDIS_HOST}:{REDIS_PORT}/0")
     
-    # Real cache configuration
+    # Enhanced cache configuration with memory management
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
@@ -226,9 +233,88 @@ else:
             "OPTIONS": {
                 "PASSWORD": REDIS_PASSWORD,
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "CONNECTION_POOL_KWARGS": {
+                    "max_connections": 50,
+                    "retry_on_timeout": True,
+                    "health_check_interval": 30,
+                },
+                "COMPRESSOR": "django_redis.compressors.zlib.ZlibCompressor",
+                "IGNORE_EXCEPTIONS": True,
+                "REDIS_CLIENT_KWARGS": {
+                    "health_check_interval": 30,
+                },
             },
+            "KEY_PREFIX": "rocktea",
+            "TIMEOUT": 300,  # 5 minutes default
         }
     }
+
+# Redis memory optimization
+REDIS_MAX_MEMORY = "256mb"  # Adjust based on your server
+REDIS_EVICTION_POLICY = "allkeys-lru"  # Evict least recently used keys
+
+# Database query optimizations
+DATABASE_ROUTERS = []
+
+# Cache timeouts for different data types
+CACHE_TIMEOUTS = {
+    'products': 60 * 15,      # 15 minutes
+    'categories': 60 * 60,    # 1 hour  
+    'stores': 60 * 30,        # 30 minutes
+    'orders': 60 * 5,         # 5 minutes
+    'marketplace': 60 * 10,   # 10 minutes
+}
+
+# File upload limits (5MB)
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5MB
+FILE_UPLOAD_PERMISSIONS = 0o644
+
+# Session optimization using Redis
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+SESSION_COOKIE_AGE = 86400  # 24 hours
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_EXPIRE_AT_BROWSER_CLOSE = False
+
+# Optimized logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'django.log',
+            'maxBytes': 1024*1024*5,  # 5MB
+            'backupCount': 3,
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+        'mall': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
 
 # =====================
 # REST FRAMEWORK
@@ -247,7 +333,17 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
-    ]
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour'
+    }
 }
 
 SIMPLE_JWT = {
@@ -260,25 +356,44 @@ SIMPLE_JWT = {
 # =====================
 # STATIC & MEDIA FILES
 # =====================
-# Static files
-STATIC_URL = 'static/'
+# =====================
+# STATIC FILES - WHITENOISE ONLY
+# =====================
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'staticfiles/'),
+    os.path.join(BASE_DIR, 'main', 'static'),
 ]
 
-# Static Files
-STATIC_ROOT = os.path.join(BASE_DIR, "static")
+# Static file finders
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
 
-# Storage configuration
+# Storage configuration - WhiteNoise for static, Cloudinary for media
 STORAGES = {
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
-    "media": {
+    "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage" if CI_ENVIRONMENT 
-                  else "storages.backends.cloudinary.MediaCloudinaryStorage"
+                  else "cloudinary_storage.storage.MediaCloudinaryStorage"
     }
 }
+
+# WhiteNoise configuration for static files
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG
+WHITENOISE_MAX_AGE = 31536000 if PRODUCTION else 0  # 1 year cache in production
+WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'tbz', 'xz', 'br']
+WHITENOISE_MIMETYPES = {
+    '.js': 'application/javascript',
+    '.css': 'text/css',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+}
+WHITENOISE_STATIC_PREFIX = '/static/'
 
 if not CI_ENVIRONMENT:
     CLOUDINARY_STORAGE = {"CLOUDINARY_URL": env("CLOUDINARY_URL", default="")}
@@ -358,13 +473,22 @@ SENDER_NAME = env("SENDER_NAME", default="")
 SENDER_EMAIL = env("SENDER_EMAIL", default="")
 BREVO_API_KEY = env("BREVO_API_KEY", default="")
 
-# Celery Configuration
-CELERY_BROKER_URL = env('REDIS_URL', default='redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = env('REDIS_URL', default='redis://localhost:6379/0')
+# =====================
+# CELERY CONFIGURATION WITH REDIS
+# =====================
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'UTC'
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ENABLE_UTC = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60  # 30 minutes
+CELERY_TASK_SOFT_TIME_LIMIT = 25 * 60  # 25 minutes
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 
 # 24 hours expiration
 EMAIL_VERIFICATION_TIMEOUT = 86400
@@ -490,8 +614,7 @@ TEMPLATES = [
     },
 ]
 
-WHITENOISE_ALLOW_ALL_ORIGINS = True
-WHITENOISE_AUTOREFRESH = True
+# Remove duplicate WhiteNoise settings
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -509,20 +632,4 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# ULTIMATE DEBUG OVERRIDE
-DEBUG = True
-os.environ['DJANGO_DEBUG'] = 'True'
-
-
-# Add this at the VERY BOTTOM of settings.py
-# --------------------------------------------------
-# DEBUG OVERRIDE - FORCE PROPER VALUE
-# --------------------------------------------------
-import sys
-from django.conf import settings
-
-# Check if DEBUG was changed by Django internals
-if settings.DEBUG != DEBUG:
-    print(f"\nWARNING: DEBUG was changed from {DEBUG} to {settings.DEBUG}!", file=sys.stderr)
-    print("Forcing DEBUG to original value...", file=sys.stderr)
-    settings.DEBUG = DEBUG
+# Remove debug override that causes circular imports

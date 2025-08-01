@@ -14,75 +14,56 @@ def generate_store_slug(store_name):
     from django.utils.text import slugify
     return slugify(store_name.lower())
 
-
 def determine_environment_config(request=None):
     """
-    Determine environment configuration based on request or settings
+    Determine the environment configuration based on request or settings.
     """
-    # Default to development
-    environment = 'dev'
+    # Check ENVIRONMENT setting first
+    environment = getattr(settings, 'ENVIRONMENT', 'local')
     
-    # Check for localhost/development indicators first
-    if _is_server_running_locally():
+    # Handle local environment - no AWS DNS creation
+    if environment in ['local', 'localhost']:
         return {
             'environment': 'local',
             'target_domain': None,
             'hosted_zone_id': '',
-            'base_url': 'http://localhost:8000'
+            'is_local': True
         }
     
-    # If server is not local, determine environment from request or settings
-    if request and hasattr(request, 'get_host'):
-        host = request.get_host()
-        
-        # Check for dev environment
-        if 'dev.yourockteamall.com' in host or 'dropshippers-dev.yourockteamall.com' in host:
-            environment = 'dev'
-        # Check for production domain  
-        elif 'yourockteamall.com' in host and 'dev' not in host:
-            environment = 'prod'
+    # Try to get environment from request first
+    if request:
+        current_domain = request.get_host()
+        if "dropshippers-dev.yourockteamall.com" in current_domain:
+            return {
+                'target_domain': 'user-dev.yourockteamall.com',
+                'hosted_zone_id': getattr(settings, 'ROUTE53_DEV_HOSTED_ZONE_ID', ''),
+                'environment': 'dev',
+                'is_local': False
+            }
+        elif "dropshippers.yourockteamall.com" in current_domain:
+            return {
+                'target_domain': 'yourockteamall.com',
+                'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+                'environment': 'prod',
+                'is_local': False
+            }
     
-    # Also check Django settings as fallback
-    if hasattr(settings, 'ENVIRONMENT'):
-        if settings.ENVIRONMENT == 'production':
-            environment = 'prod'
-        elif settings.ENVIRONMENT == 'development':
-            environment = 'dev'
-    
-    configs = {
-        'local': {
-            'environment': 'local',
-            'target_domain': None,
-            'hosted_zone_id': '',
-            'base_url': 'http://localhost:8000'
-        },
-        'dev': {
-            'environment': 'dev',
-            'target_domain': 'user-dev.yourockteamall.com',
-            'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
-            'base_url': 'https://user-dev.yourockteamall.com'
-        },
-        'prod': {
-            'environment': 'prod', 
+    # Fallback to settings-based determination
+    if environment in ['prod', 'production']:
+        return {
             'target_domain': 'yourockteamall.com',
             'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
-            'base_url': 'https://yourockteamall.com'
+            'environment': 'prod',
+            'is_local': False
         }
+    
+    # Default to dev
+    return {
+        'target_domain': 'user-dev.yourockteamall.com',
+        'hosted_zone_id': getattr(settings, 'ROUTE53_DEV_HOSTED_ZONE_ID', ''),
+        'environment': 'dev',
+        'is_local': False
     }
-    
-    return configs.get(environment, configs['dev'])
-
-def _is_server_running_locally():
-    """
-    Check if the Django server itself is running locally
-    """
-
-    # Check for development-specific settings
-    if hasattr(settings, 'ENVIRONMENT'):
-        if settings.ENVIRONMENT == 'local':
-            return True
-    
-    return False
 
 def generate_store_domain(store_slug, environment='dev'):
     """Generate full domain name for a store"""

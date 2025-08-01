@@ -1,15 +1,5 @@
-from rest_framework.serializers import (
-   ModelSerializer, 
-   PrimaryKeyRelatedField, 
-   ReadOnlyField,
-   )
-
-from workshop.exceptions import (
-   ValidationError, 
-   AuthenticationFailedError, 
-   NotFoundError
-)
-
+from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField
+from workshop.exceptions import ValidationError
 from .models import (
    CustomUser, 
    Store, 
@@ -36,22 +26,13 @@ from .models import (
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
-from PIL import Image
-from rest_framework import status
 from rest_framework import serializers
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
-from setup.celery import app
-from django.db.models import Q
-from order.models import PaystackWebhook
-from mall.payments.verify_payment import verify_paystack_transaction
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-# from .store_features.get_store_id import get_store_instance
 from .utils import generate_store_slug, determine_environment_config, generate_store_domain
 
 logger = logging.getLogger(__name__)
@@ -256,10 +237,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
       # Only check for store if user is a store owner
       if user.is_store_owner:
-         has_store = Store.objects.filter(owner=user).exists()
-         
-         if has_store:
-            store = Store.objects.get(owner=user)
+         try:
+            store = Store.objects.select_related('category').get(owner=user)
+            has_store = True
             
             # Enforce completed=True when payment exists
             if store.has_made_payment:
@@ -273,29 +253,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             domain_name = store.domain_name
             completed = store.completed
             has_made_payment = store.has_made_payment
+         except Store.DoesNotExist:
+            has_store = False
             
-            # Payment verification
-            try:
-                paystack_payment = PaystackWebhook.objects.get(
-                    user=user,
-                    purpose="dropshipping_payment"
-                )
-                
-                if paystack_payment.status == 'Pending':
-                    payment_data = verify_paystack_transaction(paystack_payment.reference)
-                    if payment_data and payment_data.get('data', {}).get('status') == 'success':
-                        paystack_payment.status = 'Success'
-                        paystack_payment.data = payment_data
-                        paystack_payment.save()
-                        store.has_made_payment = True
-                        store.completed = True
-                        store.save(update_fields=['has_made_payment', 'completed'])
-                        has_made_payment = True
-                        completed = True
-
-            except PaystackWebhook.DoesNotExist:
-                pass
-
       # Service check
       has_service = ServicesBusinessInformation.objects.filter(user=user).exists() if user.is_services else False
 
@@ -720,28 +680,22 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
       representation = super().to_representation(instance)
 
-      # Assuming `store` is a related field
+      # Use already loaded related objects to avoid additional queries
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
 
-      # Assuming `product` is a related field
       if instance.product:
-            product = Product.objects.select_related("category", "subcategory").prefetch_related(
-               "images", "product_variants"
-            ).get(id=instance.product.id)
-            instance.product = product
-            representation['product'] = {
-               "id": instance.product.id,
-               "name": instance.product.name,
-               "quantity": instance.product.quantity,
-               "images": self.serialize_product_images(instance.product.images.all()),
-               "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
-               "category": instance.product.category.name,
-               "subcategory": instance.product.subcategory.name,
-               "producttype": instance.product.producttype.name,
-               "upload_status": instance.product.upload_status
+         representation['product'] = {
+            "id": instance.product.id,
+            "name": instance.product.name,
+            "quantity": instance.product.quantity,
+            "images": self.serialize_product_images(instance.product.images.all()),
+            "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
+            "category": instance.product.category.name,
+            "subcategory": instance.product.subcategory.name,
+            "producttype": instance.product.producttype.name,
+            "upload_status": instance.product.upload_status
          }
       else:
-         # Handle the case where product is None
          representation['product'] = None
 
       representation['listed'] = instance.list_product

@@ -15,27 +15,66 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      CLOUDINARY_NAME: dummy
-      CLOUDINARY_API_KEY: dummy
-      CLOUDINARY_SECRET: dummy
-      CLOUDINARY_URL: cloudinary://dummy:dummy@dummy
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    container:
+      image: python:3.12-slim
+      env:
+        CLOUDINARY_NAME: dummy
+        CLOUDINARY_API_KEY: dummy
+        CLOUDINARY_SECRET: dummy
+        CLOUDINARY_URL: cloudinary://dummy:dummy@dummy
+        DATABASE_URL: postgres://postgres:postgres@postgres:5432/test_db
+        REDIS_URL: redis://redis:6379/0
+    # env:
+    #   CLOUDINARY_NAME: dummy
+    #   CLOUDINARY_API_KEY: dummy
+    #   CLOUDINARY_SECRET: dummy
+    #   CLOUDINARY_URL: cloudinary://dummy:dummy@dummy
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install system dependencies
+      run: |
+        apt-get update
+        apt-get install -y gcc libpq-dev
       
     - name: Set up Python ${{ env.PYTHON_VERSION }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         
-    - name: Install dependencies
+    - name: Install Python dependencies
       run: |
+        cd main
         python -m pip install --upgrade pip
-        pip install -r main/requirements.txt
+        pip install -r requirements.txt
         
     - name: Run tests
       run: |
-        python main/manage.py test
+        cd main
+        python manage.py test
 
   deploy:
     runs-on: ubuntu-latest
@@ -72,6 +111,7 @@ jobs:
           pip install -r main/requirements.txt
           python main/manage.py makemigrations
           python main/manage.py migrate
+          python main/manage.py collectstatic --noinput
           sudo systemctl restart gunicorn-rocktea
           sudo systemctl restart celery-worker-rocktea.service
           sudo systemctl restart nginx
