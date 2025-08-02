@@ -226,12 +226,10 @@ def send_deletion_success_email_async(user_email, store_name):
             "support_email": "support@yourockteamall.com",
         }
         
-        sendEmail(
-            recipientEmail=user_email,
-            template_name='emails/store_deletion_success.html',
-            context=context,
-            subject=subject,
-            tags=["store-deleted", "domain-removed", "async"]
+        from setup.tasks import send_email_task
+        send_email_task.apply_async(
+            args=[user_email, 'emails/store_deletion_success.html', context, subject, ["store-deleted", "domain-removed", "async"]],
+            countdown=2
         )
         
     except Exception as e:
@@ -251,12 +249,10 @@ def send_deletion_failure_email_async(user_email, store_name):
             "support_email": "support@yourockteamall.com",
         }
         
-        sendEmail(
-            recipientEmail=user_email,
-            template_name='emails/store_deletion_failure.html',
-            context=context,
-            subject=subject,
-            tags=["store-deleted", "dns-cleanup-failed", "async"]
+        from setup.tasks import send_email_task
+        send_email_task.apply_async(
+            args=[user_email, 'emails/store_deletion_failure.html', context, subject, ["store-deleted", "dns-cleanup-failed", "async"]],
+            countdown=2
         )
         
     except Exception as e:
