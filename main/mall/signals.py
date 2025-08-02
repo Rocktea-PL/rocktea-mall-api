@@ -80,62 +80,69 @@ def create_dropshipper_dns_record(sender, instance, created, **kwargs):
 
 def send_local_development_email(store_instance, store_url):
     """Send welcome email for local development environment"""
-    _send_store_email(
-        store_instance,
-        "🎉 Your Dropshipper Store Created (Local Server)",
-        'emails/store_welcome_success.html',
-        {
+    try:
+        from setup.tasks import send_email_task
+        
+        context = {
+            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
+            "store_name": store_instance.name,
             "store_domain": store_url,
             "environment": "LOCAL SERVER",
+            "store_id": store_instance.id,
+            "current_year": timezone.now().year,
+            "owner_email": store_instance.owner.email,
             "is_local": True,
             "note": "This store was created on a local development server. No AWS DNS records were created.",
-        },
-        ["store-created", "local-server"]
-    )
+        }
+        
+        send_email_task.delay(
+            recipientEmail=store_instance.owner.email,
+            template_name='emails/store_welcome_success.html',
+            context=context,
+            subject="🎉 Your Dropshipper Store Created (Local Server)",
+            tags=["store-created", "local-server"]
+        )
+        
+        logger.info(f"Local development email queued for {store_instance.owner.email}")
+        
+    except Exception as e:
+        logger.error(f"Error sending local development email: {e}")
 
 
 def send_store_success_email(store_instance, store_url, environment):
     """Send success email when store and DNS are created successfully"""
-    _send_store_email(
-        store_instance,
-        "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
-        'emails/store_welcome_success.html',
-        {
-            "store_domain": store_url,
-            "environment": environment.upper(),
-            "is_local": False,
-        },
-        ["store-created", "domain-provisioned", "success"]
-    )
-
-def _send_store_email(store_instance, subject, template, extra_context, tags):
-    """Helper function to send store-related emails"""
     try:
+        from setup.tasks import send_email_task
+        
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
             "store_name": store_instance.name,
+            "store_domain": store_url,
+            "environment": environment.upper(),
             "store_id": store_instance.id,
             "current_year": timezone.now().year,
             "owner_email": store_instance.owner.email,
-            **extra_context
+            "is_local": False,
         }
         
-        sendEmail(
+        send_email_task.delay(
             recipientEmail=store_instance.owner.email,
-            template_name=template,
+            template_name='emails/store_welcome_success.html',
             context=context,
-            subject=subject,
-            tags=tags
+            subject="🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
+            tags=["store-created", "domain-provisioned", "success"]
         )
         
+        logger.info(f"Store success email queued for {store_instance.owner.email}")
+        
     except Exception as e:
-        logger.error(f"Error sending email for store {store_instance.name}: {e}")
+        logger.error(f"Error sending store success email: {e}")
 
 
 def send_store_dns_failure_email(store_instance, attempted_domain):
     """Send email when DNS record creation fails"""
     try:
-        subject = "⚠️ Store Created - Domain Setup in Progress"
+        from setup.tasks import send_email_task
         
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
@@ -146,26 +153,25 @@ def send_store_dns_failure_email(store_instance, attempted_domain):
             "support_email": "support@yourockteamall.com",
         }
         
-        sendEmail(
+        send_email_task.delay(
             recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_failure.html',
             context=context,
-            subject=subject,
+            subject="⚠️ Store Created - Domain Setup in Progress",
             tags=["store-created", "dns-failure", "pending"]
         )
         
-        logger.info(f"DNS failure email sent to {store_instance.owner.email} for store: {store_instance.name}")
+        logger.info(f"DNS failure email queued for {store_instance.owner.email}")
         
     except Exception as e:
-        logger.error(f"Error sending DNS failure email for store {store_instance.name}: {e}")
+        logger.error(f"Error sending DNS failure email: {e}")
 
 
 def send_store_dns_error_email(store_instance, error_message):
     """Send email when DNS record creation encounters an error"""
     try:
-        subject = "🔧 Store Created - Technical Issue with Domain Setup"
+        from setup.tasks import send_email_task
         
-        # Create a sanitized error reference
         error_ref = f"DNS_ERROR_{store_instance.id}_{timezone.now().strftime('%Y%m%d_%H%M')}"
         
         context = {
@@ -177,19 +183,18 @@ def send_store_dns_error_email(store_instance, error_message):
             "support_email": "support@yourockteamall.com",
         }
         
-        sendEmail(
+        send_email_task.delay(
             recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_error.html',
             context=context,
-            subject=subject,
+            subject="🔧 Store Created - Technical Issue with Domain Setup",
             tags=["store-created", "dns-error", "technical-issue"]
         )
         
-        # Also log the full error for debugging
-        logger.error(f"DNS error email sent to {store_instance.owner.email} for store: {store_instance.name}. Error: {error_message}")
+        logger.error(f"DNS error email queued. Error: {error_message}")
         
     except Exception as e:
-        logger.error(f"Error sending DNS error email for store {store_instance.name}: {e}")
+        logger.error(f"Error sending DNS error email: {e}")
 
 @receiver(post_save, sender=StoreProductPricing)
 def create_marketplace(sender, instance, created, **kwargs):
@@ -248,7 +253,17 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
 def _delete_store_dns_sync(user_instance, store_instance):
     """Synchronous DNS deletion fallback"""
     try:
-        success = delete_store_dns_record(store_instance.slug)
+        # Extract domain from domain_name for DNS deletion
+        if store_instance.domain_name:
+            domain_match = re.search(r'https://([^?]+)', store_instance.domain_name)
+            if domain_match:
+                full_domain = domain_match.group(1)
+                success = delete_store_dns_record(full_domain)
+            else:
+                # Fallback to slug-based domain
+                success = delete_store_dns_record(store_instance.slug)
+        else:
+            success = delete_store_dns_record(store_instance.slug)
         
         if success:
             logger.info(f"Successfully deleted DNS record for store: {store_instance.name}")
@@ -265,7 +280,7 @@ def _delete_store_dns_sync(user_instance, store_instance):
 def send_store_deletion_email(user_instance, store_instance):
     """Send email notification when store and domain are successfully deleted"""
     try:
-        subject = "🗑️ Your Store Has Been Removed - RockTeaMall"
+        from setup.tasks import send_email_task
         
         context = {
             "full_name": user_instance.get_full_name() or user_instance.first_name or user_instance.email,
@@ -276,24 +291,24 @@ def send_store_deletion_email(user_instance, store_instance):
             "support_email": "support@yourockteamall.com",
         }
         
-        sendEmail(
+        send_email_task.delay(
             recipientEmail=user_instance.email,
             template_name='emails/store_deletion_success.html',
             context=context,
-            subject=subject,
+            subject="🗑️ Your Store Has Been Removed - RockTeaMall",
             tags=["store-deleted", "domain-removed", "account-closure"]
         )
         
-        logger.info(f"Store deletion email sent to {user_instance.email} for store: {store_instance.name}")
+        logger.info(f"Store deletion email queued for {user_instance.email}")
         
     except Exception as e:
-        logger.error(f"Error sending store deletion email for {store_instance.name}: {e}")
+        logger.error(f"Error sending store deletion email: {e}")
 
 
 def send_store_deletion_failure_email(user_instance, store_instance):
     """Send email when DNS deletion fails"""
     try:
-        subject = "⚠️ Store Removal - Domain Cleanup Issue"
+        from setup.tasks import send_email_task
         
         context = {
             "full_name": user_instance.get_full_name() or user_instance.first_name or user_instance.email,
@@ -303,15 +318,15 @@ def send_store_deletion_failure_email(user_instance, store_instance):
             "support_email": "support@yourockteamall.com",
         }
         
-        sendEmail(
+        send_email_task.delay(
             recipientEmail=user_instance.email,
             template_name='emails/store_deletion_failure.html',
             context=context,
-            subject=subject,
+            subject="⚠️ Store Removal - Domain Cleanup Issue",
             tags=["store-deleted", "dns-cleanup-failed", "manual-intervention"]
         )
         
-        logger.info(f"Store deletion failure email sent to {user_instance.email} for store: {store_instance.name}")
+        logger.info(f"Store deletion failure email queued for {user_instance.email}")
         
     except Exception as e:
-        logger.error(f"Error sending store deletion failure email for {store_instance.name}: {e}")
+        logger.error(f"Error sending store deletion failure email: {e}")

@@ -51,14 +51,24 @@ class SubdomainMiddleware:
             
             if store:
                 logger.info(f"Found store: {store.name} for subdomain: {subdomain}")
-            else:
-                logger.warning(f"No store found for subdomain: {subdomain}")
+            # Remove warning log for missing stores - it's normal for API endpoints
         
         response = self.get_response(request)
         return response
     
     def _is_store_subdomain(self, host):
         """Check if host is a store subdomain"""
+        # Skip API domains and dropshipper admin domains
+        api_domains = [
+            'api.yourockteamall.com',
+            'api-dev.yourockteamall.com',
+            'dropshippers.yourockteamall.com',
+            'dropshippers-dev.yourockteamall.com'
+        ]
+        
+        if host in api_domains:
+            return False
+            
         store_domains = [
             'yourockteamall.com',
             'user-dev.yourockteamall.com'
@@ -97,5 +107,5 @@ class SubdomainMiddleware:
             return store
             
         except Exception as e:
-            logger.error(f"Error finding store for subdomain {subdomain}: {e}")
+            # Don't log errors for API endpoints - they're expected to not have stores
             return None
