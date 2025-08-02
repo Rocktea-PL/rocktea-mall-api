@@ -4,6 +4,7 @@ from order.models import Store
 from django.db.models import Sum
 from mall.models import CustomUser, Store
 from django.utils import timezone
+from django.utils.timezone import now
 from django.db import transaction, IntegrityError
 from django.contrib.sites.shortcuts import get_current_site
 import logging
@@ -239,32 +240,30 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         return user
 
     def send_admin_created_email(self, user, store):
-        request = self.context.get("request")
-        current_site = get_current_site(request).domain if request else "yourockteamall.com"
-        protocol = request.scheme if request else "https"
-        domain_name = f"{protocol}://{current_site}"
-
+        """Send welcome email via Celery task"""
         try:
-            from setup.utils import sendEmail
-            subject = "Welcome to Rocktea Mall - Your Account is Ready!"
+            from setup.tasks import send_email_task
+            
             context = {
-                'full_name': user.get_full_name() or user.email,
+                'full_name': user.get_full_name() or user.first_name or user.email,
                 'store_name': store.name,
-                'dashboard_url': f"{domain_name}/dashboard",
-                'login_url': f"{domain_name}/login",
-                'support_email': "support@yourockteamall.com",  # Update with your actual support email
+                'store_domain': store.domain_name or 'Pending setup',
+                'environment': 'ADMIN CREATED',
+                'store_id': store.id,
                 'current_year': timezone.now().year,
-                'user_email': user.email,
-                'has_password': bool(user.password),  # Check if password was set
+                'owner_email': user.email,
+                'is_local': False,
             }
-            sendEmail(
-                recipientEmail=user.email,
-                template_name='emails/admin_created_account.html',
+            
+            send_email_task.delay(
+                recipient_email=user.email,
+                template_name='emails/store_welcome_success.html',
                 context=context,
-                subject=subject,
-                tags=["admin-created-account", "account-setup"]
+                subject='🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!',
+                tags=['store-created', 'admin-created', 'success']
             )
+            
+            logger.info(f'Welcome email queued for admin-created store: {user.email}')
+            
         except Exception as e:
-            # Log but don't prevent user creation
-            print(f"Failed to send admin created email: {str(e)}")
-            logger.error(f"Failed to send admin created email to {user.email}: {str(e)}")
+            logger.error(f'Failed to queue welcome email for {user.email}: {str(e)}')
