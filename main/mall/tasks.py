@@ -136,13 +136,12 @@ def send_local_development_email_async(store_instance, store_url):
         subject = "🎉 Your Dropshipper Store Created (Local Server)"
         
         context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
+            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name,
             "store_name": store_instance.name,
             "store_domain": store_url,
             "environment": "LOCAL SERVER",
             "store_id": store_instance.id,
             "current_year": timezone.now().year,
-            "owner_email": store_instance.owner.email,
             "is_local": True,
         }
         
@@ -164,13 +163,12 @@ def send_store_success_email_async(store_instance, store_url, environment):
         subject = "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!"
         
         context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
+            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name,
             "store_name": store_instance.name,
             "store_domain": store_url,
             "environment": environment.upper(),
             "store_id": store_instance.id,
             "current_year": timezone.now().year,
-            "owner_email": store_instance.owner.email,
             "is_local": False,
         }
         
