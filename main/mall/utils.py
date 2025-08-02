@@ -36,7 +36,7 @@ def determine_environment_config(request=None):
         if "dropshippers-dev.yourockteamall.com" in current_domain:
             return {
                 'target_domain': 'user-dev.yourockteamall.com',
-                'hosted_zone_id': getattr(settings, 'ROUTE53_DEV_HOSTED_ZONE_ID', ''),
+                'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
                 'environment': 'dev',
                 'is_local': False
             }
@@ -60,7 +60,7 @@ def determine_environment_config(request=None):
     # Default to dev
     return {
         'target_domain': 'user-dev.yourockteamall.com',
-        'hosted_zone_id': getattr(settings, 'ROUTE53_DEV_HOSTED_ZONE_ID', ''),
+        'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
         'environment': 'dev',
         'is_local': False
     }
