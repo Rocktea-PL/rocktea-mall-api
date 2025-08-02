@@ -16,8 +16,14 @@ def sendEmail(recipientEmail: str, template_name: str, context: dict, subject: s
     Dispatches an email sending task to Celery for background processing.
     """
     try:
-        # Call the Celery task asynchronously
-        send_email_task.delay(recipientEmail, template_name, context, subject, tags)
+        # Call the Celery task asynchronously with correct parameter name
+        send_email_task.delay(
+            recipient_email=recipientEmail,
+            template_name=template_name,
+            context=context,
+            subject=subject,
+            tags=tags
+        )
         logger.info(f"Email sending task for {recipientEmail} with subject '{subject}' dispatched to Celery.")
     except Exception as e:
         logger.error(f"Failed to dispatch email task to Celery for {recipientEmail}: {str(e)}")

@@ -138,25 +138,23 @@ class StoreOwnerSerializer(ModelSerializer):
 
          # Send welcome email
          try:
-            from setup.utils import sendEmail  # Import inside function to avoid circular imports
+            from setup.tasks import send_email_task
             subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
             context = {
-               'full_name': user.get_full_name() or user.email, # Pass full_name or email
+               'full_name': user.get_full_name() or user.email,
                'confirmation_url': verify_email_url,
                'current_year': timezone.now().year,
             }
-            sendEmail(
-               recipientEmail=user.email,
+            send_email_task.delay(
+               recipient_email=user.email,
                template_name='emails/dropshippers_welcome.html',
                context=context,
                subject=subject,
                tags=["user-onboarding", "email-verification"]
             )
+            logger.info(f"Welcome email queued for {user.email}")
          except Exception as e:
-            # Log but don't prevent user creation
-            print(f"Failed to send welcome email: {str(e)}")
-            logger.error(f"Failed to send user welcome email to {user.email}: {str(e)}")
-            logger.error(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
+            logger.error(f"Failed to queue welcome email to {user.email}: {str(e)}")
             print(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
 
       return user

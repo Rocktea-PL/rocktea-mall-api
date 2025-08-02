@@ -96,7 +96,7 @@ def send_local_development_email(store_instance, store_url):
         }
         
         send_email_task.delay(
-            recipientEmail=store_instance.owner.email,
+            recipient_email=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
             subject="🎉 Your Dropshipper Store Created (Local Server)",
@@ -126,7 +126,7 @@ def send_store_success_email(store_instance, store_url, environment):
         }
         
         result = send_email_task.delay(
-            recipientEmail=store_instance.owner.email,
+            recipient_email=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
             subject="🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
@@ -154,7 +154,7 @@ def send_store_dns_failure_email(store_instance, attempted_domain):
         }
         
         send_email_task.delay(
-            recipientEmail=store_instance.owner.email,
+            recipient_email=store_instance.owner.email,
             template_name='emails/store_dns_failure.html',
             context=context,
             subject="⚠️ Store Created - Domain Setup in Progress",
@@ -184,7 +184,7 @@ def send_store_dns_error_email(store_instance, error_message):
         }
         
         send_email_task.delay(
-            recipientEmail=store_instance.owner.email,
+            recipient_email=store_instance.owner.email,
             template_name='emails/store_dns_error.html',
             context=context,
             subject="🔧 Store Created - Technical Issue with Domain Setup",
@@ -292,7 +292,7 @@ def send_store_deletion_email(user_instance, store_instance):
         }
         
         send_email_task.delay(
-            recipientEmail=user_instance.email,
+            recipient_email=user_instance.email,
             template_name='emails/store_deletion_success.html',
             context=context,
             subject="🗑️ Your Store Has Been Removed - RockTeaMall",
@@ -319,7 +319,7 @@ def send_store_deletion_failure_email(user_instance, store_instance):
         }
         
         send_email_task.delay(
-            recipientEmail=user_instance.email,
+            recipient_email=user_instance.email,
             template_name='emails/store_deletion_failure.html',
             context=context,
             subject="⚠️ Store Removal - Domain Cleanup Issue",
