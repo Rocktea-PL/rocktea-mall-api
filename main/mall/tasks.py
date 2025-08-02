@@ -136,12 +136,13 @@ def send_local_development_email_async(store_instance, store_url):
         subject = "🎉 Your Dropshipper Store Created (Local Server)"
         
         context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name,
+            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
             "store_name": store_instance.name,
             "store_domain": store_url,
             "environment": "LOCAL SERVER",
             "store_id": store_instance.id,
             "current_year": timezone.now().year,
+            "owner_email": store_instance.owner.email,
             "is_local": True,
         }
         
@@ -163,12 +164,13 @@ def send_store_success_email_async(store_instance, store_url, environment):
         subject = "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!"
         
         context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name,
+            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
             "store_name": store_instance.name,
             "store_domain": store_url,
             "environment": environment.upper(),
             "store_id": store_instance.id,
             "current_year": timezone.now().year,
+            "owner_email": store_instance.owner.email,
             "is_local": False,
         }
         
@@ -218,7 +220,9 @@ def send_deletion_success_email_async(user_email, store_name):
         subject = "🗑️ Your Store Has Been Removed - RockTeaMall"
         
         context = {
+            "full_name": user_email.split('@')[0].title(),
             "store_name": store_name,
+            "store_domain": f"https://{store_name.lower().replace(' ', '-')}.yourockteamall.com",
             "deletion_date": timezone.now().strftime("%B %d, %Y at %I:%M %p"),
             "current_year": timezone.now().year,
             "support_email": "support@yourockteamall.com",
@@ -242,7 +246,9 @@ def send_deletion_failure_email_async(user_email, store_name):
         subject = "⚠️ Store Removal - Domain Cleanup Issue"
         
         context = {
+            "full_name": user_email.split('@')[0].title(),
             "store_name": store_name,
+            "store_domain": f"https://{store_name.lower().replace(' ', '-')}.yourockteamall.com",
             "current_year": timezone.now().year,
             "support_email": "support@yourockteamall.com",
         }
