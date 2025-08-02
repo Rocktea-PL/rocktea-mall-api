@@ -143,9 +143,8 @@ def send_local_development_email_async(store_instance, store_url):
             "is_local": True,
         }
         
-        from setup.tasks import send_email_task
-        send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
             subject=subject,
@@ -171,9 +170,8 @@ def send_store_success_email_async(store_instance, store_url, environment):
             "is_local": False,
         }
         
-        from setup.tasks import send_email_task
-        send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
             subject=subject,
@@ -200,9 +198,8 @@ def send_store_dns_error_email_async(store_instance, error_message):
             "support_email": "support@yourockteamall.com",
         }
         
-        from setup.tasks import send_email_task
-        send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_error.html',
             context=context,
             subject=subject,
@@ -227,9 +224,8 @@ def send_deletion_success_email_async(user_email, store_name):
             "support_email": "support@yourockteamall.com",
         }
         
-        from setup.tasks import send_email_task
-        send_email_task.delay(
-            recipient_email=user_email,
+        sendEmail(
+            recipientEmail=user_email,
             template_name='emails/store_deletion_success.html',
             context=context,
             subject=subject,
@@ -253,9 +249,8 @@ def send_deletion_failure_email_async(user_email, store_name):
             "support_email": "support@yourockteamall.com",
         }
         
-        from setup.tasks import send_email_task
-        send_email_task.delay(
-            recipient_email=user_email,
+        sendEmail(
+            recipientEmail=user_email,
             template_name='emails/store_deletion_failure.html',
             context=context,
             subject=subject,
