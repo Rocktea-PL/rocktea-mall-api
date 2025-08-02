@@ -95,9 +95,12 @@ def send_local_development_email(store_instance, store_url):
             "note": "This store was created on a local development server. No AWS DNS records were created.",
         }
         
-        send_email_task.apply_async(
-            args=[store_instance.owner.email, 'emails/store_welcome_success.html', context, "🎉 Your Dropshipper Store Created (Local Server)", ["store-created", "local-server"]],
-            countdown=2
+        send_email_task.delay(
+            recipient_email=store_instance.owner.email,
+            template_name='emails/store_welcome_success.html',
+            context=context,
+            subject="🎉 Your Dropshipper Store Created (Local Server)",
+            tags=["store-created", "local-server"]
         )
         
         logger.info(f"Local development email queued for {store_instance.owner.email}")
@@ -122,9 +125,12 @@ def send_store_success_email(store_instance, store_url, environment):
             "is_local": False,
         }
         
-        send_email_task.apply_async(
-            args=[store_instance.owner.email, 'emails/store_welcome_success.html', context, "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!", ["store-created", "domain-provisioned", "success"]],
-            countdown=2
+        result = send_email_task.delay(
+            recipient_email=store_instance.owner.email,
+            template_name='emails/store_welcome_success.html',
+            context=context,
+            subject="🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
+            tags=["store-created", "domain-provisioned", "success"]
         )
         
         logger.info(f"Store success email queued for {store_instance.owner.email}")
@@ -147,9 +153,12 @@ def send_store_dns_failure_email(store_instance, attempted_domain):
             "support_email": "support@yourockteamall.com",
         }
         
-        send_email_task.apply_async(
-            args=[store_instance.owner.email, 'emails/store_dns_failure.html', context, "⚠️ Store Created - Domain Setup in Progress", ["store-created", "dns-failure", "pending"]],
-            countdown=2
+        send_email_task.delay(
+            recipient_email=store_instance.owner.email,
+            template_name='emails/store_dns_failure.html',
+            context=context,
+            subject="⚠️ Store Created - Domain Setup in Progress",
+            tags=["store-created", "dns-failure", "pending"]
         )
         
         logger.info(f"DNS failure email queued for {store_instance.owner.email}")
@@ -174,9 +183,12 @@ def send_store_dns_error_email(store_instance, error_message):
             "support_email": "support@yourockteamall.com",
         }
         
-        send_email_task.apply_async(
-            args=[store_instance.owner.email, 'emails/store_dns_error.html', context, "🔧 Store Created - Technical Issue with Domain Setup", ["store-created", "dns-error", "technical-issue"]],
-            countdown=2
+        send_email_task.delay(
+            recipient_email=store_instance.owner.email,
+            template_name='emails/store_dns_error.html',
+            context=context,
+            subject="🔧 Store Created - Technical Issue with Domain Setup",
+            tags=["store-created", "dns-error", "technical-issue"]
         )
         
         logger.error(f"DNS error email queued. Error: {error_message}")
