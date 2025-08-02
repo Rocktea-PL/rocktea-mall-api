@@ -125,7 +125,7 @@ def send_store_success_email(store_instance, store_url, environment):
             "is_local": False,
         }
         
-        send_email_task.delay(
+        result = send_email_task.delay(
             recipientEmail=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
