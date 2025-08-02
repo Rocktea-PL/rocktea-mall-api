@@ -1,6 +1,5 @@
 from django.dispatch import receiver
 from django.db.models.signals import post_save, pre_save, pre_delete
-from django.shortcuts import get_object_or_404
 import logging
 import re
 
@@ -9,9 +8,7 @@ from .utils import generate_store_slug, determine_environment_config
 from .middleware import get_current_request
 from workshop.route53 import create_cname_record, delete_store_dns_record
 
-from setup.utils import sendEmail
 from django.utils import timezone
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -42,26 +39,42 @@ def create_wallet(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Store)
 def create_dropshipper_dns_record(sender, instance, created, **kwargs):
-    """Create DNS record for new stores"""
+    """Create DNS record for new stores - FIXED VERSION"""
     if not created or instance.dns_record_created:
         return
         
     env_config = determine_environment_config(get_current_request())
     
-    # Handle local environment
+    # Handle local environment - Send email immediately
     if env_config.get('is_local', False):
-        send_local_development_email(instance, instance.domain_name)
+        send_local_development_email_sync(instance, instance.domain_name)
         return
     
-    # Extract domain from domain_name for DNS creation
-    domain_match = re.search(r'https://([^?]+)', instance.domain_name or '')
-    if not domain_match:
-        logger.error(f"Invalid domain_name for store {instance.name}")
-        return
-        
-    full_domain = domain_match.group(1)
-    
+    # For production/dev environments, use async task with proper error handling
     try:
+        # Import here to avoid circular imports
+        from .tasks import create_store_dns_async
+        
+        # Use async task for DNS creation and email sending
+        result = create_store_dns_async.delay(instance.id)
+        logger.info(f"DNS creation task queued for store {instance.name} with task ID: {result.id}")
+        
+    except Exception as e:
+        logger.error(f"Failed to queue DNS creation task for {instance.name}: {e}")
+        # Fallback to synchronous processing
+        _create_store_dns_sync(instance, env_config)
+
+def _create_store_dns_sync(instance, env_config):
+    """Synchronous DNS creation fallback"""
+    try:
+        # Extract domain from domain_name for DNS creation
+        domain_match = re.search(r'https://([^?]+)', instance.domain_name or '')
+        if not domain_match:
+            logger.error(f"Invalid domain_name for store {instance.name}")
+            return
+            
+        full_domain = domain_match.group(1)
+        
         # Create DNS record
         if create_cname_record(
             zone_id=env_config['hosted_zone_id'],
@@ -70,18 +83,19 @@ def create_dropshipper_dns_record(sender, instance, created, **kwargs):
         ):
             instance.dns_record_created = True
             instance.save(update_fields=['dns_record_created'])
-            send_store_success_email(instance, instance.domain_name, env_config['environment'])
+            send_store_success_email_sync(instance, instance.domain_name, env_config['environment'])
         else:
-            send_store_dns_failure_email(instance, full_domain)
+            send_store_dns_failure_email_sync(instance, full_domain)
             
     except Exception as e:
         logger.error(f"DNS creation failed for {instance.name}: {e}")
-        send_store_dns_error_email(instance, str(e))
+        send_store_dns_error_email_sync(instance, str(e))
 
-def send_local_development_email(store_instance, store_url):
-    """Send welcome email for local development environment"""
+def send_local_development_email_sync(store_instance, store_url):
+    """Send welcome email for local development environment - SYNCHRONOUS"""
     try:
-        from setup.tasks import send_email_task
+        # Import sendEmail function directly instead of using Celery task
+        from setup.utils import sendEmail
         
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
@@ -95,24 +109,25 @@ def send_local_development_email(store_instance, store_url):
             "note": "This store was created on a local development server. No AWS DNS records were created.",
         }
         
-        send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        # Use direct sendEmail function instead of Celery task
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
             subject="🎉 Your Dropshipper Store Created (Local Server)",
             tags=["store-created", "local-server"]
         )
         
-        logger.info(f"Local development email queued for {store_instance.owner.email}")
+        logger.info(f"Local development email sent successfully to {store_instance.owner.email}")
         
     except Exception as e:
         logger.error(f"Error sending local development email: {e}")
 
-
-def send_store_success_email(store_instance, store_url, environment):
-    """Send success email when store and DNS are created successfully"""
+def send_store_success_email_sync(store_instance, store_url, environment):
+    """Send success email when store and DNS are created successfully - SYNCHRONOUS"""
     try:
-        from setup.tasks import send_email_task
+        # Import sendEmail function directly instead of using Celery task
+        from setup.utils import sendEmail
         
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
@@ -125,24 +140,25 @@ def send_store_success_email(store_instance, store_url, environment):
             "is_local": False,
         }
         
-        result = send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        # Use direct sendEmail function instead of Celery task
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_welcome_success.html',
             context=context,
             subject="🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
             tags=["store-created", "domain-provisioned", "success"]
         )
         
-        logger.info(f"Store success email queued for {store_instance.owner.email}")
+        logger.info(f"Store success email sent successfully to {store_instance.owner.email}")
         
     except Exception as e:
         logger.error(f"Error sending store success email: {e}")
 
-
-def send_store_dns_failure_email(store_instance, attempted_domain):
-    """Send email when DNS record creation fails"""
+def send_store_dns_failure_email_sync(store_instance, attempted_domain):
+    """Send email when DNS record creation fails - SYNCHRONOUS"""
     try:
-        from setup.tasks import send_email_task
+        # Import sendEmail function directly instead of using Celery task
+        from setup.utils import sendEmail
         
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
@@ -153,24 +169,25 @@ def send_store_dns_failure_email(store_instance, attempted_domain):
             "support_email": "support@yourockteamall.com",
         }
         
-        send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        # Use direct sendEmail function instead of Celery task
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_failure.html',
             context=context,
             subject="⚠️ Store Created - Domain Setup in Progress",
             tags=["store-created", "dns-failure", "pending"]
         )
         
-        logger.info(f"DNS failure email queued for {store_instance.owner.email}")
+        logger.info(f"DNS failure email sent successfully to {store_instance.owner.email}")
         
     except Exception as e:
         logger.error(f"Error sending DNS failure email: {e}")
 
-
-def send_store_dns_error_email(store_instance, error_message):
-    """Send email when DNS record creation encounters an error"""
+def send_store_dns_error_email_sync(store_instance, error_message):
+    """Send email when DNS record creation encounters an error - SYNCHRONOUS"""
     try:
-        from setup.tasks import send_email_task
+        # Import sendEmail function directly instead of using Celery task
+        from setup.utils import sendEmail
         
         error_ref = f"DNS_ERROR_{store_instance.id}_{timezone.now().strftime('%Y%m%d_%H%M')}"
         
@@ -183,15 +200,16 @@ def send_store_dns_error_email(store_instance, error_message):
             "support_email": "support@yourockteamall.com",
         }
         
-        send_email_task.delay(
-            recipient_email=store_instance.owner.email,
+        # Use direct sendEmail function instead of using Celery task
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_error.html',
             context=context,
             subject="🔧 Store Created - Technical Issue with Domain Setup",
             tags=["store-created", "dns-error", "technical-issue"]
         )
         
-        logger.error(f"DNS error email queued. Error: {error_message}")
+        logger.error(f"DNS error email sent. Error: {error_message}")
         
     except Exception as e:
         logger.error(f"Error sending DNS error email: {e}")
@@ -210,7 +228,7 @@ def create_marketplace(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=CustomUser)
 def delete_dropshipper_domain(sender, instance, **kwargs):
-    """Delete DNS record when dropshipper is deleted using async task for better performance"""
+    """Delete DNS record when dropshipper is deleted - FIXED VERSION"""
     if not instance.is_store_owner:
         return
         
@@ -221,34 +239,37 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
             
             # Only delete DNS if it was actually created
             if store.dns_record_created and store.slug:
-                logger.info(f"Queuing DNS deletion for dropshipper: {instance.email}, store: {store.name}")
+                logger.info(f"Processing DNS deletion for dropshipper: {instance.email}, store: {store.name}")
                 
-                # Check if Celery is available
-                if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
-                    # Use async task for better performance
-                    from .tasks import delete_store_dns_async
-                    delete_store_dns_async.delay(
-                        store.slug, 
-                        instance.email, 
-                        store.name
-                    )
-                    logger.info(f"Queued DNS deletion task for store: {store.name}")
-                else:
-                    # Fallback to synchronous processing
-                    logger.info(f"Celery not configured, processing DNS deletion synchronously")
+                # Check if Celery is available and properly configured
+                try:
+                    from celery import current_app
+                    if current_app.control.inspect().stats():
+                        # Celery is running, use async task
+                        from .tasks import delete_store_dns_async
+                        result = delete_store_dns_async.delay(
+                            store.slug, 
+                            instance.email, 
+                            store.name
+                        )
+                        logger.info(f"Queued DNS deletion task for store: {store.name} with task ID: {result.id}")
+                    else:
+                        # Celery not running, use sync processing
+                        _delete_store_dns_sync(instance, store)
+                except:
+                    # Celery not available, use sync processing
                     _delete_store_dns_sync(instance, store)
             else:
                 logger.info(f"No DNS record to delete for store: {store.name if store else 'Unknown'}")
                 
     except Exception as e:
-        logger.error(f"Error queuing DNS deletion for dropshipper {instance.email}: {e}")
-        # Fallback to synchronous processing if available
+        logger.error(f"Error processing DNS deletion for dropshipper {instance.email}: {e}")
+        # Fallback to synchronous processing
         try:
             if hasattr(instance, 'owners') and instance.owners:
                 _delete_store_dns_sync(instance, instance.owners)
-        except:
-            pass
-
+        except Exception as fallback_error:
+            logger.error(f"Fallback DNS deletion also failed: {fallback_error}")
 
 def _delete_store_dns_sync(user_instance, store_instance):
     """Synchronous DNS deletion fallback"""
@@ -267,20 +288,20 @@ def _delete_store_dns_sync(user_instance, store_instance):
         
         if success:
             logger.info(f"Successfully deleted DNS record for store: {store_instance.name}")
-            send_store_deletion_email(user_instance, store_instance)
+            send_store_deletion_email_sync(user_instance, store_instance)
         else:
             logger.error(f"Failed to delete DNS record for store: {store_instance.name}")
-            send_store_deletion_failure_email(user_instance, store_instance)
+            send_store_deletion_failure_email_sync(user_instance, store_instance)
             
     except Exception as e:
         logger.error(f"Error in synchronous DNS deletion: {e}")
-        send_store_deletion_failure_email(user_instance, store_instance)
+        send_store_deletion_failure_email_sync(user_instance, store_instance)
 
-
-def send_store_deletion_email(user_instance, store_instance):
-    """Send email notification when store and domain are successfully deleted"""
+def send_store_deletion_email_sync(user_instance, store_instance):
+    """Send email notification when store and domain are successfully deleted - SYNCHRONOUS"""
     try:
-        from setup.tasks import send_email_task
+        # Import sendEmail function directly instead of using Celery task
+        from setup.utils import sendEmail
         
         context = {
             "full_name": user_instance.get_full_name() or user_instance.first_name or user_instance.email,
@@ -291,24 +312,25 @@ def send_store_deletion_email(user_instance, store_instance):
             "support_email": "support@yourockteamall.com",
         }
         
-        send_email_task.delay(
-            recipient_email=user_instance.email,
+        # Use direct sendEmail function instead of Celery task
+        sendEmail(
+            recipientEmail=user_instance.email,
             template_name='emails/store_deletion_success.html',
             context=context,
             subject="🗑️ Your Store Has Been Removed - RockTeaMall",
             tags=["store-deleted", "domain-removed", "account-closure"]
         )
         
-        logger.info(f"Store deletion email queued for {user_instance.email}")
+        logger.info(f"Store deletion email sent successfully to {user_instance.email}")
         
     except Exception as e:
         logger.error(f"Error sending store deletion email: {e}")
 
-
-def send_store_deletion_failure_email(user_instance, store_instance):
-    """Send email when DNS deletion fails"""
+def send_store_deletion_failure_email_sync(user_instance, store_instance):
+    """Send email when DNS deletion fails - SYNCHRONOUS"""
     try:
-        from setup.tasks import send_email_task
+        # Import sendEmail function directly instead of using Celery task
+        from setup.utils import sendEmail
         
         context = {
             "full_name": user_instance.get_full_name() or user_instance.first_name or user_instance.email,
@@ -318,15 +340,16 @@ def send_store_deletion_failure_email(user_instance, store_instance):
             "support_email": "support@yourockteamall.com",
         }
         
-        send_email_task.delay(
-            recipient_email=user_instance.email,
+        # Use direct sendEmail function instead of Celery task
+        sendEmail(
+            recipientEmail=user_instance.email,
             template_name='emails/store_deletion_failure.html',
             context=context,
             subject="⚠️ Store Removal - Domain Cleanup Issue",
             tags=["store-deleted", "dns-cleanup-failed", "manual-intervention"]
         )
         
-        logger.info(f"Store deletion failure email queued for {user_instance.email}")
+        logger.info(f"Store deletion failure email sent successfully to {user_instance.email}")
         
     except Exception as e:
         logger.error(f"Error sending store deletion failure email: {e}")
