@@ -18,63 +18,65 @@ logger = logging.getLogger(__name__)
 @shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def create_store_dns_async(self, store_id):
     """
-    Asynchronously create DNS record for store to improve performance
+    Asynchronously create DNS record for store - FIXED VERSION
     """
     try:
-        store = Store.objects.get(id=store_id)
-        
-        # Skip if already created
-        if store.dns_record_created:
-            logger.info(f"DNS already created for store: {store.name}")
-            return f"DNS already exists for store: {store.name}"
-        
-        # Get environment configuration
-        env_config = determine_environment_config()
-        logger.info(f"Environment is: {env_config}")
-        
-        # Skip DNS provisioning when server is running locally
-        if env_config['environment'] == 'local':
-            logger.info("Server running locally - skipping DNS provisioning")
-            final_url = f"http://localhost:8000?mallcli={store.id}"
-            store.domain_name = final_url
-            store.save(update_fields=['domain_name'])
+        # Use select_for_update to prevent race conditions
+        with transaction.atomic():
+            store = Store.objects.select_for_update().get(id=store_id)
             
-            # Send local development email
-            send_local_development_email_async(store, final_url)
-            return f"Local development setup completed for store: {store.name}"
-        
-        # Generate the subdomain
-        full_domain = generate_store_domain(store.slug, env_config['environment'])
-        
-        if not full_domain:
-            raise Exception(f"No domain generated for store {store.name}")
-        
-        logger.info(f"Creating DNS record for store: {store.name} (ID: {store.id})")
-        
-        # Create DNS record
-        response = create_cname_record(
-            zone_id=env_config['hosted_zone_id'],
-            subdomain=full_domain,
-            target=env_config['target_domain']
-        )
-        
-        if response:
-            # Update store with DNS info
-            store.dns_record_created = True
-            store.domain_name = full_domain
-            store.save(update_fields=['dns_record_created', 'domain_name'])
+            # Skip if already created
+            if store.dns_record_created:
+                logger.info(f"DNS already created for store: {store.name}")
+                return f"DNS already exists for store: {store.name}"
+            
+            # Get environment configuration
+            env_config = determine_environment_config()
+            logger.info(f"Environment is: {env_config}")
+            
+            # Skip DNS provisioning when server is running locally
+            if env_config['environment'] == 'local':
+                logger.info("Server running locally - skipping DNS provisioning")
+                final_url = f"http://localhost:8000?mallcli={store.id}"
+                store.domain_name = final_url
+                store.save(update_fields=['domain_name'])
+                
+                # Send local development email using direct function
+                send_local_development_email_direct(store, final_url)
+                return f"Local development setup completed for store: {store.name}"
+            
+            # Generate the subdomain
+            full_domain = generate_store_domain(store.slug, env_config['environment'])
+            
+            if not full_domain:
+                raise Exception(f"No domain generated for store {store.name}")
+            
+            logger.info(f"Creating DNS record for store: {store.name} (ID: {store.id})")
+            
+            # Create DNS record
+            response = create_cname_record(
+                zone_id=env_config['hosted_zone_id'],
+                subdomain=full_domain,
+                target=env_config['target_domain']
+            )
+            
+            if response:
+                # Update store with DNS info
+                store.dns_record_created = True
+                store.domain_name = full_domain
+                store.save(update_fields=['dns_record_created', 'domain_name'])
 
-            # Build the clickable URL
-            final_url = f"https://{full_domain}?mallcli={store.id}"
+                # Build the clickable URL
+                final_url = f"https://{full_domain}?mallcli={store.id}"
 
-            # Send success email
-            send_store_success_email_async(store, final_url, env_config['environment'])
-            
-            logger.info(f"Successfully created DNS record for store: {store.name}")
-            return f"DNS record created successfully for store: {store.name}"
-        else:
-            raise Exception(f"Failed to create DNS record for store {store.name}")
-            
+                # Send success email using direct function
+                send_store_success_email_direct(store, final_url, env_config['environment'])
+                
+                logger.info(f"Successfully created DNS record for store: {store.name}")
+                return f"DNS record created successfully for store: {store.name}"
+            else:
+                raise Exception(f"Failed to create DNS record for store {store.name}")
+                
     except Store.DoesNotExist:
         logger.error(f"Store with ID {store_id} not found")
         return f"Store with ID {store_id} not found"
@@ -87,47 +89,15 @@ def create_store_dns_async(self, store_id):
             logger.info(f"Retrying DNS creation for store ID {store_id} (attempt {self.request.retries + 1})")
             raise self.retry(countdown=60 * (2 ** self.request.retries))
         
-        # Final failure - send error email
+        # Final failure - send error email using direct function
         try:
             store = Store.objects.get(id=store_id)
-            send_store_dns_error_email_async(store, str(e))
+            send_store_dns_error_email_direct(store, str(e))
         except Store.DoesNotExist:
             pass
             
         return f"Failed to create DNS record for store ID {store_id}: {e}"
-
-
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def delete_store_dns_async(self, store_slug, user_email, store_name):
-    """
-    Asynchronously delete DNS record for better performance
-    """
-    try:
-        logger.info(f"Deleting DNS record for store: {store_name}")
-        
-        success = delete_store_dns_record(store_slug)
-        
-        if success:
-            logger.info(f"Successfully deleted DNS record for store: {store_name}")
-            # Send deletion success email
-            send_deletion_success_email_async(user_email, store_name)
-            return f"DNS record deleted successfully for store: {store_name}"
-        else:
-            raise Exception(f"Failed to delete DNS record for store: {store_name}")
-            
-    except Exception as e:
-        logger.error(f"Error deleting DNS record for store {store_name}: {e}")
-        
-        # Retry logic
-        if self.request.retries < self.max_retries:
-            logger.info(f"Retrying DNS deletion for store {store_name} (attempt {self.request.retries + 1})")
-            raise self.retry(countdown=30 * (2 ** self.request.retries))
-        
-        # Final failure - send error email
-        send_deletion_failure_email_async(user_email, store_name)
-        return f"Failed to delete DNS record for store {store_name}: {e}"
-
-
+    
 def send_local_development_email_async(store_instance, store_url):
     """Send welcome email for local development environment"""
     try:
@@ -155,8 +125,36 @@ def send_local_development_email_async(store_instance, store_url):
         logger.error(f"Error sending local development email: {e}")
 
 
-def send_store_success_email_async(store_instance, store_url, environment):
-    """Send success email when store and DNS are created successfully"""
+def send_local_development_email_direct(store_instance, store_url):
+    """Send welcome email for local development environment - DIRECT"""
+    try:
+        subject = "🎉 Your Dropshipper Store Created (Local Server)"
+        
+        context = {
+            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name,
+            "store_name": store_instance.name,
+            "store_domain": store_url,
+            "environment": "LOCAL SERVER",
+            "store_id": store_instance.id,
+            "current_year": timezone.now().year,
+            "is_local": True,
+        }
+        
+        sendEmail(
+            recipientEmail=store_instance.owner.email,
+            template_name='emails/store_welcome_success.html',
+            context=context,
+            subject=subject,
+            tags=["store-created", "local-server", "async"]
+        )
+        
+        logger.info(f"Local development email sent successfully")
+        
+    except Exception as e:
+        logger.error(f"Error sending local development email: {e}")
+
+def send_store_success_email_direct(store_instance, store_url, environment):
+    """Send success email when store and DNS are created successfully - DIRECT"""
     try:
         subject = "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!"
         
@@ -178,12 +176,13 @@ def send_store_success_email_async(store_instance, store_url, environment):
             tags=["store-created", "domain-provisioned", "success", "async"]
         )
         
+        logger.info(f"Store success email sent successfully")
+        
     except Exception as e:
         logger.error(f"Error sending success email: {e}")
 
-
-def send_store_dns_error_email_async(store_instance, error_message):
-    """Send email when DNS record creation encounters an error"""
+def send_store_dns_error_email_direct(store_instance, error_message):
+    """Send email when DNS record creation encounters an error - DIRECT"""
     try:
         subject = "🔧 Store Created - Technical Issue with Domain Setup"
         
@@ -206,12 +205,43 @@ def send_store_dns_error_email_async(store_instance, error_message):
             tags=["store-created", "dns-error", "technical-issue", "async"]
         )
         
+        logger.info(f"DNS error email sent successfully")
+        
     except Exception as e:
         logger.error(f"Error sending DNS error email: {e}")
 
+@shared_task(bind=True, max_retries=2, default_retry_delay=30)
+def delete_store_dns_async(self, store_slug, user_email, store_name):
+    """
+    Asynchronously delete DNS record for better performance
+    """
+    try:
+        logger.info(f"Deleting DNS record for store: {store_name}")
+        
+        success = delete_store_dns_record(store_slug)
+        
+        if success:
+            logger.info(f"Successfully deleted DNS record for store: {store_name}")
+            # Send deletion success email using direct function
+            send_deletion_success_email_direct(user_email, store_name)
+            return f"DNS record deleted successfully for store: {store_name}"
+        else:
+            raise Exception(f"Failed to delete DNS record for store: {store_name}")
+            
+    except Exception as e:
+        logger.error(f"Error deleting DNS record for store {store_name}: {e}")
+        
+        # Retry logic
+        if self.request.retries < self.max_retries:
+            logger.info(f"Retrying DNS deletion for store {store_name} (attempt {self.request.retries + 1})")
+            raise self.retry(countdown=30 * (2 ** self.request.retries))
+        
+        # Final failure - send error email using direct function
+        send_deletion_failure_email_direct(user_email, store_name)
+        return f"Failed to delete DNS record for store {store_name}: {e}"
 
-def send_deletion_success_email_async(user_email, store_name):
-    """Send email notification when store domain is successfully deleted"""
+def send_deletion_success_email_direct(user_email, store_name):
+    """Send email notification when store domain is successfully deleted - DIRECT"""
     try:
         subject = "🗑️ Your Store Has Been Removed - RockTeaMall"
         
@@ -232,12 +262,13 @@ def send_deletion_success_email_async(user_email, store_name):
             tags=["store-deleted", "domain-removed", "async"]
         )
         
+        logger.info(f"Deletion success email sent successfully")
+        
     except Exception as e:
         logger.error(f"Error sending deletion success email: {e}")
 
-
-def send_deletion_failure_email_async(user_email, store_name):
-    """Send email when DNS deletion fails"""
+def send_deletion_failure_email_direct(user_email, store_name):
+    """Send email when DNS deletion fails - DIRECT"""
     try:
         subject = "⚠️ Store Removal - Domain Cleanup Issue"
         
@@ -257,9 +288,10 @@ def send_deletion_failure_email_async(user_email, store_name):
             tags=["store-deleted", "dns-cleanup-failed", "async"]
         )
         
+        logger.info(f"Deletion failure email sent successfully")
+        
     except Exception as e:
         logger.error(f"Error sending deletion failure email: {e}")
-
 
 # Product and Order Management Tasks
 @shared_task(bind=True, max_retries=3, retry_backoff=60)
