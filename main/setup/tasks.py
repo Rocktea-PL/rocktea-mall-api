@@ -8,7 +8,7 @@ from django.utils.html import strip_tags
 
 logger = logging.getLogger(__name__)
 
-@app.task(bind=True, default_retry_delay=300, max_retries=3)
+@app.task(bind=True, default_retry_delay=300, max_retries=3) # bind=True allows task to access self (for retries)
 def send_email_task(self, recipient_email: str, template_name: str, context: dict, subject: str, tags: list = None):
    """
    Celery task to send an email using Brevo API, rendering content from a Django template.
@@ -56,7 +56,9 @@ def send_email_task(self, recipient_email: str, template_name: str, context: dic
          self.retry(exc=e)
       except self.MaxRetriesExceededError:
          logger.error(f"Max retries exceeded for email to {recipient_email}. Task failed permanently.")
+         # Optionally, send an alert to an admin here
       return None
    except Exception as e:
       logger.error(f"An unexpected error occurred during email sending to {recipient_email}: {str(e)}")
+      # Do not retry for unexpected errors unless specifically needed
       return None
