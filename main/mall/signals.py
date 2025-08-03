@@ -107,9 +107,11 @@ def send_store_success_email(store_instance, store_url, environment):
         },
         ["store-created", "domain-provisioned", "success"]
     )
+    logger.info(f"At the end of store email from send_store_success_email store details {store_instance}")
     logger.info(f"At the end of store email from send_store_success_email {store_instance.name}")
     logger.info(f"At the end of store email from send_store_success_email with store url {store_url}")
     logger.info(f"At the end of store email from send_store_success_email with store environment {environment}")
+    logger.info(f"At the end of store email from send_store_success_email with store id {store_instance.id}")
 
 def _send_store_email(store_instance, subject, template, extra_context, tags):
     """Helper function to send store-related emails"""
