@@ -117,7 +117,7 @@ def _send_store_email(store_instance, subject, template, extra_context, tags):
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
             "store_name": store_instance.name,
-            "store_id": store_instance.id,
+            "store_id": str(store_instance.id),
             "current_year": timezone.now().year,
             "owner_email": store_instance.owner.email,
             **extra_context
@@ -147,7 +147,7 @@ def send_store_dns_failure_email(store_instance, attempted_domain):
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
             "store_name": store_instance.name,
             "attempted_domain": attempted_domain,
-            "store_id": store_instance.id,
+            "store_id": str(store_instance.id),
             "current_year": timezone.now().year,
             "support_email": "support@yourockteamall.com",
         }
@@ -178,7 +178,7 @@ def send_store_dns_error_email(store_instance, error_message):
         context = {
             "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
             "store_name": store_instance.name,
-            "store_id": store_instance.id,
+            "store_id": str(store_instance.id),
             "error_reference": error_ref,
             "current_year": timezone.now().year,
             "support_email": "support@yourockteamall.com",
