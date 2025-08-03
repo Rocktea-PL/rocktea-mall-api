@@ -1,6 +1,5 @@
 from django.dispatch import receiver
 from django.db.models.signals import post_save, pre_save, pre_delete
-from django.shortcuts import get_object_or_404
 import logging
 import re
 
@@ -9,7 +8,6 @@ from .utils import generate_store_slug, determine_environment_config
 from .middleware import get_current_request
 from workshop.route53 import create_cname_record, delete_store_dns_record
 
-from setup.utils import sendEmail
 from django.utils import timezone
 from django.conf import settings
 
@@ -42,7 +40,7 @@ def create_wallet(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Store)
 def create_dropshipper_dns_record(sender, instance, created, **kwargs):
-    """Create DNS record for new stores"""
+    """Create DNS record for new stores - only send email after DNS success"""
     if not created or instance.dns_record_created:
         return
         
@@ -70,6 +68,7 @@ def create_dropshipper_dns_record(sender, instance, created, **kwargs):
         ):
             instance.dns_record_created = True
             instance.save(update_fields=['dns_record_created'])
+            # Only send email after DNS is successfully created
             send_store_success_email(instance, instance.domain_name, env_config['environment'])
         else:
             send_store_dns_failure_email(instance, full_domain)
@@ -120,6 +119,7 @@ def _send_store_email(store_instance, subject, template, extra_context, tags):
             **extra_context
         }
         
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=store_instance.owner.email,
             template_name=template,
@@ -146,6 +146,7 @@ def send_store_dns_failure_email(store_instance, attempted_domain):
             "support_email": "support@yourockteamall.com",
         }
         
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_failure.html',
@@ -177,6 +178,7 @@ def send_store_dns_error_email(store_instance, error_message):
             "support_email": "support@yourockteamall.com",
         }
         
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=store_instance.owner.email,
             template_name='emails/store_dns_error.html',
@@ -270,6 +272,7 @@ def send_store_deletion_email(user_instance, store_instance):
             "support_email": "support@yourockteamall.com",
         }
         
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=user_instance.email,
             template_name='emails/store_deletion_success.html',
@@ -297,6 +300,7 @@ def send_store_deletion_failure_email(user_instance, store_instance):
             "support_email": "support@yourockteamall.com",
         }
         
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=user_instance.email,
             template_name='emails/store_deletion_failure.html',
