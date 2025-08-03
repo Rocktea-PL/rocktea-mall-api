@@ -52,3 +52,22 @@ python ./main/manage.py migrate mall 0049_customuser_is_verified
 rm main/mall/migrations/0049_customuser_is_verified.py  # For Linux/macOS
 del main\mall\migrations\0049_customuser_is_verified.py  # For Windows PowerShell
 ```
+
+## Celery Email System (Production)
+
+### check email system health
+```bash
+python3 monitor_email_queue.py
+```
+
+### manage celery services
+```bash
+sudo systemctl status celery-worker-rocktea    # check worker status
+sudo systemctl restart celery-worker-rocktea   # restart worker
+sudo tail -f /var/log/celery/worker.log        # view email logs
+```
+
+### check email queue
+```bash
+redis-cli llen celery  # check pending emails
+```
