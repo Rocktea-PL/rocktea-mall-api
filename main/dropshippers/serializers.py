@@ -240,30 +240,32 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         return user
 
     def send_admin_created_email(self, user, store):
-        """Send welcome email via Celery task"""
+        request = self.context.get("request")
+        current_site = get_current_site(request).domain if request else "yourockteamall.com"
+        protocol = request.scheme if request else "https"
+        domain_name = f"{protocol}://{current_site}"
+
         try:
-            from setup.tasks import send_email_task
-            
+            from setup.utils import sendEmail
+            subject = "Welcome to Rocktea Mall - Your Account is Ready!"
             context = {
-                'full_name': user.get_full_name() or user.first_name or user.email,
+                'full_name': user.get_full_name() or user.email,
                 'store_name': store.name,
-                'store_domain': store.domain_name or 'Pending setup',
-                'environment': 'ADMIN CREATED',
-                'store_id': store.id,
+                'dashboard_url': f"{domain_name}/dashboard",
+                'login_url': f"{domain_name}/login",
+                'support_email': "support@yourockteamall.com",
                 'current_year': timezone.now().year,
-                'owner_email': user.email,
-                'is_local': False,
+                'user_email': user.email,
+                'has_password': bool(user.password),
             }
-            
-            send_email_task.delay(
-                recipient_email=user.email,
-                template_name='emails/store_welcome_success.html',
+            sendEmail(
+                recipientEmail=user.email,
+                template_name='emails/admin_created_account.html',
                 context=context,
-                subject='🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!',
-                tags=['store-created', 'admin-created', 'success']
+                subject=subject,
+                tags=["admin-created-account", "account-setup"]
             )
-            
-            logger.info(f'Welcome email queued for admin-created store: {user.email}')
-            
         except Exception as e:
-            logger.error(f'Failed to queue welcome email for {user.email}: {str(e)}')
+            # Log but don't prevent user creation
+            print(f"Failed to send admin created email: {str(e)}")
+            logger.error(f"Failed to send admin created email to {user.email}: {str(e)}")
