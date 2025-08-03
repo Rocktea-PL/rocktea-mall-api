@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - Rocktea Mall</title>
+    <style>
+        .button {
+            display: inline-block;
+            background-color: #4f46e5;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .button:hover {
+            background-color: #4338ca;
+        }
+    </style>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto;">
+    <div style="background-color: #f8f9fa; padding: 30px; border-radius: 10px;">
+        <img src="https://yourockteamall.com/logo.png" alt="Rocktea Mall" style="max-width: 200px; margin-bottom: 20px;">
+        
+        <h2 style="color: #2d3748;">Verify Your Email Address</h2>
+        
+        <p>Hello {{full_name}},</p>
+        
+        <p>Please click the button below to verify your email address and activate your Rocktea Mall account:</p>
+        
+        <p style="text-align: center;">
+            <a href="{{confirmation_url}}" class="button">Verify Email Address</a>
+        </p>
+        
+        <p>This verification link will expire in 24 hours for security reasons.</p>
+        
+        <p>If the button doesn't work, copy and paste this URL into your browser:<br>
+        <code style="word-wrap:break-word;color:#4f46e5">{{confirmation_url}}</code></p>
+        
+        <p>If you didn't create an account with us, please ignore this email.</p>
+        
+        <div style="margin-top: 30px; font-size: 0.9em; color: #718096; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+            <p>Best regards,<br>The Rocktea Mall Team</p>
+            <p>&copy; {{ current_year }} Rocktea Mall. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

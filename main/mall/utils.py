@@ -1,7 +1,5 @@
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.conf import settings
-import re
-from django.utils.text import slugify
 
 class EmailVerificationTokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
@@ -12,31 +10,25 @@ class EmailVerificationTokenGenerator(PasswordResetTokenGenerator):
         return settings.EMAIL_VERIFICATION_TIMEOUT
     
 def generate_store_slug(store_name):
-    """
-    Generate a clean, DNS-safe slug from store name.
-    """
-    # Remove special characters and convert to lowercase
-    slug = slugify(store_name).replace('_', '-').lower()
-    
-    # Ensure it starts and ends with alphanumeric characters
-    slug = re.sub(r'^[^a-z0-9]+|[^a-z0-9]+$', '', slug)
-    
-    # Replace multiple consecutive hyphens with single hyphen
-    slug = re.sub(r'-+', '-', slug)
-    
-    # Ensure minimum length and maximum length for DNS
-    if len(slug) < 3:
-        slug = f"store-{slug}"
-    if len(slug) > 63:  # DNS label limit
-        slug = slug[:63].rstrip('-')
-    
-    return slug
+    """Generate a URL-safe slug from store name"""
+    from django.utils.text import slugify
+    return slugify(store_name.lower())
 
 def determine_environment_config(request=None):
     """
     Determine the environment configuration based on request or settings.
     """
-    from django.conf import settings
+    # Check ENVIRONMENT setting first
+    environment = getattr(settings, 'ENVIRONMENT', 'local')
+    
+    # Handle local environment - no AWS DNS creation
+    if environment in ['local', 'localhost']:
+        return {
+            'environment': 'local',
+            'target_domain': None,
+            'hosted_zone_id': '',
+            'is_local': True
+        }
     
     # Try to get environment from request first
     if request:
@@ -44,28 +36,57 @@ def determine_environment_config(request=None):
         if "dropshippers-dev.yourockteamall.com" in current_domain:
             return {
                 'target_domain': 'user-dev.yourockteamall.com',
-                'hosted_zone_id': settings.ROUTE53_DEV_HOSTED_ZONE_ID,
-                'environment': 'dev'
+                'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+                'environment': 'dev',
+                'is_local': False
             }
         elif "dropshippers.yourockteamall.com" in current_domain:
             return {
                 'target_domain': 'yourockteamall.com',
-                'hosted_zone_id': settings.ROUTE53_PRODUCTION_HOSTED_ZONE_ID,
-                'environment': 'prod'
+                'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+                'environment': 'prod',
+                'is_local': False
             }
     
     # Fallback to settings-based determination
-    if hasattr(settings, 'ENVIRONMENT'):
-        if settings.ENVIRONMENT == 'production':
-            return {
-                'target_domain': 'yourockteamall.com',
-                'hosted_zone_id': settings.ROUTE53_PRODUCTION_HOSTED_ZONE_ID,
-                'environment': 'prod'
-            }
+    if environment in ['prod', 'production']:
+        return {
+            'target_domain': 'yourockteamall.com',
+            'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+            'environment': 'prod',
+            'is_local': False
+        }
     
     # Default to dev
     return {
         'target_domain': 'user-dev.yourockteamall.com',
-        'hosted_zone_id': settings.ROUTE53_DEV_HOSTED_ZONE_ID,
-        'environment': 'dev'
+        'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+        'environment': 'dev',
+        'is_local': False
     }
+
+def generate_store_domain(store_slug, environment='dev'):
+    """Generate full domain name for a store"""
+    if environment == 'local':
+        return "http://localhost:8000"
+    elif environment == 'prod':
+        return f"{store_slug}.yourockteamall.com"
+    else:
+        return f"{store_slug}.user-dev.yourockteamall.com"
+
+def get_store_from_request(request):
+    """
+    Helper function to get store from request
+    """
+    if hasattr(request, 'store') and request.store:
+        return request.store
+    
+    # Fallback: try to get from user
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        try:
+            from .models import Store
+            return Store.objects.get(owner=request.user)
+        except Store.DoesNotExist:
+            pass
+    
+    return None

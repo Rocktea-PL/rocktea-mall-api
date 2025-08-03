@@ -1,15 +1,5 @@
-from rest_framework.serializers import (
-   ModelSerializer, 
-   PrimaryKeyRelatedField, 
-   ReadOnlyField,
-   )
-
-from workshop.exceptions import (
-   ValidationError, 
-   AuthenticationFailedError, 
-   NotFoundError
-   )
-
+from rest_framework.serializers import ModelSerializer, PrimaryKeyRelatedField
+from workshop.exceptions import ValidationError
 from .models import (
    CustomUser, 
    Store, 
@@ -36,22 +26,14 @@ from .models import (
 
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 import re, logging
-from PIL import Image
-from rest_framework import status
 from rest_framework import serializers
-from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
 from django.db import IntegrityError
 from django.core.cache import cache
-from setup.celery import app
-from django.db.models import Q
-from order.models import PaystackWebhook
-from mall.payments.verify_payment import verify_paystack_transaction
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-# from .store_features.get_store_id import get_store_instance
+from .utils import generate_store_slug, determine_environment_config, generate_store_domain
 
 logger = logging.getLogger(__name__)
 
@@ -137,42 +119,43 @@ class StoreOwnerSerializer(ModelSerializer):
       user.verification_token_created_at = timezone.now()
       user.save(update_fields=['verification_token', 'verification_token_created_at']) # Save token fields
 
-      request = self.context.get("request")
-      current_site = get_current_site(request).domain if request else "yourockteamall.com"
-      protocol = request.scheme if request else "https"
-      domain_name = f"{protocol}://{current_site}"
-      verify_email_url = f"{domain_name}/verify-email?token="+str(token)
+      # Check if the email should be sent
+      send_welcome_email = self.context.get('send_welcome_email', True)
+      if send_welcome_email:
+         request = self.context.get("request")
+         current_site = get_current_site(request).domain if request else "yourockteamall.com"
+         protocol = request.scheme if request else "https"
+         domain_name = f"{protocol}://{current_site}"
+         verify_email_url = f"{domain_name}/verify-email?token="+str(token)
 
-      # Fallback to referer for better frontend targeting
-      if request:
-         referer = request.META.get("HTTP_REFERER", "")
-         if referer and 'swagger' not in referer.lower():
-            parsed_referer = urlparse(referer)
-            domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
-            verify_email_url = f"{domain_name}/verify-email?token={token}"
+         # Fallback to referer for better frontend targeting
+         if request:
+            referer = request.META.get("HTTP_REFERER", "")
+            if referer and 'swagger' not in referer.lower():
+               parsed_referer = urlparse(referer)
+               domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
+               verify_email_url = f"{domain_name}/verify-email?token={token}"
 
-      # Send welcome email
-      try:
-         from setup.utils import sendEmail  # Import inside function to avoid circular imports
-         subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
-         context = {
-            'full_name': user.get_full_name() or user.email, # Pass full_name or email
-            'confirmation_url': verify_email_url,
-            'current_year': timezone.now().year,
-         }
-         sendEmail(
-            recipientEmail=user.email,
-            template_name='emails/dropshippers_welcome.html',
-            context=context,
-            subject=subject,
-            tags=["user-onboarding", "email-verification"]
-         )
-      except Exception as e:
-         # Log but don't prevent user creation
-         print(f"Failed to send welcome email: {str(e)}")
-         logger.error(f"Failed to send user welcome email to {user.email}: {str(e)}")
-         logger.error(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
-         print(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
+         # Send welcome email
+         try:
+            from setup.tasks import send_email_task
+            subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
+            context = {
+               'full_name': user.get_full_name() or user.email,
+               'confirmation_url': verify_email_url,
+               'current_year': timezone.now().year,
+            }
+            send_email_task.delay(
+               recipient_email=user.email,
+               template_name='emails/dropshippers_welcome.html',
+               context=context,
+               subject=subject,
+               tags=["user-onboarding", "email-verification"]
+            )
+            logger.info(f"Welcome email queued for {user.email}")
+         except Exception as e:
+            logger.error(f"Failed to queue welcome email to {user.email}: {str(e)}")
+            print(f"Email error to {user.email}: {type(e).__name__} - {str(e)}")
 
       return user
    
@@ -224,6 +207,15 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       data = super().validate(attrs)
       user = self.user  # Already authenticated user from parent class
 
+      # 2. Reject non-verified or inactive accounts
+      if not user.is_active:
+         raise ValidationError("User account is inactive. Please contact support.")
+      if not user.is_verified:
+         raise ValidationError("User account not verified. Please check your email for verification instructions.")
+      
+      if not user.is_store_owner:
+         raise ValidationError("Access denied. Only store owners can log in here.")
+
       # Get user with permissions (allow all valid users)
       try:
          user = CustomUser.objects.get(id=user.id)
@@ -243,10 +235,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
 
       # Only check for store if user is a store owner
       if user.is_store_owner:
-         has_store = Store.objects.filter(owner=user).exists()
-         
-         if has_store:
-            store = Store.objects.get(owner=user)
+         try:
+            store = Store.objects.select_related('category').get(owner=user)
+            has_store = True
             
             # Enforce completed=True when payment exists
             if store.has_made_payment:
@@ -260,29 +251,9 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             domain_name = store.domain_name
             completed = store.completed
             has_made_payment = store.has_made_payment
+         except Store.DoesNotExist:
+            has_store = False
             
-            # Payment verification
-            try:
-                paystack_payment = PaystackWebhook.objects.get(
-                    user=user,
-                    purpose="dropshipping_payment"
-                )
-                
-                if paystack_payment.status == 'Pending':
-                    payment_data = verify_paystack_transaction(paystack_payment.reference)
-                    if payment_data and payment_data.get('data', {}).get('status') == 'success':
-                        paystack_payment.status = 'Success'
-                        paystack_payment.data = payment_data
-                        paystack_payment.save()
-                        store.has_made_payment = True
-                        store.completed = True
-                        store.save(update_fields=['has_made_payment', 'completed'])
-                        has_made_payment = True
-                        completed = True
-
-            except PaystackWebhook.DoesNotExist:
-                pass
-
       # Service check
       has_service = ServicesBusinessInformation.objects.filter(user=user).exists() if user.is_services else False
 
@@ -318,92 +289,107 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       return data
 
 class CreateStoreSerializer(serializers.ModelSerializer):
-    TIN_number = serializers.IntegerField(required=False)
-    logo = serializers.FileField(required=False)
-    year_of_establishment = serializers.DateField(required=False)
+   TIN_number = serializers.IntegerField(required=False)
+   logo = serializers.FileField(required=False)
+   year_of_establishment = serializers.DateField(required=False)
 
-    class Meta:
-        model = Store
-        fields = ("id", "owner", "name", "TIN_number", "logo", "year_of_establishment", "category", 
-                 "domain_name", "theme", "card_elevation", "background_color", "patterns", "color_gradient", 
-                 "button_color", "card_elevation", "card_view", "card_color", "facebook", "whatsapp", "twitter", 
-                 "instagram")
-        extra_kwargs = {
-            "background_color": {"required": False},
-            "patterns": {"required": False},
-            "color_gradient": {"required": False},
-            "button_color": {"required": False},
-            "card_elevation": {"required": False},
-            "card_view": {"required": False},
-        }
-        read_only_fields = ("owner", "domain_name")  # domain_name is now read-only
+   class Meta:
+      model = Store
+      fields = (
+         "id", "name", "TIN_number", "logo", "year_of_establishment", "category", 
+         "domain_name", "slug", "theme", "card_elevation", "background_color", 
+         "patterns", "color_gradient", "button_color", "card_view", "card_color", 
+         "facebook", "whatsapp", "twitter", "instagram"
+      )
+      extra_kwargs = {
+         "background_color": {"required": False},
+         "patterns": {"required": False},
+         "color_gradient": {"required": False},
+         "button_color": {"required": False},
+         "card_elevation": {"required": False},
+         "card_view": {"required": False},
+      }
+      read_only_fields = ("domain_name", "slug")
 
-    def validate_TIN_number(self, value):
-        if isinstance(value, str) and len(value) != 9:
-            raise ValidationError("Invalid TIN number. It should be 9 characters long.")
-        return value
+   def validate_TIN_number(self, value):
+      if value and len(str(value)) != 9:
+         raise ValidationError("Invalid TIN number. It should be 9 digits long.")
+      return value
 
-    def validate_logo(self, value):
-        if value:
-            file_extension = value.name.split('.')[-1].lower()
-            if file_extension not in ['png']:
-                raise ValidationError("Invalid Image format. Only PNG is allowed.")
-        return value
-        
-    def validate_owner(self, value):
-        if value is None:
-            return value
+   def validate_logo(self, value):
+      if value:
+         file_extension = value.name.split('.')[-1].lower()
+         if file_extension not in ['png', 'jpg', 'jpeg']:
+               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG are allowed.")
+      return value
+   
+   def validate_name(self, value):
+      """Validate store name"""
+      if len(value.strip()) < 2:
+         raise ValidationError("Store name must be at least 2 characters long.")
+      
+      # Check for existing store with same name
+      if self.instance:  # Update case
+         if Store.objects.filter(name=value).exclude(id=self.instance.id).exists():
+               raise ValidationError("A store with this name already exists.")
+      else:  # Create case
+         if Store.objects.filter(name=value).exists():
+               raise ValidationError("A store with this name already exists.")
+      
+      return value.strip()
+   
+   def create(self, validated_data):
+      user = self.context['request'].user
+      
+      # Check if user already has a store
+      if Store.objects.filter(owner=user).exists():
+         raise ValidationError("You already have a store. Only one store per user is allowed.")
 
-        try:
-            user = CustomUser.objects.get(is_store_owner=True, id=value)
-        except CustomUser.DoesNotExist:
-            raise ValidationError("User with ID {} does not exist or is not a store owner.".format(value))
-        return value
-    
-    def validate_name(self, value):
-        """Validate store name for DNS compatibility"""
-        if len(value.strip()) < 2:
-            raise ValidationError("Store name must be at least 2 characters long.")
-        
-        # Check for existing store with same name
-        if self.instance:  # Update case
-            if Store.objects.filter(name=value).exclude(id=self.instance.id).exists():
-                raise ValidationError("A store with this name already exists.")
-        else:  # Create case
-            if Store.objects.filter(name=value).exists():
-                raise ValidationError("A store with this name already exists.")
-        
-        return value
-    
-    def update(self, instance, validated_data):
-        # Remove domain_name from validated_data if present (it's read-only)
-        validated_data.pop('domain_name', None)
-        
-        for field in ["name", "TIN_number", "logo", "year_of_establishment", "category", "theme", 
-                     "card_elevation", "background_color", "patterns", "color_gradient", "button_color", 
-                     "card_view", "facebook", "whatsapp", "twitter", "instagram"]:
-            if field in validated_data:
-                setattr(instance, field, validated_data[field])
+      try:
+         # Create store with owner
+         validated_data['owner'] = user
+         
+         # Generate slug and domain
+         slug = generate_store_slug(validated_data['name'])
+         env_config = determine_environment_config(self.context.get('request'))
+         
+         # Generate domain name
+         full_domain = generate_store_domain(slug, env_config['environment'])
+         validated_data['domain_name'] = f"https://{full_domain}?mallcli={{store_id}}"
+         validated_data['slug'] = slug
+         
+         store = Store.objects.create(**validated_data)
+         
+         # Update domain name with actual store ID
+         store.domain_name = f"https://{full_domain}?mallcli={store.id}"
+         store.save(update_fields=['domain_name'])
+         
+         return store
+         
+      except IntegrityError as e:
+         if 'duplicate key' in str(e).lower():
+               raise ValidationError("You already have a store. Only one store per user is allowed.")
+         else:
+               raise ValidationError("An error occurred while creating the store. Please try again later.")
 
-        instance.save()
-        return instance
+   def update(self, instance, validated_data):
+      # Remove read-only fields
+      validated_data.pop('domain_name', None)
+      validated_data.pop('slug', None)
+      
+      # Update allowed fields
+      allowed_fields = [
+         "name", "TIN_number", "logo", "year_of_establishment", "category", "theme", 
+         "card_elevation", "background_color", "patterns", "color_gradient", "button_color", 
+         "card_view", "card_color", "facebook", "whatsapp", "twitter", "instagram"
+      ]
+      
+      for field in allowed_fields:
+         if field in validated_data:
+               setattr(instance, field, validated_data[field])
 
-    def create(self, validated_data):
-        owner = self.context['request'].user
-        
-        # Check if user already has a store
-        if Store.objects.filter(owner=owner).exists():
-            raise ValidationError("You already have a store. Only one store per user is allowed.")
-
-        try:
-            store = Store.objects.create(owner=owner, **validated_data)
-        except IntegrityError as e:
-            if 'duplicate key' in str(e).lower():
-                raise ValidationError("You already have a store. Only one store per user is allowed.")
-            else:
-                raise NotFoundError("An error occurred while creating the store. Please try again later.")
-
-        return store
+      instance.save()
+      return instance
 
 class ProductRatingSerializer(serializers.ModelSerializer):
    class Meta:
@@ -692,28 +678,22 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
       representation = super().to_representation(instance)
 
-      # Assuming `store` is a related field
+      # Use already loaded related objects to avoid additional queries
       representation['store'] = {"id": instance.store.id, "name": instance.store.name}
 
-      # Assuming `product` is a related field
       if instance.product:
-            product = Product.objects.select_related("category", "subcategory").prefetch_related(
-               "images", "product_variants"
-            ).get(id=instance.product.id)
-            instance.product = product
-            representation['product'] = {
-               "id": instance.product.id,
-               "name": instance.product.name,
-               "quantity": instance.product.quantity,
-               "images": self.serialize_product_images(instance.product.images.all()),
-               "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
-               "category": instance.product.category.name,
-               "subcategory": instance.product.subcategory.name,
-               "producttype": instance.product.producttype.name,
-               "upload_status": instance.product.upload_status
+         representation['product'] = {
+            "id": instance.product.id,
+            "name": instance.product.name,
+            "quantity": instance.product.quantity,
+            "images": self.serialize_product_images(instance.product.images.all()),
+            "product_variant": self.serialize_product_variants(instance.product.product_variants.all()),
+            "category": instance.product.category.name,
+            "subcategory": instance.product.subcategory.name,
+            "producttype": instance.product.producttype.name,
+            "upload_status": instance.product.upload_status
          }
       else:
-         # Handle the case where product is None
          representation['product'] = None
 
       representation['listed'] = instance.list_product
@@ -845,3 +825,103 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
 class ResetPasswordConfirmSerializer(serializers.Serializer):
    token = serializers.CharField()
    password = serializers.CharField()
+
+class ResendVerificationSerializer(serializers.Serializer):
+   email = serializers.EmailField(required=True)
+   
+   def validate_email(self, value):
+      """Validate that the email exists and needs verification"""
+      try:
+         user = CustomUser.objects.get(email=value)
+      except CustomUser.DoesNotExist:
+         raise ValidationError("No account found with this email address.")
+      
+      if user.is_active:
+         raise ValidationError("This account is already active.")
+      
+      if user.is_verified:
+         raise ValidationError("This account is already verified.")
+      
+      # Check if user is a store owner (adjust based on your requirements)
+      if not user.is_store_owner:
+         raise ValidationError("This feature is only available for store owners.")
+      
+      return value
+   
+   def save(self):
+      """Generate new verification token and send email"""
+      email = self.validated_data['email']
+      user = CustomUser.objects.get(email=email)
+      
+      # Check rate limiting - prevent spam (max 3 requests per hour)
+      if user.verification_token_created_at:
+         time_since_last_request = timezone.now() - user.verification_token_created_at
+         if time_since_last_request.total_seconds() < 1200:  # 20 minutes
+               raise ValidationError({
+                  "error": "Please wait at least 20 minutes before requesting another verification email."
+               })
+      
+      # Generate new token
+      token_generator = PasswordResetTokenGenerator()
+      token = token_generator.make_token(user)
+      
+      # Update user with new token
+      user.verification_token = token
+      user.verification_token_created_at = timezone.now()
+      user.save(update_fields=['verification_token', 'verification_token_created_at'])
+      
+      # Send verification email
+      request = self.context.get("request")
+      self._send_verification_email(user, token, request)
+      
+      return user
+   
+   def _send_verification_email(self, user, token, request):
+      """Send verification email with proper error handling"""
+      try:
+         # Build verification URL
+         verification_url = self._build_verification_url(token, request)
+         
+         # Import sendEmail function
+         from setup.utils import sendEmail
+         
+         subject = "Email Verification - Rocktea Mall"
+         context = {
+               'full_name': user.get_full_name() or user.email,
+               'confirmation_url': verification_url,
+               'current_year': timezone.now().year,
+         }
+         
+         sendEmail(
+            recipientEmail=user.email,
+            template_name='emails/resend_email_verification.html',
+            context=context,
+            subject=subject,
+            tags=["email-verification", "resend-verification"]
+         )
+         
+         logger.info(f"Verification email resent successfully to {user.email}")
+         
+      except Exception as e:
+         logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
+         raise ValidationError({
+               "error": "Failed to send verification email. Please try again later."
+         })
+   
+   def _build_verification_url(self, token, request):
+      """Build verification URL with proper domain handling"""
+      if request:
+         current_site = get_current_site(request).domain
+         protocol = request.scheme
+         domain_name = f"{protocol}://{current_site}"
+         
+         # Check referer for better frontend targeting
+         referer = request.META.get("HTTP_REFERER", "")
+         if referer and 'swagger' not in referer.lower():
+               parsed_referer = urlparse(referer)
+               if parsed_referer.hostname:
+                  domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
+      else:
+         domain_name = "https://yourockteamall.com"
+      
+      return f"{domain_name}/verify-email?token={token}"

@@ -1,5 +1,3 @@
-from order.classes.order_processor import OrderProcessor
-from order.classes.webhook_processor import WebhookProcessor
 from order.classes.cache_helpers import CacheHelper
 from .models import (
    OrderItems, 
@@ -15,8 +13,6 @@ from .models import (
 
 from mall.models import (
    Notification,
-   Product, 
-   ProductVariant, 
    CustomUser, 
    StoreProductPricing,
    Wallet
@@ -32,21 +28,19 @@ from .serializers import (
    PaymentHistorySerializers
    )
 
-from django.http import Http404, JsonResponse
+from django.http import JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework import serializers, status
 import logging
 from decimal import Decimal
-from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, generics
 from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
-from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from mall.payments.verify_payment import (
    verify_payment_paystack, 
    initiate_payment, 
@@ -62,14 +56,13 @@ from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
 from django.core.cache import cache
 from urllib.parse import urlparse
-from .classes.services import PaystackService
-from django.utils.decorators import method_decorator
 from .pagination import CustomPagination
+from mall.pagination import OptimizedPageNumberPagination
+from mall.tasks import log_webhook_attempt
 
 import hmac
 import hashlib
 from django.conf import settings
-# from workshop.decorators import store_domain_required
 
 from setup.utils import get_store_domain
 
@@ -78,155 +71,6 @@ logger = logging.getLogger(__name__)
 
 secret = settings.TEST_SECRET_KEY
 handler = DomainNameHandler()
-
-""" @csrf_exempt
-def paystack_webhook(request):
-   if request.method == 'POST':
-      payload = request.body
-      sig_header = request.headers.get('x-paystack-signature')
-      body = None
-      event = None
-
-      if not sig_header:
-         logger.error("Missing signature header")
-         return JsonResponse({"error": "Missing signature header"}, status=status.HTTP_400_BAD_REQUEST)
-      
-      try:
-         hash = hmac.new(secret.encode('utf-8'), payload, digestmod=hashlib.sha512).hexdigest()
-         if hash == sig_header:
-            body_unicode   = payload.decode('utf-8')
-            body           = json.loads(body_unicode)
-            event          = body['event']
-         else:
-            raise Exception("Invalid signature")
-      except ValueError as e:
-         logger.error(f"Failed to decode JSON payload: {e}")
-         return JsonResponse({"error": "Invalid JSON payload"}, status=status.HTTP_400_BAD_REQUEST)
-      except KeyError as e:
-         logger.error(f"Missing key in payload: {e}")
-         return JsonResponse({"error": "Invalid payload"}, status=status.HTTP_400_BAD_REQUEST)
-      except Exception as e:
-         logger.error(f"Signature verification failed: {e}")
-         return JsonResponse({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
-      
-      if event == 'charge.success':
-         data           = body["data"]
-         transaction_id = data.get('reference')
-         total_price    = data.get('amount') / 100 
-         email          = data.get('email')
-         metadata       = data.get('metadata', {})
-
-         logger.debug(f"Metadata from webhook: {metadata}")
-
-         paystack_webhook = PaystackWebhook.objects.filter(reference=transaction_id).first()
-         if not paystack_webhook:
-            return JsonResponse({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
-         
-         purpose = metadata.get('purpose')
-         logger.info(f"Paystack Webhook Received: Event: {event}, Purpose: {purpose}, Reference: {transaction_id}")
-         if purpose == 'order':
-            user_id = metadata.get('user_id')
-            if not user_id:
-               return JsonResponse({"error": "User ID not found in metadata"}, status=status.HTTP_400_BAD_REQUEST)
-
-            user = get_object_or_404(CustomUser, id=user_id)
-            try:
-               cart = Cart.objects.get(user=user)
-            except Cart.DoesNotExist:
-               CacheHelper.clear_user_cache(user_id)
-               return JsonResponse({"error": "User does not have a cart"}, status=status.HTTP_404_NOT_FOUND)
-
-            verified_store = get_object_or_404(Store, id=cart.store.id)
-            logger.info(f"Verified Store: {verified_store}")
-
-            order_data = {
-               'buyer':       user.id,
-               'store':       cart.store.id,
-               'total_price': total_price,
-               'status':      'Completed',
-            }
-            logger.info(f"Order Data: {order_data}")
-            order_serializer = OrderSerializer(data=order_data)
-            if order_serializer.is_valid():
-               order = order_serializer.save()
-
-               # Process cart items
-               for cart_item in cart.items.all():
-                  # Increment sales_count for the product
-                  product = cart_item.product
-                  product.sales_count += cart_item.quantity
-                  product.save()
-
-                  order_item_data = {
-                     'userorder': order.id,
-                     'product': cart_item.product.id,
-                     'product_variant': cart_item.product_variant.id,
-                     'quantity': cart_item.quantity
-                  }
-                  order_item_serializer = OrderItemsSerializer(data=order_item_data)
-                  if order_item_serializer.is_valid():
-                     order_item_serializer.save()
-                  else:
-                     CacheHelper.clear_user_cache(user_id)
-                     return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-               cart.items.all().delete()
-
-               # PaystackWebhook.objects.filter(reference=transaction_id).update(
-               #    data=data,
-               #    store_id=order_data['store'],
-               #    status='Success',
-               #    order=order  # Associate the order with the webhook
-               # )
-
-               paystack_webhook.store_id = order_data['store']
-               paystack_webhook.data = data
-               paystack_webhook.status = 'Success'
-               paystack_webhook.order = order
-               paystack_webhook.save()
-
-               shipment_feedback = cache.get(f'shipment_{user_id}')
-               logger.info(f"Shipment details from cache: {shipment_feedback}")
-
-               if shipment_feedback:
-                  try:
-                     shipment_data = json.loads(shipment_feedback)
-                     order.tracking_id = shipment_data['data']['order_id']
-                     order.tracking_url = shipment_data['data']['tracking_url']
-                     order.tracking_status = shipment_data['data']['status']
-                     order.delivery_location = shipment_data['data']['ship_to']['address']
-                     order.shipping_fee = shipment_data['data']['payment']['shipping_fee']
-                     order.save()
-                     cache.delete(f'shipment_{user_id}')
-                  except json.JSONDecodeError as e:
-                     logger.error(f"Failed to decode shipment feedback from cache: {e}")
-                     CacheHelper.clear_user_cache(user_id)
-                     return JsonResponse({"error": "Invalid shipment feedback format"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-               return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
-            else:
-               CacheHelper.clear_user_cache(user_id)
-               return JsonResponse(order_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-         else:
-            logger.info("Processing dropshipping payment")
-            # Handle store payment
-            user = get_object_or_404(CustomUser, email=email)
-            store = get_object_or_404(Store, owner=user)
-            
-            store.has_made_payment = True
-            store.save()
-            paystack_webhook.data = data
-            paystack_webhook.status = 'Success'
-            paystack_webhook.store_id = store.id
-            paystack_webhook.save()
-
-            logger.info(f"Dropshipping payment processed successfully for store {store.name} (ID: {store.id})")
-            
-            return JsonResponse({"message": "Store payment processed successfully"}, status=status.HTTP_200_OK)
-      else:
-         logger.warning(f"Unhandled payment purpose: {purpose}")
-         return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
-   return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED) """
 
 @csrf_exempt
 def paystack_webhook(request):
@@ -265,26 +109,45 @@ def paystack_webhook(request):
          email = data.get('email')
          metadata = data.get('metadata', {})
          purpose = metadata.get('purpose')
+         
+         # Validate required fields
+         if not transaction_id:
+            logger.error("Missing transaction reference in webhook data")
+            return JsonResponse({"error": "Missing transaction reference"}, status=status.HTTP_400_BAD_REQUEST)
+         
+         if not email:
+            logger.error("Missing email in webhook data")
+            return JsonResponse({"error": "Missing email"}, status=status.HTTP_400_BAD_REQUEST)
+         
+         if not purpose:
+            logger.error("Missing purpose in webhook metadata")
+            return JsonResponse({"error": "Missing payment purpose"}, status=status.HTTP_400_BAD_REQUEST)
 
          # Log the incoming webhook data for debugging
-         logger.info(f"Data: {data}")
-         logger.info(f"Processing webhook for purpose: {purpose}")
+         logger.info(f"Webhook received - Event: {event}")
          logger.info(f"Transaction ID: {transaction_id}")
          logger.info(f"Email: {email}")
-         logger.info(f"Metadata: {metadata}")
+         logger.info(f"Purpose: {purpose}")
+         logger.info(f"Amount: {total_price}")
 
          try:
-               paystack_webhook = PaystackWebhook.objects.get(reference=transaction_id)
+               paystack_webhook = PaystackWebhook.objects.select_for_update().get(reference=transaction_id)
+               logger.info(f"Found webhook record for reference: {transaction_id}")
          except PaystackWebhook.DoesNotExist:
                logger.error(f"Transaction reference not found: {transaction_id}")
                return JsonResponse({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
          
          if purpose == 'order':
-               return handle_order_payment(data, paystack_webhook, total_price, metadata)
+               result = handle_order_payment(data, paystack_webhook, total_price, metadata)
+               log_webhook_attempt.delay(transaction_id, email, purpose, "order_processed")
+               return result
          elif purpose == 'dropshipping_payment':
-               return handle_dropshipping_payment(data, paystack_webhook, email)
+               result = handle_dropshipping_payment(data, paystack_webhook, email)
+               log_webhook_attempt.delay(transaction_id, email, purpose, "dropshipping_processed")
+               return result
          else:
                logger.error(f"Unknown payment purpose: {purpose}")
+               log_webhook_attempt.delay(transaction_id, email, purpose, "unknown_purpose")
                return JsonResponse({"error": "Unknown payment purpose"}, status=status.HTTP_400_BAD_REQUEST)
       else:
          logger.warning(f"Unhandled event type: {event}")
@@ -364,25 +227,30 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
    try:
       logger.info(f"Processing dropshipping payment for email: {email}")
       
-      user = CustomUser.objects.get(email=email)
-      store = Store.objects.get(owner=user)
-      
-      logger.info(f"Found store: {store.name} for user: {user.email}")
+      with transaction.atomic():
+         user = CustomUser.objects.get(email=email)
+         store = Store.objects.select_for_update().get(owner=user)
+         
+         logger.info(f"Found store: {store.name} (ID: {store.id}) for user: {user.email}")
 
-      store.has_made_payment = True
-      store.completed = True
-      store.save()
-      
-      paystack_webhook.data = data
-      paystack_webhook.status = 'Success'
-      paystack_webhook.store_id = store.id
-      paystack_webhook.save()
-      
-      logger.info("Dropshipping payment processed successfully")
+         # Update store payment status
+         store.has_made_payment = True
+         store.completed = True
+         store.save(update_fields=['has_made_payment', 'completed'])
+         
+         # Update webhook record
+         paystack_webhook.data = data
+         paystack_webhook.status = 'Success'
+         paystack_webhook.store = store
+         paystack_webhook.save(update_fields=['data', 'status', 'store'])
+         
+         logger.info(f"Dropshipping payment processed successfully for store {store.name} (ID: {store.id})")
+         
       return JsonResponse({
          "message": "Dropshipping payment processed successfully",
          "store_id": store.id,
-         "store_name": store.name
+         "store_name": store.name,
+         "payment_status": store.has_made_payment
       }, status=status.HTTP_200_OK)
       
    except CustomUser.DoesNotExist:
@@ -788,7 +656,7 @@ class ViewOrders(viewsets.ViewSet):
 
 class AllOrders(viewsets.ModelViewSet):
    serializer_class = OrderSerializer
-   pagination_class = CustomPagination
+   pagination_class = OptimizedPageNumberPagination
 
    def get_queryset(self):
       queryset = StoreOrder.objects.all().select_related("buyer", "store").order_by("-created_at")
@@ -801,7 +669,7 @@ class OrderDeliverView(viewsets.ModelViewSet):
 
 class AssignedOrders(generics.ListAPIView):
    serializer_class = AssignedOrderSerializer
-   pagination_class = CustomPagination
+   pagination_class = OptimizedPageNumberPagination
 
    def list(self, request, **kwargs):
       rider_id = kwargs.get("rider")  # Replace with the actual rider's ID

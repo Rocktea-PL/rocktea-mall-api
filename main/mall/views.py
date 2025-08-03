@@ -1,4 +1,3 @@
-# from rest_framework import viewsets
 from .serializers import (
    SimpleProductSerializer,
    StoreOwnerSerializer, 
@@ -26,7 +25,8 @@ from .serializers import (
    ProductRatingSerializer,
    DropshipperReviewSerializer,
    ResetPasswordEmailRequestSerializer,
-   ResetPasswordConfirmSerializer
+   ResetPasswordConfirmSerializer,
+   ResendVerificationSerializer,
 )
 from django.http import Http404
 from .models import (
@@ -43,7 +43,6 @@ from .models import (
    Wallet, 
    ServicesBusinessInformation, 
    StoreProductPricing,
-   Wallet,
    Notification,
    PromoPlans,
    BuyerBehaviour,
@@ -58,32 +57,25 @@ from order.serializers import OrderSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework import permissions, viewsets, status, serializers
 from rest_framework.renderers import JSONRenderer
-from rest_framework.parsers import JSONParser, MultiPartParser
+from rest_framework.parsers import MultiPartParser
 from rest_framework.generics import ListCreateAPIView, ListAPIView
-from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework.views import APIView
 from rest_framework.decorators import action
-from helpers.views import BaseView
 from django.db import transaction
-from .task import upload_image
-from django.db.models import Count
-from django.core.cache import cache
+from .tasks import upload_image
 import logging
-from .store_features.get_store_id import get_store_instance
 from workshop.processor import DomainNameHandler
+from .cloudinary_utils import optimize_product_image
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly, IsStoreOwnerOrAdminDelete, IsStoreOwnerOrAdminViewAdd
-from django_rest_passwordreset.views import ResetPasswordRequestToken, ResetPasswordConfirm
+from django_rest_passwordreset.views import ResetPasswordRequestToken
 from rest_framework import generics
-from django.core.mail import send_mail
 from setup.utils import sendEmail
 
-from django.conf import settings
 from django.urls import reverse
 from django_rest_passwordreset.models import ResetPasswordToken
 from django_rest_passwordreset.signals import reset_password_token_created
@@ -92,9 +84,20 @@ from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
 from order.pagination import CustomPagination
-from django.db.models import Sum, Count, Q
 from setup.utils import get_store_domain
 from django.utils import timezone
+from .cache_utils import CacheManager, cache_result
+from .pagination import OptimizedPageNumberPagination, LargeDatasetPagination
+from .cloudinary_utils import CloudinaryOptimizer, optimize_product_image
+from .query_optimizers import QueryOptimizer
+from .optimized_serializers import OptimizedProductSerializer, OptimizedStoreSerializer
+
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.cache import never_cache
+
+from .utils import get_store_from_request
+from workshop.exceptions import ValidationError
 
 handler = DomainNameHandler()
 
@@ -131,28 +134,23 @@ class CreateOperationsAccount(viewsets.ModelViewSet):
    serializer_class = OperationsSerializer
 
 class CreateStore(viewsets.ModelViewSet):
-   # queryset = Store.objects.all()  # You can uncomment this if you want to retrieve all stores
+    serializer_class = CreateStoreSerializer
 
-   serializer_class = CreateStoreSerializer
-
-   def get_queryset(self):
-      # Extracting the domain name from the request
-      # if user is None or user.is_store_owner is False:
-      # This queryset is for retrieving existing stores, not for creation.
-      # It correctly filters based on the domain from the request.
-      domain = handler.process_request(store_domain=get_store_domain(self.request))
-      # Filter stores based on domain_name
-      queryset = Store.objects.filter(id=domain)
-      return queryset
+    def get_queryset(self):
+        store = get_store_from_request(self.request)
+        if store:
+            return Store.objects.filter(id=store.id)
+        else:
+            return Store.objects.none()
    
-   def get_serializer_context(self):
-      # Crucial for passing the request to the serializer's create method
-      # and subsequently to the signal.
-      return {'request': self.request}
+    def get_serializer_context(self):
+        return {'request': self.request}
 
 class GetStoreDropshippers(viewsets.ModelViewSet):
-   queryset = Store.objects.all() 
-   serializer_class = CreateStoreSerializer
+   serializer_class = OptimizedStoreSerializer
+   
+   def get_queryset(self):
+      return QueryOptimizer.get_optimized_stores()
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
@@ -160,10 +158,13 @@ class SignInUserView(TokenObtainPairView):
    serializer_class = MyTokenObtainPairSerializer
 
 class ProductViewSet(viewsets.ModelViewSet):
-   queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
-   serializer_class = ProductSerializer
+   serializer_class = OptimizedProductSerializer
    permission_classes = [IsAuthenticatedOrReadOnly]
-   pagination_class = CustomPagination
+   pagination_class = LargeDatasetPagination
+   
+   def get_queryset(self):
+      category_id = self.request.query_params.get('category')
+      return QueryOptimizer.get_optimized_products(category_id=category_id)
 
    def get_queryset(self):
       category_id = self.request.query_params.get('category')
@@ -203,16 +204,13 @@ class ProductViewSet(viewsets.ModelViewSet):
                id__in=StoreProductPricing.objects.filter(store=store).values_list('product', flat=True),
                is_available=True
          ).count()
-         # Calculate total products sold
-         store_orders = StoreOrder.objects.filter(
+         # Calculate total products sold using database aggregation
+         from django.db.models import Sum
+         total_products_sold = StoreOrder.objects.filter(
             store=store
-         )
-
-         # Calculate total products sold
-         total_products_sold = sum(
-            sum(item.quantity for item in order.items.all())
-            for order in store_orders
-         )
+         ).aggregate(
+            total_sold=Sum('items__quantity')
+         )['total_sold'] or 0
 
          summary = {
             "total_products_added": total_products_added,
@@ -525,6 +523,16 @@ class GetCategories(viewsets.ReadOnlyModelViewSet):
    queryset = Category.objects.all()
    serializer_class = CategorySerializer
    
+   def list(self, request, *args, **kwargs):
+      cached_data = CacheManager.get_categories()
+      if cached_data:
+         return Response(cached_data)
+      
+      queryset = self.get_queryset()
+      serializer = self.get_serializer(queryset, many=True)
+      CacheManager.set_categories(serializer.data)
+      return Response(serializer.data)
+   
    def retrieve(self, request, *args, **kwargs):
       instance = self.get_object()
       category_serializer = self.get_serializer(instance)
@@ -595,18 +603,9 @@ class UploadProductImage(ListCreateAPIView):
       images = serializer.save()
 
       if image:
-         # Start the Celery task to upload the large video to Cloudinary
+         # Start optimized Celery task
          result = upload_image.delay(images.id, image.read(), image.name, image.content_type)
-         task_id = result.id
-         task_status = result.status
-
-         if task_status == "SUCCESS":
-            return Response({'message': 'Course created successfully.'}, status=status.HTTP_201_CREATED)
-         elif task_status in ("FAILURE", "REVOKED"):
-            images.delete()
-            return Response({'message': 'Failed to upload video.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-         else:
-            return Response({'message': 'Video upload task is in progress.'}, status=status.HTTP_202_ACCEPTED)
+         return Response({'message': 'Image upload started.'}, status=status.HTTP_202_ACCEPTED)
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
 
 class MarketPlacePagination(PageNumberPagination):
@@ -614,17 +613,23 @@ class MarketPlacePagination(PageNumberPagination):
 
 class MarketPlaceView(viewsets.ModelViewSet):
    serializer_class = MarketPlaceSerializer
-   pagination_class = MarketPlacePagination
+   pagination_class = OptimizedPageNumberPagination
 
    def get_queryset(self):
       store_host = self.request.query_params.get("mall")
-      # handler.process_request(store_domain=get_store_domain(self.request)) 
-      # self.request.query_params.get("mall")
-      store = Store.objects.get(id=store_host)
       try:
-         
+         store = Store.objects.get(id=store_host)
          queryset = MarketPlace.objects.filter(
-               store=store, list_product=True).select_related('product').order_by("-id")
+            store=store, list_product=True
+         ).select_related(
+            'product__category', 
+            'product__subcategory', 
+            'product__producttype',
+            'store'
+         ).prefetch_related(
+            'product__images',
+            'product__product_variants'
+         ).order_by("-id")
          return queryset
       except Store.DoesNotExist:
          logging.error("Store with ID %s does not exist.", store_host)
@@ -992,3 +997,47 @@ class CustomResetPasswordConfirm(generics.GenericAPIView):
          return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
       except ResetPasswordToken.DoesNotExist:
          return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+class EmailVerificationViewSet(viewsets.ViewSet):
+   """
+   Handle email verification token operations
+   """
+   renderer_classes = [JSONRenderer]
+   
+   @method_decorator([csrf_exempt, never_cache])
+   @action(detail=False, methods=['post'], url_path='resend-verification')
+   def resend_verification(self, request):
+      """
+      Resend email verification token to user
+      """
+      serializer = ResendVerificationSerializer(
+         data=request.data, 
+         context={'request': request}
+      )
+      
+      if serializer.is_valid():
+         try:
+               user = serializer.save()
+               return Response({
+                  'success': True,
+                  'message': f'Verification email has been sent to {user.email}. Please check your inbox and spam folder.',
+                  'email': user.email
+               }, status=status.HTTP_200_OK)
+               
+         except ValidationError as e:
+               return Response({
+                  'success': False,
+                  'error': e.detail if hasattr(e, 'detail') else str(e)
+               }, status=status.HTTP_400_BAD_REQUEST)
+         except Exception as e:
+               logger.error(f"Unexpected error in resend verification: {str(e)}")
+               return Response({
+                  'success': False,
+                  'error': 'An unexpected error occurred. Please try again later.'
+               }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+      
+      return Response({
+         'success': False,
+         'errors': serializer.errors
+      }, status=status.HTTP_400_BAD_REQUEST)
+

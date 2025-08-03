@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Removed - RockTeaMall</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #dc3545; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px 20px; background: #f8f9fa; }
+        .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        .btn { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗑️ Store Removed</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hello {{ full_name }},</h2>
+            
+            <p>We're writing to confirm that your dropshipper store has been successfully removed from RockTeaMall.</p>
+            
+            <div class="warning">
+                <strong>Store Details:</strong><br>
+                <strong>Store Name:</strong> {{ store_name }}<br>
+                <strong>Domain:</strong> {{ store_domain }}<br>
+                <strong>Removal Date:</strong> {{ deletion_date }}
+            </div>
+            
+            <p>The following actions have been completed:</p>
+            <ul>
+                <li>✅ Store account deactivated</li>
+                <li>✅ Custom domain removed from DNS</li>
+                <li>✅ All store data archived</li>
+                <li>✅ Product listings removed</li>
+            </ul>
+            
+            <p><strong>Important:</strong> This action is permanent. If you need to create a new store in the future, you'll need to go through the setup process again.</p>
+            
+            <p>If you have any questions or believe this was done in error, please contact our support team immediately.</p>
+            
+            <p>
+                <a href="mailto:{{ support_email }}" class="btn">Contact Support</a>
+            </p>
+            
+            <p>Thank you for being part of the RockTeaMall community.</p>
+            
+            <p>Best regards,<br>
+            The RockTeaMall Team</p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; {{ current_year }} RockTeaMall. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

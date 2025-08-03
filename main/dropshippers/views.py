@@ -47,11 +47,12 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    ordering_fields = ['date_joined', 'last_login', 'total_revenue']
 
    def get_serializer_class(self):
-      if self.action == 'list':
-         return DropshipperListSerializer
-      elif self.action in ['create', 'retrieve', 'update', 'partial_update']:
-         return DropshipperDetailSerializer
-      return DropshipperAdminSerializer
+    if self.action == 'list':
+        return DropshipperListSerializer
+    elif self.action == 'create':
+        return DropshipperAdminSerializer
+    elif self.action in ['retrieve', 'update', 'partial_update']:
+        return DropshipperDetailSerializer
 
    def destroy(self, request, *args, **kwargs):
       instance = self.get_object()

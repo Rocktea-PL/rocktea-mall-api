@@ -4,5 +4,5 @@ from .views import AssignedOrders
 
 urlpatterns = [
    # path('buy', CreateOrder.as_view(), name='make-order')
-   path('my-orders/<str:rider>', AssignedOrders.as_view(), name='my_orders')
+   path('my-orders/<str:rider>', AssignedOrders.as_view(), name='my_orders'),
 ]

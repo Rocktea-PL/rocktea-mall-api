@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚠️ Store Created - Domain Setup in Progress</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      max-width: 600px;
+      margin: 0 auto;
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      padding: 0;
+      color: #333;
+    }
+    .container {
+      background: #ffffff;
+      margin: 20px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    .header {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+      color: white;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 26px;
+    }
+    .content {
+      padding: 40px 30px;
+    }
+    .warning-badge {
+      background: #f59e0b;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 20px;
+    }
+    .status-box {
+      background: #fffbeb;
+      padding: 25px;
+      border-radius: 10px;
+      border-left: 5px solid #f59e0b;
+      margin: 25px 0;
+    }
+    .progress-steps {
+      background: #f0f9ff;
+      padding: 20px;
+      border-radius: 10px;
+      border-left: 5px solid #0ea5e9;
+      margin: 25px 0;
+    }
+    .footer {
+      background: #f1f5f9;
+      padding: 30px;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+    }
+    .logo {
+      max-width: 180px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <img src="https://yourockteamall.com/logo.png" alt="RockTeaMall" class="logo">
+      <h1>⚠️ Store Created Successfully</h1>
+      <p>Domain setup is currently in progress</p>
+    </div>
+
+    <div class="content">
+      <div class="warning-badge">⏳ Domain Setup Pending</div>
+      
+      <p>Hi {{ full_name }},</p>
+      
+      <p>Great news! Your store <strong>{{ store_name }}</strong> has been successfully created. However, we're currently working on setting up your custom domain.</p>
+
+      <div class="status-box">
+        <h3>📋 Current Status</h3>
+        <p><strong>Store Name:</strong> {{ store_name }}</p>
+        <p><strong>Store ID:</strong> {{ store_id }}</p>
+        <p><strong>Intended Domain:</strong> {{ attempted_domain }}</p>
+        <p><strong>Status:</strong> Domain setup in progress</p>
+      </div>
+
+      <div class="progress-steps">
+        <h3>🔄 What's Happening</h3>
+        <ul>
+          <li>✅ Your store has been created successfully</li>
+          <li>⏳ DNS record creation is in progress</li>
+          <li>🔄 Our technical team is working on the domain setup</li>
+          <li>📧 You'll receive another email once your domain is ready</li>
+        </ul>
+      </div>
+
+      <p><strong>Expected Resolution Time:</strong> 15-30 minutes</p>
+
+      <p>You can continue setting up your store (adding products, customizing appearance) while we work on the domain. You'll receive another email with your store link once the domain is ready.</p>
+
+      <p>If you don't receive an update within 2 hours, please contact our support team at <a href="mailto:{{ support_email }}">{{ support_email }}</a> with your Store ID: <strong>{{ store_id }}</strong></p>
+
+      <p>Thank you for your patience!</p>
+    </div>
+
+    <div class="footer">
+      <p><strong>RockTeaMall Technical Team</strong></p>
+      <p>Questions? Contact us at {{ support_email }}</p>
+      <p>&copy; {{ current_year }} RockTeaMall. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

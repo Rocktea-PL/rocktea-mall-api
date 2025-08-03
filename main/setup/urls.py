@@ -26,7 +26,8 @@ from mall.views import (
         ShippingDataView,
         ProductReviewViewSet,
         DropshipperReviewViewSet,
-        ProductRatingViewSet
+        ProductRatingViewSet,
+        EmailVerificationViewSet
 )
 
 from mall.custom_view.reportuser import ReportUserView
@@ -158,6 +159,9 @@ urlpatterns = [
     ])),
 
     path('verify-email/', VerifyEmail.as_view(), name='verify-email'),
+    path('resend-verification-email/', 
+     EmailVerificationViewSet.as_view({'post': 'resend_verification'}), 
+     name='resend-verification-email'),
 ]
 
 urlpatterns += router.urls

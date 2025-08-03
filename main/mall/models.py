@@ -11,6 +11,8 @@ from django.contrib.postgres.fields import ArrayField
 from cloudinary.models import CloudinaryField
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
+from django.core.validators import MinLengthValidator
+# from .file_validation import validate_file_size, validate_image_file
 
 # Conditionally import Cloudinary storage
 if not os.environ.get('CI', False):
@@ -56,18 +58,18 @@ class CustomUser(AbstractUser):
 
     id = models.CharField(default=uuid4, unique=True,
                           primary_key=True, db_index=True, max_length=36)
-    username = models.CharField(max_length=7, unique=True)
+    username = models.CharField(max_length=50, validators=[MinLengthValidator(3)], unique=True)
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=250)
     last_name = models.CharField(max_length=250)
     contact = PhoneNumberField(unique=True, null=True, blank=True)
-    is_store_owner = models.BooleanField(default=False)
+    is_store_owner = models.BooleanField(default=False, db_index=True)
     is_consumer = models.BooleanField(default=False)
-    is_logistics = models.BooleanField(default=False)
-    is_operations = models.BooleanField(default=False)
+    is_logistics = models.BooleanField(default=False, db_index=True)
+    is_operations = models.BooleanField(default=False, db_index=True)
     password = models.CharField(max_length=200)
     associated_domain = models.ForeignKey(
-        "Store", on_delete=models.CASCADE, null=True)
+        "Store", on_delete=models.CASCADE, null=True, db_index=True)
     profile_image = models.FileField(storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None, blank=True, null=True)
 
     # Registration Progress: This Records the User registration stage
@@ -75,8 +77,8 @@ class CustomUser(AbstractUser):
 
     # Services Extension
     type = models.CharField(choices=SERVICE_TYPE, max_length=18, null=True)
-    is_services = models.BooleanField(default=False)
-    is_verified = models.BooleanField(default=False)
+    is_services = models.BooleanField(default=False, db_index=True)
+    is_verified = models.BooleanField(default=False, db_index=True)
     verification_token = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     verification_token_created_at = models.DateTimeField(null=True, blank=True)
 
@@ -86,9 +88,12 @@ class CustomUser(AbstractUser):
     objects = CustomUserManager()
 
     class Meta:
-        # Add an index for the 'uid' field
         indexes = [
             models.Index(fields=['id'], name='id_idx'),
+            models.Index(fields=['email'], name='user_email_idx'),
+            models.Index(fields=['is_store_owner'], name='user_store_owner_idx'),
+            models.Index(fields=['is_verified'], name='user_verified_idx'),
+            models.Index(fields=['verification_token'], name='user_token_idx'),
         ]
 
     def save(self, *args, **kwargs):
@@ -158,6 +163,7 @@ class Store(models.Model):
         validators=[YearValidator], null=True)
     category = models.ForeignKey(
         'Category', on_delete=models.CASCADE, null=True)
+    slug = models.SlugField(max_length=200, unique=True, blank=True)
     domain_name = models.CharField(max_length=255, null=True, unique=True, blank=True)
     dns_record_created = models.BooleanField(default=False)
     completed = models.BooleanField(default=False)
@@ -185,7 +191,8 @@ class Store(models.Model):
         indexes = [
             models.Index(fields=['id'], name='store_id_idx'),
             models.Index(fields=['owner'], name='store_owner_ownerx'),
-            models.Index(fields=['name'], name='store_name_namex')
+            models.Index(fields=['name'], name='store_name_namex'),
+            models.Index(fields=['slug'], name='store_slug_idx'),
         ]
 
     def __str__(self):
@@ -194,13 +201,16 @@ class Store(models.Model):
     def save(self, *args, **kwargs):
         # Generate slug if not already set
         if not self.slug and self.name:
-            self.slug = slugify(self.name)
-            # Ensure slug uniqueness if there's a possibility of collision
-            original_slug = self.slug
+            base_slug = slugify(self.name)
+            slug = base_slug
             counter = 1
-            while Store.objects.filter(slug=self.slug).exists():
-                self.slug = f"{original_slug}-{counter}"
+            
+            # Ensure slug uniqueness
+            while Store.objects.filter(slug=slug).exclude(id=self.id).exists():
+                slug = f"{base_slug}-{counter}"
                 counter += 1
+            
+            self.slug = slug
         if self.has_made_payment:
             self.completed = True
         super().save(*args, **kwargs)
@@ -309,7 +319,9 @@ class ProductRating(models.Model):
       return self.product.id
 
 class ProductImage(models.Model):
-    images = models.FileField(storage=RawMediaCloudinaryStorage)
+    images = models.FileField(
+        storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None
+    )
 
     class Meta:
         indexes = [
@@ -471,6 +483,12 @@ class MarketPlace(models.Model):
     product = models.ForeignKey(
         Product, related_name="products", on_delete=models.CASCADE, null=True, db_index=True)
     list_product = models.BooleanField(default=True, db_index=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['store', 'list_product'], name='marketplace_store_list_idx'),
+            models.Index(fields=['product', 'list_product'], name='marketplace_product_list_idx'),
+        ]
 
     def __repr__(self):
         return f"MarketPlace(store={self.store.name}, product={self.product}, list_product={self.list_product})"
