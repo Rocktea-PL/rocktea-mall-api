@@ -10,6 +10,10 @@ py -3 -m venv .venv
 ```bash
 .venv\Scripts\activate
 ```
+## linux user
+```bash
+source venv/bin/activate
+```
 
 ## install requirements from requirements.txt
 ```bash
