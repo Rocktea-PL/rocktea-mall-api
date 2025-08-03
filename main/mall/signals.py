@@ -44,38 +44,45 @@ def create_dropshipper_dns_record(sender, instance, created, **kwargs):
     if not created or instance.dns_record_created:
         return
         
-    env_config = determine_environment_config(get_current_request())
+    # Use transaction.on_commit to ensure email is sent after successful DB commit
+    from django.db import transaction
     
-    # Handle local environment
-    if env_config.get('is_local', False):
-        send_local_development_email(instance, instance.domain_name)
-        return
-    
-    # Extract domain from domain_name for DNS creation
-    domain_match = re.search(r'https://([^?]+)', instance.domain_name or '')
-    if not domain_match:
-        logger.error(f"Invalid domain_name for store {instance.name}")
-        return
+    def send_store_email():
+        env_config = determine_environment_config(get_current_request())
         
-    full_domain = domain_match.group(1)
-    
-    try:
-        # Create DNS record
-        if create_cname_record(
-            zone_id=env_config['hosted_zone_id'],
-            subdomain=full_domain,
-            target=env_config['target_domain']
-        ):
-            instance.dns_record_created = True
-            instance.save(update_fields=['dns_record_created'])
-            # Only send email after DNS is successfully created
-            send_store_success_email(instance, instance.domain_name, env_config['environment'])
-        else:
-            send_store_dns_failure_email(instance, full_domain)
+        # Handle local environment
+        if env_config.get('is_local', False):
+            send_local_development_email(instance, instance.domain_name)
+            return
+        
+        # Extract domain from domain_name for DNS creation
+        domain_match = re.search(r'https://([^?]+)', instance.domain_name or '')
+        if not domain_match:
+            logger.error(f"Invalid domain_name for store {instance.name}")
+            return
             
-    except Exception as e:
-        logger.error(f"DNS creation failed for {instance.name}: {e}")
-        send_store_dns_error_email(instance, str(e))
+        full_domain = domain_match.group(1)
+        
+        try:
+            # Create DNS record
+            if create_cname_record(
+                zone_id=env_config['hosted_zone_id'],
+                subdomain=full_domain,
+                target=env_config['target_domain']
+            ):
+                instance.dns_record_created = True
+                instance.save(update_fields=['dns_record_created'])
+                # Only send email after DNS is successfully created
+                send_store_success_email(instance, instance.domain_name, env_config['environment'])
+            else:
+                send_store_dns_failure_email(instance, full_domain)
+                
+        except Exception as e:
+            logger.error(f"DNS creation failed for {instance.name}: {e}")
+            send_store_dns_error_email(instance, str(e))
+    
+    # Schedule email sending after transaction commits
+    transaction.on_commit(send_store_email)
 
 def send_local_development_email(store_instance, store_url):
     """Send welcome email for local development environment"""
@@ -215,7 +222,7 @@ def create_marketplace(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=CustomUser)
 def delete_dropshipper_domain(sender, instance, **kwargs):
-    """Delete DNS record when dropshipper is deleted using async task for better performance"""
+    """Delete DNS record when dropshipper is deleted"""
     if not instance.is_store_owner:
         return
         
@@ -224,57 +231,46 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         if hasattr(instance, 'owners') and instance.owners:
             store = instance.owners
             
+            # Store data before deletion for email
+            user_email = instance.email
+            user_name = instance.get_full_name() or instance.first_name or instance.email
+            store_name = store.name
+            store_domain = store.domain_name
+            
             # Only delete DNS if it was actually created
             if store.dns_record_created and store.slug:
-                logger.info(f"Queuing DNS deletion for dropshipper: {instance.email}, store: {store.name}")
+                logger.info(f"Processing DNS deletion for dropshipper: {user_email}, store: {store_name}")
                 
-                # Check if Celery is available
-                if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
-                    _delete_store_dns_sync(instance, store)
-                    logger.info(f"Queued DNS deletion task for store: {store.name}")
-                else:
-                    # Fallback to synchronous processing
-                    logger.info(f"Celery not configured, processing DNS deletion synchronously")
-                    _delete_store_dns_sync(instance, store)
+                try:
+                    success = delete_store_dns_record(store.slug)
+                    
+                    if success:
+                        logger.info(f"Successfully deleted DNS record for store: {store_name}")
+                        # Send success email after deletion
+                        _send_deletion_success_email(user_email, user_name, store_name, store_domain)
+                    else:
+                        logger.error(f"Failed to delete DNS record for store: {store_name}")
+                        _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
+                        
+                except Exception as dns_error:
+                    logger.error(f"DNS deletion error for store {store_name}: {dns_error}")
+                    _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
             else:
-                logger.info(f"No DNS record to delete for store: {store.name if store else 'Unknown'}")
+                logger.info(f"No DNS record to delete for store: {store_name}")
                 
     except Exception as e:
-        logger.error(f"Error queuing DNS deletion for dropshipper {instance.email}: {e}")
-        # Fallback to synchronous processing if available
-        try:
-            if hasattr(instance, 'owners') and instance.owners:
-                _delete_store_dns_sync(instance, instance.owners)
-        except:
-            pass
+        logger.error(f"Error in delete_dropshipper_domain for {instance.email}: {e}")
 
 
-def _delete_store_dns_sync(user_instance, store_instance):
-    """Synchronous DNS deletion fallback"""
-    try:
-        success = delete_store_dns_record(store_instance.slug)
-        
-        if success:
-            logger.info(f"Successfully deleted DNS record for store: {store_instance.name}")
-            send_store_deletion_email(user_instance, store_instance)
-        else:
-            logger.error(f"Failed to delete DNS record for store: {store_instance.name}")
-            send_store_deletion_failure_email(user_instance, store_instance)
-            
-    except Exception as e:
-        logger.error(f"Error in synchronous DNS deletion: {e}")
-        send_store_deletion_failure_email(user_instance, store_instance)
-
-
-def send_store_deletion_email(user_instance, store_instance):
+def _send_deletion_success_email(user_email, user_name, store_name, store_domain):
     """Send email notification when store and domain are successfully deleted"""
     try:
         subject = "🗑️ Your Store Has Been Removed - RockTeaMall"
         
         context = {
-            "full_name": user_instance.get_full_name() or user_instance.first_name or user_instance.email,
-            "store_name": store_instance.name,
-            "store_domain": store_instance.domain_name,
+            "full_name": user_name,
+            "store_name": store_name,
+            "store_domain": store_domain,
             "deletion_date": timezone.now().strftime("%B %d, %Y at %I:%M %p"),
             "current_year": timezone.now().year,
             "support_email": "support@yourockteamall.com",
@@ -282,42 +278,42 @@ def send_store_deletion_email(user_instance, store_instance):
         
         from setup.utils import sendEmail
         sendEmail(
-            recipientEmail=user_instance.email,
+            recipientEmail=user_email,
             template_name='emails/store_deletion_success.html',
             context=context,
             subject=subject,
             tags=["store-deleted", "domain-removed", "account-closure"]
         )
         
-        logger.info(f"Store deletion email sent to {user_instance.email} for store: {store_instance.name}")
+        logger.info(f"Store deletion email sent to {user_email} for store: {store_name}")
         
     except Exception as e:
-        logger.error(f"Error sending store deletion email for {store_instance.name}: {e}")
+        logger.error(f"Error sending store deletion email for {store_name}: {e}")
 
 
-def send_store_deletion_failure_email(user_instance, store_instance):
+def _send_deletion_failure_email(user_email, user_name, store_name, store_domain):
     """Send email when DNS deletion fails"""
     try:
         subject = "⚠️ Store Removal - Domain Cleanup Issue"
         
         context = {
-            "full_name": user_instance.get_full_name() or user_instance.first_name or user_instance.email,
-            "store_name": store_instance.name,
-            "store_domain": store_instance.domain_name,
+            "full_name": user_name,
+            "store_name": store_name,
+            "store_domain": store_domain,
             "current_year": timezone.now().year,
             "support_email": "support@yourockteamall.com",
         }
         
         from setup.utils import sendEmail
         sendEmail(
-            recipientEmail=user_instance.email,
+            recipientEmail=user_email,
             template_name='emails/store_deletion_failure.html',
             context=context,
             subject=subject,
             tags=["store-deleted", "dns-cleanup-failed", "manual-intervention"]
         )
         
-        logger.info(f"Store deletion failure email sent to {user_instance.email} for store: {store_instance.name}")
+        logger.info(f"Store deletion failure email sent to {user_email} for store: {store_name}")
         
     except Exception as e:
-        logger.error(f"Error sending store deletion failure email for {store_instance.name}: {e}")
+        logger.error(f"Error sending store deletion failure email for {store_name}: {e}")

@@ -226,9 +226,10 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                     )
                     
                 # Only send email if both user and store creation were successful
-                # and we're still inside the successful transaction
+                # Schedule email after transaction commits to ensure data consistency
                 if store:
-                    self.send_admin_created_email(user)
+                    from django.db import transaction
+                    transaction.on_commit(lambda: self.send_admin_created_email(user))
                     
         except IntegrityError as e:
             if 'duplicate key value violates unique constraint "mall_store_name_key"' in str(e):

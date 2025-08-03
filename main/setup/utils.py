@@ -14,13 +14,15 @@ def sendEmail(recipientEmail: str, template_name: str, context: dict, subject: s
     """
     try:
         # Call the Celery task asynchronously with correct parameter name
-        send_email_task.delay(
+        task_result = send_email_task.delay(
             recipient_email=recipientEmail,
             template_name=template_name,
             context=context,
             subject=subject,
             tags=tags
         )
-        logger.info(f"Email sending task for {recipientEmail} with subject '{subject}' dispatched to Celery.")
+        logger.info(f"Email task {task_result.id} dispatched for {recipientEmail} with subject '{subject}'")
+        return task_result.id
     except Exception as e:
         logger.error(f"Failed to dispatch email task to Celery for {recipientEmail}: {str(e)}")
+        return None

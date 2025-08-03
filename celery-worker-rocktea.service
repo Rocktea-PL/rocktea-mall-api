@@ -1,0 +1,55 @@
+[Unit]
+Description=Celery Worker for Rocktea Mall Django project
+After=network.target redis-server.service postgresql.service
+Wants=redis-server.service
+
+[Service]
+Type=forking
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/django-app/dev/main
+EnvironmentFile=/home/ubuntu/django-app/dev/main/setup/.env
+
+# Optimized worker configuration for email processing
+ExecStart=/home/ubuntu/django-app/dev/venv/bin/celery -A setup worker \
+    --loglevel=info \
+    --pool=solo \
+    --concurrency=1 \
+    --events \
+    --time-limit=600 \
+    --soft-time-limit=540 \
+    --max-tasks-per-child=100 \
+    --prefetch-multiplier=1 \
+    --without-gossip \
+    --without-mingle \
+    --without-heartbeat \
+    --detach \
+    --pidfile=/var/run/celery/worker.pid \
+    --logfile=/var/log/celery/worker.log
+
+# Health check and restart configuration
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -TERM $MAINPID
+PIDFile=/var/run/celery/worker.pid
+
+# Restart configuration
+Restart=always
+RestartSec=10s
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+
+# Logging
+StandardOutput=append:/var/log/celery/worker.log
+StandardError=append:/var/log/celery/worker.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

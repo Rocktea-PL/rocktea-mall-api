@@ -130,6 +130,8 @@ INSTALLED_APPS = [
     'drf_yasg',
     "whitenoise.runserver_nostatic",
 
+    'django_celery_beat',
+
     # Your apps
     "order",
     "services",
