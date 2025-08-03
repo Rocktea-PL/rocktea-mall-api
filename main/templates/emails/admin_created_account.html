@@ -125,19 +125,20 @@
             <div class="account-details">
                 <h3 style="color: #1565c0; margin-top: 0;">Your Account Details</h3>
                 <ul style="list-style: none; padding: 0;">
-                    <li style="margin: 8px 0;"><strong>📧 Email:</strong> {{user_email}}</li>
+                    <li style="margin: 8px 0;"><strong>📧 Email:</strong> {{owner_email}}</li>
                     <li style="margin: 8px 0;"><strong>🏪 Store Name:</strong> {{store_name}}</li>
                     <li style="margin: 8px 0;"><strong>📅 Account Created:</strong> Today</li>
-                    {% if has_password %}
-                    <li style="margin: 8px 0;"><strong>🔐 Status:</strong> Password set - You're ready to login!</li>
-                    {% else %}
-                    <li style="margin: 8px 0;"><strong>🔐 Status:</strong> Please contact admin for login credentials</li>
-                    {% endif %}
                 </ul>
             </div>
 
             <div style="text-align: center;">
-                <a href="{{dashboard_url}}" class="cta-button">Access Your Dashboard</a>
+                
+                <a href="{{store_domain}}" class="cta-button">Access Your Dashboard</a>
+                {% if store_domain != 'Pending setup' %}
+                    <a href="{{store_domain}}" class="cta-button">Access Your Store</a>
+                {% else %}
+                    <p style="margin-bottom: 0; color: #856404;">Store status: {{store_domain}}</p>
+                {% endif %}
             </div>
 
             <div class="feature-list">

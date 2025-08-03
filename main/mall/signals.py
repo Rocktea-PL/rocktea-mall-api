@@ -220,13 +220,7 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
                 
                 # Check if Celery is available
                 if hasattr(settings, 'CELERY_BROKER_URL') and settings.CELERY_BROKER_URL:
-                    # Use async task for better performance
-                    from .tasks import delete_store_dns_async
-                    delete_store_dns_async.delay(
-                        store.slug, 
-                        instance.email, 
-                        store.name
-                    )
+                    _delete_store_dns_sync(instance, store)
                     logger.info(f"Queued DNS deletion task for store: {store.name}")
                 else:
                     # Fallback to synchronous processing

@@ -240,23 +240,20 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         return user
 
     def send_admin_created_email(self, user, store):
-        request = self.context.get("request")
-        current_site = get_current_site(request).domain if request else "yourockteamall.com"
-        protocol = request.scheme if request else "https"
-        domain_name = f"{protocol}://{current_site}"
+        if store.domain_name:
+            domain_name = store.domain_name
 
         try:
             from setup.utils import sendEmail
             subject = "Welcome to Rocktea Mall - Your Account is Ready!"
             context = {
-                'full_name': user.get_full_name() or user.email,
+                'full_name': user.get_full_name() or user.first_name or user.email,
                 'store_name': store.name,
-                'dashboard_url': f"{domain_name}/dashboard",
-                'login_url': f"{domain_name}/login",
-                'support_email': "support@yourockteamall.com",
+                'store_domain': store.domain_name or 'Pending setup',
+                'support_email': 'support@yourockteamall.com',
                 'current_year': timezone.now().year,
-                'user_email': user.email,
-                'has_password': bool(user.password),
+                'owner_email': user.email,
+                'is_local': False,
             }
             sendEmail(
                 recipientEmail=user.email,
