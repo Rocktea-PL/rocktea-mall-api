@@ -1,0 +1,28 @@
+[Unit]
+Description=Celery Worker for Rocktea Mall Django project
+After=network.target redis-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/django-app/dev/main
+EnvironmentFile=/home/ubuntu/django-app/dev/main/setup/.env
+
+# Multi-threaded worker configuration for concurrent email processing
+ExecStart=/home/ubuntu/django-app/dev/venv/bin/celery -A setup worker \
+    --loglevel=info \
+    --pool=prefork \
+    --concurrency=4 \
+    --events \
+    --time-limit=300 \
+    --soft-time-limit=240 \
+    --queues=default,emails
+
+Restart=always
+RestartSec=5s
+StandardOutput=append:/var/log/celery/worker.log
+StandardError=append:/var/log/celery/worker.log
+
+[Install]
+WantedBy=multi-user.target
