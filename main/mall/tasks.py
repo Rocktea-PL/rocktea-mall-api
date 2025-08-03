@@ -10,7 +10,6 @@ from workshop.route53 import create_cname_record, delete_store_dns_record
 from setup.utils import sendEmail
 from order.models import StoreOrder
 from order.shipbubble_service import ShipbubbleService
-from cloudinary.uploader import upload_large
 from .cloudinary_utils import CloudinaryOptimizer
 from .cache_utils import CacheManager
 

@@ -6,7 +6,7 @@ from mall.models import CustomUser, Store
 from django.utils import timezone
 from django.utils.timezone import now
 from django.db import transaction, IntegrityError
-from django.contrib.sites.shortcuts import get_current_site
+from setup.utils import sendEmail
 import logging
 
 logger = logging.getLogger(__name__)
@@ -228,7 +228,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                 # Only send email if both user and store creation were successful
                 # and we're still inside the successful transaction
                 if store:
-                    self.send_admin_created_email(user, store)
+                    self.send_admin_created_email(user)
                     
         except IntegrityError as e:
             if 'duplicate key value violates unique constraint "mall_store_name_key"' in str(e):
@@ -239,17 +239,13 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
         return user
 
-    def send_admin_created_email(self, user, store):
-        if store.domain_name:
-            domain_name = store.domain_name
+    def send_admin_created_email(self, user):
 
         try:
-            from setup.utils import sendEmail
             subject = "Welcome to Rocktea Mall - Your Account is Ready!"
             context = {
                 'full_name': user.get_full_name() or user.first_name or user.email,
-                'store_name': store.name,
-                'store_domain': store.domain_name or 'Pending setup',
+                'store_domain': 'Pending setup',
                 'support_email': 'support@yourockteamall.com',
                 'current_year': timezone.now().year,
                 'owner_email': user.email,
