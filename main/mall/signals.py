@@ -95,6 +95,7 @@ def send_local_development_email(store_instance, store_url):
 
 def send_store_success_email(store_instance, store_url, environment):
     """Send success email when store and DNS are created successfully"""
+    logger.info(f"Sending store email from send_store_success_email {store_instance.name}")
     _send_store_email(
         store_instance,
         "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
@@ -106,6 +107,9 @@ def send_store_success_email(store_instance, store_url, environment):
         },
         ["store-created", "domain-provisioned", "success"]
     )
+    logger.info(f"At the end of store email from send_store_success_email {store_instance.name}")
+    logger.info(f"At the end of store email from send_store_success_email with store url {store_url}")
+    logger.info(f"At the end of store email from send_store_success_email with store environment {environment}")
 
 def _send_store_email(store_instance, subject, template, extra_context, tags):
     """Helper function to send store-related emails"""
@@ -118,15 +122,17 @@ def _send_store_email(store_instance, subject, template, extra_context, tags):
             "owner_email": store_instance.owner.email,
             **extra_context
         }
+        logger.info(f"Logging full context from _send_store_email {context}")
         
         from setup.utils import sendEmail
-        sendEmail(
+        respond = sendEmail(
             recipientEmail=store_instance.owner.email,
             template_name=template,
             context=context,
             subject=subject,
             tags=tags
         )
+        logger.info(f"Logging full after sending email from _send_store_email with respond {respond}")
         
     except Exception as e:
         logger.error(f"Error sending email for store {store_instance.name}: {e}")
