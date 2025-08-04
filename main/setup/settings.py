@@ -46,8 +46,11 @@ except (KeyError, ValueError):
 PRODUCTION = env('ENV', default='development') == 'production'
 ENVIRONMENT = env('ENVIRONMENT', default='development')
 ENV = env('ENV', default='development')
-# Debug settings
-DEBUG = env.bool('DJANGO_DEBUG', default=not PRODUCTION)
+# Debug settings - Force False in production
+if PRODUCTION:
+    DEBUG = False
+else:
+    DEBUG = env.bool('DJANGO_DEBUG', default=True)
 os.environ['DJANGO_DEBUG'] = str(DEBUG)
 
 
@@ -57,33 +60,12 @@ if PRODUCTION:
         "rocktea-mall.vercel.app",
         "rocktea-dropshippers.vercel.app",
         "rocktea-users.vercel.app",
-
-        # API Domains
         "api-dev.yourockteamall.com",
         "api.yourockteamall.com",
         "rocktea-mall-api-production.up.railway.app",
-        "rocktea-mall-api-test.up.railway.app", # Keep test API if it's still used
-
-        # Frontend Domains (if they hit this Django app directly for any reason, e.g., static files)
-        '.yourockteamall.com',  # Allows any subdomain of yourockteamall.com
-        '.user-dev.yourockteamall.com',
-        "user-dev.yourockteamall.com",
-        "www.user-dev.yourockteamall.com",
-        "yourockteamall.com",
-        "www.yourockteamall.com",
-        "dropshippers.yourockteamall.com",
-        "www.dropshippers.yourockteamall.com",
-        "dropshippers-dev.yourockteamall.com",
-        "www.dropshippers-dev.yourockteamall.com",
-        "admin.yourockteamall.com",
-        "www.admin.yourockteamall.com",
-        "admin-dev.yourockteamall.com",
-        "www.admin-dev.yourockteamall.com",
-        
-        # Direct IP access
+        "rocktea-mall-api-test.up.railway.app",
+        '.yourockteamall.com',
         "18.217.233.199",
-        
-        # Internal hostname resolution
         socket.gethostname()
     ]
     SECURE_SSL_REDIRECT = True
@@ -91,6 +73,14 @@ if PRODUCTION:
     CSRF_COOKIE_SECURE = True
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_BROWSER_XSS_FILTER = True
+    
+    # Production optimizations
+    CONN_MAX_AGE = 600
+    SESSION_COOKIE_AGE = 3600
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 else:
     ALLOWED_HOSTS = ["*"]
     SECURE_SSL_REDIRECT = False
@@ -159,6 +149,9 @@ MIDDLEWARE = [
     
     # File validation (simple version without python-magic)
     'mall.simple_file_validation.SimpleFileUploadMiddleware',
+    
+    # Query monitoring (only in debug)
+    'mall.query_monitor.QueryCountMiddleware',
     
     # Other middleware
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -499,6 +492,27 @@ CELERY_TASK_ANNOTATIONS = {
         'rate_limit': '10/m',  # 10 emails per minute to respect Brevo limits
     },
 }
+
+# Performance optimizations
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': REDIS_URL,
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'CONNECTION_POOL_KWARGS': {'max_connections': 50},
+        },
+        'KEY_PREFIX': 'rocktea_mall',
+        'TIMEOUT': 3600,  # 1 hour default
+    }
+}
+
+# Database connection pooling
+DATABASES['default']['CONN_MAX_AGE'] = 600  # 10 minutes
+
+# Query optimization settings
+DATABASE_QUERY_TIMEOUT = 30  # 30 seconds
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB
 
 CELERY_TASK_ROUTES = {
     'setup.tasks.send_email_task': {'queue': 'emails'},

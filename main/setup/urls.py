@@ -29,6 +29,7 @@ from mall.views import (
         ProductRatingViewSet,
         EmailVerificationViewSet
 )
+from mall.health_views import health_check
 
 from mall.custom_view.reportuser import ReportUserView
 from order.views import (
@@ -162,6 +163,7 @@ urlpatterns = [
     path('resend-verification-email/', 
      EmailVerificationViewSet.as_view({'post': 'resend_verification'}), 
      name='resend-verification-email'),
+    path('health/', health_check, name='health_check'),
 ]
 
 urlpatterns += router.urls

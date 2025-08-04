@@ -25,6 +25,35 @@ else:
 def generate_unique_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
 
+# Optimized managers
+class OptimizedProductManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'category', 'subcategory', 'producttype', 'brand'
+        ).prefetch_related('images', 'product_variants')
+    
+    def available(self):
+        return self.get_queryset().filter(is_available=True, upload_status='Approved')
+    
+    def by_category(self, category_id):
+        return self.available().filter(category_id=category_id)
+
+class OptimizedStoreManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().select_related('owner', 'category')
+    
+    def completed(self):
+        return self.get_queryset().filter(completed=True)
+
+class OptimizedMarketPlaceManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().select_related(
+            'store', 'product__category', 'product__brand'
+        ).prefetch_related('product__images')
+    
+    def listed(self):
+        return self.get_queryset().filter(list_product=True)
+
 class CustomUserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         # Create a standard user
@@ -168,6 +197,8 @@ class Store(models.Model):
     dns_record_created = models.BooleanField(default=False)
     completed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    objects = OptimizedStoreManager()
 
     # Custom Add-Ons
     theme = models.CharField(max_length=6, null=True, blank=True)
@@ -187,12 +218,15 @@ class Store(models.Model):
     has_made_payment = models.BooleanField(default=False)
 
     class Meta:
-        # Add an index for the 'uid' field
         indexes = [
             models.Index(fields=['id'], name='store_id_idx'),
             models.Index(fields=['owner'], name='store_owner_ownerx'),
             models.Index(fields=['name'], name='store_name_namex'),
             models.Index(fields=['slug'], name='store_slug_idx'),
+            # Performance optimizations
+            models.Index(fields=['completed'], name='store_completed_idx'),
+            models.Index(fields=['created_at'], name='store_created_idx'),
+            models.Index(fields=['owner', 'completed'], name='store_owner_completed_idx'),
         ]
 
     def __str__(self):
@@ -244,20 +278,25 @@ class Product(models.Model):
     store = models.ManyToManyField(
         'Store', related_name="store_products", blank=True)
     sales_count = models.IntegerField(default=0)
+    
+    objects = OptimizedProductManager()
 
     class Meta:
-        # Add an index for the 'uid' field
         indexes = [
             models.Index(fields=['id'], name='product_id_idx'),
             models.Index(fields=['sku'], name='product_sku_skux'),
             models.Index(fields=['name'], name='product_name_namex'),
-            models.Index(fields=['category'],
-                         name='product_category_categoryx'),
+            models.Index(fields=['category'], name='product_category_categoryx'),
             models.Index(fields=['subcategory'], name='product_subcategory_idx'),
             models.Index(fields=['producttype'], name='product_producttype_idx'),
             models.Index(fields=['brand'], name='product_brand_idx'),
             models.Index(fields=['is_available'], name='product_available_idx'),
             models.Index(fields=['upload_status'], name='product_status_idx'),
+            # Performance optimizations
+            models.Index(fields=['category', 'is_available'], name='product_cat_avail_idx'),
+            models.Index(fields=['upload_status', 'is_available'], name='product_status_avail_idx'),
+            models.Index(fields=['sales_count'], name='product_sales_idx'),
+            models.Index(fields=['created_at'], name='product_created_idx'),
         ]
 
     def formatted_created_at(self):
@@ -381,7 +420,11 @@ class StoreProductPricing(models.Model):
         indexes = [
             models.Index(fields=['store', 'product']),
             models.Index(fields=['retail_price']),
+            # Performance optimizations
+            models.Index(fields=['store', 'retail_price'], name='store_pricing_price_idx'),
+            models.Index(fields=['created_at'], name='store_pricing_created_idx'),
         ]
+        unique_together = [['store', 'product']]  # Prevent duplicates
 
     def __str__(self):
         return f"{self.store.name} - {self.product.name} (${self.retail_price})"
@@ -483,11 +526,15 @@ class MarketPlace(models.Model):
     product = models.ForeignKey(
         Product, related_name="products", on_delete=models.CASCADE, null=True, db_index=True)
     list_product = models.BooleanField(default=True, db_index=True)
+    
+    objects = OptimizedMarketPlaceManager()
 
     class Meta:
         indexes = [
             models.Index(fields=['store', 'list_product'], name='marketplace_store_list_idx'),
             models.Index(fields=['product', 'list_product'], name='marketplace_product_list_idx'),
+            # Performance optimizations
+            models.Index(fields=['store', 'product', 'list_product'], name='marketplace_composite_idx'),
         ]
 
     def __repr__(self):
@@ -653,3 +700,21 @@ class ShippingData(models.Model):
 
     def __str__(self):
         return self.address
+
+# Cache invalidation signals
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+from django.core.cache import cache
+
+@receiver([post_save, post_delete], sender=Product)
+def invalidate_product_cache(sender, instance, **kwargs):
+    cache.delete('categories_list')
+    cache.delete_pattern('store_stats_*')
+
+@receiver([post_save, post_delete], sender=StoreProductPricing)
+def invalidate_store_pricing_cache(sender, instance, **kwargs):
+    cache.delete(f'store_stats_{instance.store.id}')
+
+@receiver([post_save, post_delete], sender=MarketPlace)
+def invalidate_marketplace_cache(sender, instance, **kwargs):
+    cache.delete(f'store_stats_{instance.store.id}')

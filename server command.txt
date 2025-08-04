@@ -19,3 +19,86 @@ sudo tail -f /var/log/celery/flower-prod.log
 cd /home/ubuntu/django-app/dev/main
 source ../venv/bin/activate
 celery -A setup flower --port=5555
+
+
+# Apply the optimizations
+python manage.py makemigrations
+python manage.py migrate
+
+# Production deployment workflow:
+# 1. Backup database first
+pg_dump your_db > backup_$(date +%Y%m%d).sql
+
+# 2. Apply migrations normally
+python manage.py migrate
+
+# 3. Check migration status
+python manage.py showmigrations
+
+# 4. Restart services
+sudo systemctl restart your-django-app
+sudo systemctl restart celery-worker-rocktea
+
+# PRODUCTION OPTIMIZATIONS NEEDED:
+
+# 1. Security Settings
+export SECRET_KEY='your-50-char-secret-key'
+export DEBUG=False
+export ALLOWED_HOSTS='yourdomain.com,www.yourdomain.com'
+
+# 2. Gunicorn Configuration
+pip install gunicorn
+gunicorn setup.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120
+
+# 3. Nginx Configuration (create /etc/nginx/sites-available/rocktea)
+sudo nano /etc/nginx/sites-available/rocktea
+
+# 4. Database Optimization
+# Add to settings.py:
+# CONN_MAX_AGE = 600
+# DATABASES['default']['OPTIONS'] = {'MAX_CONNS': 20}
+
+# 5. Static Files Collection
+python manage.py collectstatic --noinput
+
+# 6. Log Rotation Setup
+sudo nano /etc/logrotate.d/rocktea
+
+# 7. Health Check Endpoint
+# Add to urls.py: path('health/', health_check_view)
+
+# 8. Rate Limiting
+pip install django-ratelimit
+
+# 9. Monitoring Setup
+pip install django-prometheus
+
+# FINAL OPTIMIZATIONS:
+
+# 1. Run final optimization script
+chmod +x final_optimizations.sh
+sudo ./final_optimizations.sh
+
+# 2. Setup Nginx (copy nginx_optimization.conf to /etc/nginx/sites-available/rocktea)
+sudo cp nginx_optimization.conf /etc/nginx/sites-available/rocktea
+sudo ln -s /etc/nginx/sites-available/rocktea /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3. Install SSL certificate (Let's Encrypt)
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+# 4. Monitor system performance
+htop  # Check CPU/memory usage
+sudo iotop  # Check disk I/O
+sudo netstat -tulpn | grep :8001  # Check port usage
+
+# 5. Test optimizations
+curl -I http://yourdomain.com/health/  # Health check
+ab -n 100 -c 10 http://yourdomain.com/api/  # Load test
+
+# 6. Monitor logs
+sudo journalctl -u gunicorn-rocktea-prod -f
+sudo tail -f /var/log/nginx/access.log
+
+# Your application is now fully optimized for production!

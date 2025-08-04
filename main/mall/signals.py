@@ -86,127 +86,26 @@ def create_dropshipper_dns_record(sender, instance, created, **kwargs):
 
 def send_local_development_email(store_instance, store_url):
     """Send welcome email for local development environment"""
-    _send_store_email(
-        store_instance,
-        "🎉 Your Dropshipper Store Created (Local Server)",
-        'emails/store_welcome_success.html',
-        {
-            "store_domain": store_url,
-            "environment": "LOCAL SERVER",
-            "is_local": True,
-            "note": "This store was created on a local development server. No AWS DNS records were created.",
-        },
-        ["store-created", "local-server"]
-    )
-
+    from setup.email_service import send_store_welcome_email
+    send_store_welcome_email(store_instance, "LOCAL SERVER", is_local=True)
 
 def send_store_success_email(store_instance, store_url, environment):
     """Send success email when store and DNS are created successfully"""
-    logger.info(f"Sending store email from send_store_success_email {store_instance.name}")
-    _send_store_email(
-        store_instance,
-        "🎉 Your Dropshipper Store is Live – Welcome to RockTeaMall!",
-        'emails/store_welcome_success.html',
-        {
-            "store_domain": store_url,
-            "environment": environment.upper(),
-            "is_local": False,
-        },
-        ["store-created", "domain-provisioned", "success"]
-    )
-    logger.info(f"At the end of store email from send_store_success_email store details {store_instance}")
-    logger.info(f"At the end of store email from send_store_success_email {store_instance.name}")
-    logger.info(f"At the end of store email from send_store_success_email with store url {store_url}")
-    logger.info(f"At the end of store email from send_store_success_email with store environment {environment}")
-    logger.info(f"At the end of store email from send_store_success_email with store id {store_instance.id}")
-
-def _send_store_email(store_instance, subject, template, extra_context, tags):
-    """Helper function to send store-related emails"""
-    try:
-        context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
-            "store_name": store_instance.name,
-            "store_id": str(store_instance.id),
-            "current_year": timezone.now().year,
-            "owner_email": store_instance.owner.email,
-            **extra_context
-        }
-        logger.info(f"Logging full context from _send_store_email {context}")
-        
-        from setup.utils import sendEmail
-        respond = sendEmail(
-            recipientEmail=store_instance.owner.email,
-            template_name=template,
-            context=context,
-            subject=subject,
-            tags=tags
-        )
-        logger.info(f"Logging full after sending email from _send_store_email with respond {respond}")
-        
-    except Exception as e:
-        logger.error(f"Error sending email for store {store_instance.name}: {e}")
-
+    from setup.email_service import send_store_welcome_email
+    logger.info(f"Sending store welcome email for {store_instance.name}")
+    send_store_welcome_email(store_instance, environment)
 
 def send_store_dns_failure_email(store_instance, attempted_domain):
     """Send email when DNS record creation fails"""
-    try:
-        subject = "⚠️ Store Created - Domain Setup in Progress"
-        
-        context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
-            "store_name": store_instance.name,
-            "attempted_domain": attempted_domain,
-            "store_id": str(store_instance.id),
-            "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
-        }
-        
-        from setup.utils import sendEmail
-        sendEmail(
-            recipientEmail=store_instance.owner.email,
-            template_name='emails/store_dns_failure.html',
-            context=context,
-            subject=subject,
-            tags=["store-created", "dns-failure", "pending"]
-        )
-        
-        logger.info(f"DNS failure email sent to {store_instance.owner.email} for store: {store_instance.name}")
-        
-    except Exception as e:
-        logger.error(f"Error sending DNS failure email for store {store_instance.name}: {e}")
-
+    from setup.email_service import send_store_dns_failure_email
+    send_store_dns_failure_email(store_instance, attempted_domain)
+    logger.info(f"DNS failure email sent for store: {store_instance.name}")
 
 def send_store_dns_error_email(store_instance, error_message):
     """Send email when DNS record creation encounters an error"""
-    try:
-        subject = "🔧 Store Created - Technical Issue with Domain Setup"
-        
-        # Create a sanitized error reference
-        error_ref = f"DNS_ERROR_{store_instance.id}_{timezone.now().strftime('%Y%m%d_%H%M')}"
-        
-        context = {
-            "full_name": store_instance.owner.get_full_name() or store_instance.owner.first_name or store_instance.owner.email,
-            "store_name": store_instance.name,
-            "store_id": str(store_instance.id),
-            "error_reference": error_ref,
-            "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
-        }
-        
-        from setup.utils import sendEmail
-        sendEmail(
-            recipientEmail=store_instance.owner.email,
-            template_name='emails/store_dns_error.html',
-            context=context,
-            subject=subject,
-            tags=["store-created", "dns-error", "technical-issue"]
-        )
-        
-        # Also log the full error for debugging
-        logger.error(f"DNS error email sent to {store_instance.owner.email} for store: {store_instance.name}. Error: {error_message}")
-        
-    except Exception as e:
-        logger.error(f"Error sending DNS error email for store {store_instance.name}: {e}")
+    from setup.email_service import send_store_dns_error_email
+    send_store_dns_error_email(store_instance, error_message)
+    logger.error(f"DNS error email sent for store: {store_instance.name}. Error: {error_message}")
 
 @receiver(post_save, sender=StoreProductPricing)
 def create_marketplace(sender, instance, created, **kwargs):
@@ -264,56 +163,12 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
 
 def _send_deletion_success_email(user_email, user_name, store_name, store_domain):
     """Send email notification when store and domain are successfully deleted"""
-    try:
-        subject = "🗑️ Your Store Has Been Removed - RockTeaMall"
-        
-        context = {
-            "full_name": user_name,
-            "store_name": store_name,
-            "store_domain": store_domain,
-            "deletion_date": timezone.now().strftime("%B %d, %Y at %I:%M %p"),
-            "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
-        }
-        
-        from setup.utils import sendEmail
-        sendEmail(
-            recipientEmail=user_email,
-            template_name='emails/store_deletion_success.html',
-            context=context,
-            subject=subject,
-            tags=["store-deleted", "domain-removed", "account-closure"]
-        )
-        
-        logger.info(f"Store deletion email sent to {user_email} for store: {store_name}")
-        
-    except Exception as e:
-        logger.error(f"Error sending store deletion email for {store_name}: {e}")
-
+    from setup.email_service import send_store_deletion_email
+    send_store_deletion_email(user_email, user_name, store_name, store_domain, success=True)
+    logger.info(f"Store deletion email sent to {user_email} for store: {store_name}")
 
 def _send_deletion_failure_email(user_email, user_name, store_name, store_domain):
     """Send email when DNS deletion fails"""
-    try:
-        subject = "⚠️ Store Removal - Domain Cleanup Issue"
-        
-        context = {
-            "full_name": user_name,
-            "store_name": store_name,
-            "store_domain": store_domain,
-            "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
-        }
-        
-        from setup.utils import sendEmail
-        sendEmail(
-            recipientEmail=user_email,
-            template_name='emails/store_deletion_failure.html',
-            context=context,
-            subject=subject,
-            tags=["store-deleted", "dns-cleanup-failed", "manual-intervention"]
-        )
-        
-        logger.info(f"Store deletion failure email sent to {user_email} for store: {store_name}")
-        
-    except Exception as e:
-        logger.error(f"Error sending store deletion failure email for {store_name}: {e}")
+    from setup.email_service import send_store_deletion_email
+    send_store_deletion_email(user_email, user_name, store_name, store_domain, success=False)
+    logger.info(f"Store deletion failure email sent to {user_email} for store: {store_name}")

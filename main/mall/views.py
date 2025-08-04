@@ -150,7 +150,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
    serializer_class = OptimizedStoreSerializer
    
    def get_queryset(self):
-      return QueryOptimizer.get_optimized_stores()
+      return Store.objects.completed()
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
@@ -164,15 +164,9 @@ class ProductViewSet(viewsets.ModelViewSet):
    
    def get_queryset(self):
       category_id = self.request.query_params.get('category')
-      return QueryOptimizer.get_optimized_products(category_id=category_id)
-
-   def get_queryset(self):
-      category_id = self.request.query_params.get('category')
-      if category_id is not None:
-         category = get_object_or_404(Category, id=category_id)
-         return Product.objects.filter(category=category).select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
-      else:
-         return Product.objects.select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
+      if category_id:
+         return Product.objects.by_category(category_id)
+      return Product.objects.available()
 
    @transaction.atomic
    def perform_create(self, serializer):
@@ -616,23 +610,12 @@ class MarketPlaceView(viewsets.ModelViewSet):
    pagination_class = OptimizedPageNumberPagination
 
    def get_queryset(self):
-      store_host = self.request.query_params.get("mall")
+      store_id = self.request.query_params.get("mall")
+      if not store_id:
+         return MarketPlace.objects.none()
       try:
-         store = Store.objects.get(id=store_host)
-         queryset = MarketPlace.objects.filter(
-            store=store, list_product=True
-         ).select_related(
-            'product__category', 
-            'product__subcategory', 
-            'product__producttype',
-            'store'
-         ).prefetch_related(
-            'product__images',
-            'product__product_variants'
-         ).order_by("-id")
-         return queryset
-      except Store.DoesNotExist:
-         logging.error("Store with ID %s does not exist.", store_host)
+         return MarketPlace.objects.listed().filter(store_id=store_id).order_by("-id")
+      except Exception:
          return MarketPlace.objects.none()
 
 # Get Dropshipper Store Counts
@@ -666,7 +649,7 @@ class BestSellingProductView(ListAPIView):
    serializer_class = ProductSerializer
 
    def get_queryset(self):
-      return Product.objects.all().order_by('-sales_count')[:3]
+      return Product.objects.available().order_by('-sales_count')[:3]
 
 class SalesCountView(APIView):
    def get_object(self, product_id):
