@@ -102,3 +102,14 @@ sudo journalctl -u gunicorn-rocktea-prod -f
 sudo tail -f /var/log/nginx/access.log
 
 # Your application is now fully optimized for production!
+
+# Check backup logs
+tail -f /var/log/backup_dev.log
+tail -f /var/log/backup_prod.log
+
+# View scheduled jobs
+crontab -l
+
+# Test backups manually
+sudo /usr/local/bin/backup_rocktea_dev.sh
+sudo /usr/local/bin/backup_rocktea_prod.sh
