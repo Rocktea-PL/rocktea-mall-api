@@ -1,6 +1,6 @@
 from django.conf import settings
 import logging
-from .email_service import send_email_task
+from .tasks import send_email_task
 
 logger = logging.getLogger(__name__)
 
