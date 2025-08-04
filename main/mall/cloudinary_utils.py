@@ -51,19 +51,27 @@ class CloudinaryOptimizer:
         """Upload with optimizations"""
         transformations = cls.TRANSFORMATIONS.get(transformation_type, cls.TRANSFORMATIONS['large'])
         
-        # Merge default options with provided kwargs
+        # Basic upload options
         upload_options = {
             'folder': folder,
             'resource_type': 'auto',
             'quality': 'auto:best',
             'fetch_format': 'auto',
-            'transformation': transformations,
-            'eager_async': True,
-            'eager': [transformations],
             'use_filename': True,
             'unique_filename': True,
             'overwrite': False
         }
+        
+        # Add transformations if provided
+        if transformations:
+            upload_options['transformation'] = transformations
+        
+        # Add eager transformations if provided in kwargs
+        if 'eager' in kwargs:
+            upload_options['eager'] = kwargs.pop('eager')
+            upload_options['eager_async'] = kwargs.pop('eager_async', True)
+        
+        # Merge remaining kwargs
         upload_options.update(kwargs)
         
         return uploader.upload(file_content, **upload_options)

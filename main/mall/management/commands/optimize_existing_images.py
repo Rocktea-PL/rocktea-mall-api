@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from mall.models import ProductImage
 from mall.cloudinary_utils import CloudinaryOptimizer
+import cloudinary.uploader as uploader
 import logging
 
 logger = logging.getLogger(__name__)
@@ -114,16 +115,21 @@ class Command(BaseCommand):
             import requests
             response = requests.get(image.images.url)
             if response.status_code == 200:
-                # Upload optimized version
-                result = CloudinaryOptimizer.upload_optimized(
+                # Simple upload without complex transformations
+                result = uploader.upload(
                     response.content,
                     folder="products",
-                    transformation_type='large'
+                    resource_type="auto",
+                    quality="auto:best",
+                    fetch_format="auto",
+                    use_filename=True,
+                    unique_filename=True
                 )
                 
                 # Update image record
                 image.images = result.get('secure_url')
-                image.public_id = result.get('public_id')
+                if hasattr(image, 'public_id'):
+                    image.public_id = result.get('public_id')
                 image.save()
                 
                 self.stdout.write(f"Re-uploaded and optimized image {image.id}")

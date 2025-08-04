@@ -113,3 +113,18 @@ crontab -l
 # Test backups manually
 sudo /usr/local/bin/backup_rocktea_dev.sh
 sudo /usr/local/bin/backup_rocktea_prod.sh
+
+# SSH to server
+ssh ubuntu@your-server
+
+# Navigate to project
+cd /home/ubuntu/django-app/dev/main
+
+# Activate virtual environment
+source ../venv/bin/activate
+
+# Run optimization
+python manage.py optimize_existing_images
+
+# Or with smaller batches for safety
+python manage.py optimize_existing_images --batch-size 25
