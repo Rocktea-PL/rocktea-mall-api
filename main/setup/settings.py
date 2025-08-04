@@ -569,6 +569,12 @@ else:
         "https://admin-dev.yourockteamall.com",
         "https://www.admin-dev.yourockteamall.com",
     ]
+    
+    # Allow all subdomains for store domains
+    CORS_ALLOWED_ORIGIN_REGEXES = [
+        r"^https://[\w-]+\.user-dev\.yourockteamall\.com$",
+        r"^https://[\w-]+\.yourockteamall\.com$",
+    ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall.vercel.app",
@@ -594,6 +600,10 @@ CSRF_TRUSTED_ORIGINS = [
     "https://www.admin.yourockteamall.com",
     "https://admin-dev.yourockteamall.com",
     "https://www.admin-dev.yourockteamall.com",
+    
+    # Allow all store subdomains
+    "https://*.user-dev.yourockteamall.com",
+    "https://*.yourockteamall.com",
 ]
 
 CORS_ALLOW_METHODS = [
