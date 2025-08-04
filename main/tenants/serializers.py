@@ -102,14 +102,15 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
         def send_verification_email():
             try:
-                sendValidateTokenEmail(
+                sendStoreWelcomeEmail(
                     token=token,
                     email=user.email,
                     firstName=firstName,
+                    store=store_instance,
                     request=self.context['request']
                 )
             except Exception as e:
-                logger.error(f"Failed to send verification email: {str(e)}")
+                logger.error(f"Failed to send welcome email: {str(e)}")
 
         # Start email sending in background thread
         email_thread = Thread(target=send_verification_email)
@@ -181,35 +182,39 @@ class UserLogin(TokenObtainPairSerializer):
         return data
    
 
-def sendValidateTokenEmail(token, email, firstName, request):
-    # Check if we have a referer (frontend URL)
+def sendStoreWelcomeEmail(token, email, firstName, store, request):
+    # Get verification URL (keep for backend processing but don't show in email)
     referer = request.META.get('HTTP_REFERER')
-    if referer and 'swagger' not in referer.lower():  # Skip referer if it's from Swagger
-        # Use the frontend URL if available
+    if referer and 'swagger' not in referer.lower():
         parsed_referer = urlparse(referer)
-        base_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}/verify-email/?token={token}"
+        verification_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}/verify-email/?token={token}"
+        store_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}"
     else:
-        # Fall back to backend URL
         current_site = get_current_site(request).domain
         relativeLink = reverse('verify-email')
-        base_url = 'http://'+ current_site+relativeLink+"?token="+str(token)
+        verification_url = 'http://'+ current_site+relativeLink+"?token="+str(token)
+        store_url = f"http://{current_site}"
     
     try:
-        subject = "Verify Your Email and Unlock Your Account - Rockteamall!"
+        subject = f"Welcome to {store.name if store else 'RockTeaMall'} - Your Account is Ready!"
         context = {
             'full_name': firstName,
-            'confirmation_url': base_url,
+            'store_name': store.name if store else 'RockTeaMall',
+            'store_url': store_url,
+            'store_domain': store.domain_name if store else store_url,
+            'verification_url': verification_url,  # Keep for backend but hidden in template
             'current_year': timezone.now().year,
+            'support_email': 'support@yourockteamall.com',
          }
         
         from setup.utils import sendEmail
         sendEmail(
             recipientEmail=email,
-            template_name='emails/user_welcome.html',
+            template_name='emails/store_user_welcome.html',
             context=context,
             subject=subject,
-            tags=["user-registration", "user-onboarding"]
+            tags=["user-registration", "store-welcome", "user-onboarding"]
         )
     except Exception as e:
-        logger.error(f"Failed to send validation email: {str(e)}")
+        logger.error(f"Failed to send welcome email: {str(e)}")
         return None
