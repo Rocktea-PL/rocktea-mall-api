@@ -492,12 +492,25 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 4
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 1000
 CELERY_WORKER_CONCURRENCY = 4
+
+# Rate limiting for email tasks
+CELERY_TASK_ANNOTATIONS = {
+    'setup.tasks.send_email_task': {
+        'rate_limit': '10/m',  # 10 emails per minute to respect Brevo limits
+    },
+}
+
 CELERY_TASK_ROUTES = {
     'setup.tasks.send_email_task': {'queue': 'emails'},
 }
 CELERY_TASK_DEFAULT_QUEUE = 'default'
 
+# Flower configuration
 CELERY_FLOWER_BROKER_URL = REDIS_URL
+CELERY_FLOWER_BROKER_API = REDIS_URL
+CELERY_FLOWER_PERSISTENT = True
+CELERY_FLOWER_DB = 'flower.db'
+CELERY_FLOWER_STATE_SAVE_INTERVAL = 1000
 
 # 24 hours expiration
 EMAIL_VERIFICATION_TIMEOUT = 86400

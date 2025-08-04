@@ -1,0 +1,21 @@
+# Copy to server and enable
+sudo cp flower-dev.service /etc/systemd/system/
+sudo cp flower-prod.service /etc/systemd/system/
+
+# Reload and start
+sudo systemctl daemon-reload
+sudo systemctl enable flower-dev flower-prod
+sudo systemctl start flower-dev flower-prod
+
+# Check status
+sudo systemctl status flower-dev
+sudo systemctl status flower-prod
+
+# Check logs
+sudo tail -f /var/log/celery/flower-dev.log
+sudo tail -f /var/log/celery/flower-prod.log
+
+# Test manually
+cd /home/ubuntu/django-app/dev/main
+source ../venv/bin/activate
+celery -A setup flower --port=5555
