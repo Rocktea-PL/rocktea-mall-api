@@ -56,10 +56,15 @@ class EmailService:
     @staticmethod
     def get_store_context(store) -> Dict:
         """Get store-specific context"""
+        # Fix store_domain by replacing {store_id} placeholder
+        store_domain = store.domain_name
+        if store_domain and '{store_id}' in store_domain:
+            store_domain = store_domain.replace('{store_id}', str(store.id))
+            
         return {
             'store_name': store.name,
             'store_id': str(store.id),
-            'store_domain': store.domain_name,
+            'store_domain': store_domain,
             **EmailService.get_user_context(store.owner)
         }
     
