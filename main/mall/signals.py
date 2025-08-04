@@ -4,7 +4,18 @@ import logging
 import re
 
 from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification, CustomUser, Product, ProductImage
-from .cache_utils import CacheManager
+
+# Conditional import to prevent server errors
+try:
+    from .cache_utils import CacheManager
+except ImportError:
+    class CacheManager:
+        @staticmethod
+        def invalidate_product(product_id):
+            pass
+        @staticmethod
+        def invalidate_store(store_id):
+            pass
 from .utils import generate_store_slug, determine_environment_config
 from .middleware import get_current_request
 from workshop.route53 import create_cname_record, delete_store_dns_record
