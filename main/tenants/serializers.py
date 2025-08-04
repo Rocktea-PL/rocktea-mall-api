@@ -28,10 +28,11 @@ handler = DomainNameHandler()
 
 class StoreUserSignUpSerializer(serializers.ModelSerializer):
     profile_image = serializers.ImageField(required=False)
+    store_id = serializers.UUIDField(required=False, write_only=True, help_text="Store ID for user registration")
 
     class Meta:
         model = CustomUser
-        fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_consumer", "associated_domain", "password")
+        fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_consumer", "associated_domain", "password", "store_id")
         read_only_fields = ("username", "is_consumer", "associated_domain", "is_verified")
 
     def validate_password(self, value):
@@ -43,9 +44,43 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
         password = validated_data.pop("password", None)
         store_instance = None
         
-        if 'store_domain' in validated_data:
-            domain_host = handler.process_request(store_domain=get_store_domain(self.context['request']))
-            store_instance = get_object_or_404(Store, id=domain_host)
+        # Method 1: Check for store_id in request data or query params
+        request = self.context['request']
+        store_id = request.data.get('store_id') or request.query_params.get('mallcli')
+        
+        if store_id:
+            try:
+                store_instance = Store.objects.get(id=store_id)
+            except Store.DoesNotExist:
+                pass
+        
+        # Method 2: Extract from referer URL if store_id not provided
+        if not store_instance:
+            referer = request.META.get('HTTP_REFERER', '')
+            if referer:
+                # Extract mallcli parameter from referer
+                import re
+                mallcli_match = re.search(r'mallcli=([^&]+)', referer)
+                if mallcli_match:
+                    try:
+                        store_instance = Store.objects.get(id=mallcli_match.group(1))
+                    except Store.DoesNotExist:
+                        pass
+                
+                # Extract from subdomain if mallcli not found
+                if not store_instance:
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(referer)
+                    hostname = parsed_url.hostname
+                    if hostname and hostname != 'localhost':
+                        # Extract subdomain (e.g., tulbadex-stores from tulbadex-stores.user-dev.yourockteamall.com)
+                        parts = hostname.split('.')
+                        if len(parts) > 2:  # Has subdomain
+                            subdomain = parts[0]
+                            try:
+                                store_instance = Store.objects.get(slug=subdomain)
+                            except Store.DoesNotExist:
+                                pass
 
         user = CustomUser.objects.create(
             associated_domain=store_instance,
@@ -147,12 +182,6 @@ class UserLogin(TokenObtainPairSerializer):
    
 
 def sendValidateTokenEmail(token, email, firstName, request):
-    current_site = get_current_site(request).domain
-    relativeLink = reverse('verify-email')
-    absurl = 'http://'+ current_site+relativeLink+"?token="+str(token)
-    # Build the verification URL for router-registered endpoint
-    # absurl = f"http://{current_site}/verify-email/?token={token}"
-    
     # Check if we have a referer (frontend URL)
     referer = request.META.get('HTTP_REFERER')
     if referer and 'swagger' not in referer.lower():  # Skip referer if it's from Swagger
@@ -161,7 +190,10 @@ def sendValidateTokenEmail(token, email, firstName, request):
         base_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}/verify-email/?token={token}"
     else:
         # Fall back to backend URL
-        base_url = absurl
+        current_site = get_current_site(request).domain
+        relativeLink = reverse('verify-email')
+        base_url = 'http://'+ current_site+relativeLink+"?token="+str(token)
+    
     try:
         subject = "Verify Your Email and Unlock Your Account - Rockteamall!"
         context = {
@@ -169,6 +201,8 @@ def sendValidateTokenEmail(token, email, firstName, request):
             'confirmation_url': base_url,
             'current_year': timezone.now().year,
          }
+        
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=email,
             template_name='emails/user_welcome.html',
@@ -176,5 +210,6 @@ def sendValidateTokenEmail(token, email, firstName, request):
             subject=subject,
             tags=["user-registration", "user-onboarding"]
         )
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to send validation email: {str(e)}")
         return None
