@@ -354,7 +354,7 @@ SIMPLE_JWT = {
 # STATIC FILES - WHITENOISE ONLY
 # =====================
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "main", "staticfiles")
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'main', 'static'),
 ]
