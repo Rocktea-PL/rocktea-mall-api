@@ -68,7 +68,7 @@ from django.db import transaction
 from .tasks import upload_image
 import logging
 from workshop.processor import DomainNameHandler
-from .cloudinary_utils import optimize_product_image
+from .cloudinary_utils import optimize_product_image, CloudinaryOptimizer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly, IsStoreOwnerOrAdminDelete, IsStoreOwnerOrAdminViewAdd
@@ -86,10 +86,8 @@ from urllib.parse import urlparse
 from order.pagination import CustomPagination
 from setup.utils import get_store_domain
 from django.utils import timezone
-from .cache_utils import CacheManager, cache_result
+from .cache_utils import CacheManager
 from .pagination import OptimizedPageNumberPagination, LargeDatasetPagination
-from .cloudinary_utils import CloudinaryOptimizer, optimize_product_image
-from .query_optimizers import QueryOptimizer
 from .optimized_serializers import OptimizedProductSerializer, OptimizedStoreSerializer
 
 from django.utils.decorators import method_decorator
@@ -597,10 +595,28 @@ class UploadProductImage(ListCreateAPIView):
       images = serializer.save()
 
       if image:
-         # Start optimized Celery task
+         # Validate image format and size
+         if not self._validate_image(image):
+            return Response({'error': 'Invalid image format or size'}, status=status.HTTP_400_BAD_REQUEST)
+         
+         # Start optimized Celery task with image optimization
          result = upload_image.delay(images.id, image.read(), image.name, image.content_type)
          return Response({'message': 'Image upload started.'}, status=status.HTTP_202_ACCEPTED)
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
+   
+   def _validate_image(self, image):
+      """Validate image format and size for optimization"""
+      # Check file extension
+      allowed_formats = ['jpg', 'jpeg', 'png', 'webp']
+      file_extension = image.name.split('.')[-1].lower()
+      if file_extension not in allowed_formats:
+         return False
+      
+      # Check file size (max 10MB)
+      if image.size > 10 * 1024 * 1024:
+         return False
+      
+      return True
 
 class MarketPlacePagination(PageNumberPagination):
    page_size = 5
@@ -980,6 +996,44 @@ class CustomResetPasswordConfirm(generics.GenericAPIView):
          return Response({"detail": "Password has been reset successfully."}, status=status.HTTP_200_OK)
       except ResetPasswordToken.DoesNotExist:
          return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
+
+class OptimizedImageView(APIView):
+   """
+   Get optimized image URLs for different screen sizes
+   """
+   permission_classes = [permissions.AllowAny]
+   
+   def get(self, request, image_id):
+      try:
+         image = ProductImage.objects.get(id=image_id)
+         
+         if not image.public_id:
+            return Response(
+               {'error': 'Image not optimized yet'}, 
+               status=status.HTTP_404_NOT_FOUND
+            )
+         
+         # Get responsive URLs
+         responsive_urls = CloudinaryOptimizer.get_responsive_urls(image.public_id)
+         
+         return Response({
+            'image_id': image.id,
+            'public_id': image.public_id,
+            'original_url': image.images.url if image.images else None,
+            'optimized_urls': responsive_urls
+         })
+         
+      except ProductImage.DoesNotExist:
+         return Response(
+            {'error': 'Image not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+         )
+      except Exception as e:
+         logger.error(f"Error getting optimized image URLs: {e}")
+         return Response(
+            {'error': 'Internal server error'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+         )
 
 class EmailVerificationViewSet(viewsets.ViewSet):
    """

@@ -361,10 +361,12 @@ class ProductImage(models.Model):
     images = models.FileField(
         storage=RawMediaCloudinaryStorage() if not os.environ.get('CI', False) else None
     )
+    public_id = models.CharField(max_length=255, blank=True, null=True, help_text="Cloudinary public ID for optimizations")
 
     class Meta:
         indexes = [
-            models.Index(fields=['images'], name='product_images_imagesx')
+            models.Index(fields=['images'], name='product_images_imagesx'),
+            models.Index(fields=['public_id'], name='product_images_public_idx')
         ]
 
 class ProductVariant(models.Model):

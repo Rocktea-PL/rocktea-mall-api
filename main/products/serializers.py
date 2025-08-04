@@ -211,7 +211,7 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
             variant.product.add(product)
             logger.info(f"Linked product {product.id} to variant {variant.id}")
 
-            # Handle images - FIXED HERE
+            # Handle images with backward compatibility
             for image in images:
                 try:
                     # Create ProductImage instance with the uploaded image

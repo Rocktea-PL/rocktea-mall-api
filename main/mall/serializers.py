@@ -169,9 +169,8 @@ class StoreOwnerSerializer(ModelSerializer):
          # Check if there was an old image to delete
          if instance.profile_image:
             try:
-               # Calling .delete() on the FieldFile instance should trigger Cloudinary deletion
-               # because cloudinary-storage hooks into this.
-               instance.profile_image.delete()
+               # Safe deletion - works for both old and new images
+               instance.profile_image.delete(save=False)
             except Exception as e:
                # Log or handle the error gracefully, but don't prevent the update from proceeding
                print(f"Cloudinary deletion error during profile image update: {e}")
@@ -189,6 +188,21 @@ class StoreOwnerSerializer(ModelSerializer):
       
       instance.save()
       return instance
+   
+   def _optimize_profile_image(self, image_file):
+      """Optimize profile image for better performance"""
+      try:
+         from .cloudinary_utils import CloudinaryOptimizer
+         # Upload optimized profile image
+         result = CloudinaryOptimizer.upload_optimized(
+            image_file.read(),
+            folder="profiles",
+            transformation_type='store_logo'
+         )
+         return result.get('secure_url')
+      except Exception as e:
+         logger.error(f"Error optimizing profile image: {e}")
+         return None
 
    def to_representation(self, instance):
       representation = super().to_representation(instance)
@@ -319,8 +333,12 @@ class CreateStoreSerializer(serializers.ModelSerializer):
    def validate_logo(self, value):
       if value:
          file_extension = value.name.split('.')[-1].lower()
-         if file_extension not in ['png', 'jpg', 'jpeg']:
-               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG are allowed.")
+         if file_extension not in ['png', 'jpg', 'jpeg', 'webp']:
+               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG, WEBP are allowed.")
+         
+         # Check file size (max 5MB for logos)
+         if value.size > 5 * 1024 * 1024:
+            raise ValidationError("Logo file size must be less than 5MB.")
       return value
    
    def validate_name(self, value):
@@ -346,6 +364,13 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          raise ValidationError("You already have a store. Only one store per user is allowed.")
 
       try:
+         # Optimize logo if provided
+         logo = validated_data.get('logo')
+         if logo:
+            optimized_logo_url = self._optimize_store_logo(logo)
+            if optimized_logo_url:
+               validated_data['logo'] = optimized_logo_url
+         
          # Create store with owner
          validated_data['owner'] = user
          
@@ -371,11 +396,34 @@ class CreateStoreSerializer(serializers.ModelSerializer):
                raise ValidationError("You already have a store. Only one store per user is allowed.")
          else:
                raise ValidationError("An error occurred while creating the store. Please try again later.")
+   
+   def _optimize_store_logo(self, logo_file):
+      """Optimize store logo for better performance"""
+      try:
+         from .cloudinary_utils import CloudinaryOptimizer
+         # Upload optimized store logo
+         result = CloudinaryOptimizer.upload_optimized(
+            logo_file.read(),
+            folder="store_logos",
+            transformation_type='store_logo'
+         )
+         return result.get('secure_url')
+      except Exception as e:
+         logger.error(f"Error optimizing store logo: {e}")
+         return None
 
    def update(self, instance, validated_data):
       # Remove read-only fields
       validated_data.pop('domain_name', None)
       validated_data.pop('slug', None)
+      
+      # Handle logo deletion if new logo provided
+      if 'logo' in validated_data and validated_data['logo'] != instance.logo:
+         if instance.logo:
+            try:
+               instance.logo.delete(save=False)
+            except Exception as e:
+               print(f"Cloudinary deletion error during logo update: {e}")
       
       # Update allowed fields
       allowed_fields = [
@@ -487,14 +535,38 @@ class ProductTypesSerializer(serializers.ModelSerializer):
    #    return representation
 
 class ProductImageSerializer(serializers.ModelSerializer):
+   optimized_url = serializers.SerializerMethodField()
+   responsive_urls = serializers.SerializerMethodField()
+   
    class Meta:
       model = ProductImage
-      fields = ['id', 'images']
+      fields = ['id', 'images', 'public_id', 'optimized_url', 'responsive_urls']
+      read_only_fields = ['public_id', 'optimized_url', 'responsive_urls']
 
-   def get_url(self, obj):
-      if obj.images:
+   def get_optimized_url(self, obj):
+      """Get optimized URL for product card display"""
+      if hasattr(obj, 'public_id') and obj.public_id:
+         from .cloudinary_utils import CloudinaryOptimizer
+         return CloudinaryOptimizer.get_optimized_url(obj.public_id, 'product_card')
+      elif obj.images:
+         # For backward compatibility, return original URL
          return obj.images.url
       return None
+   
+   def get_responsive_urls(self, obj):
+      """Get responsive URLs for different screen sizes"""
+      if hasattr(obj, 'public_id') and obj.public_id:
+         from .cloudinary_utils import CloudinaryOptimizer
+         return CloudinaryOptimizer.get_responsive_urls(obj.public_id)
+      # For backward compatibility, return original URL in all sizes
+      elif obj.images:
+         original_url = obj.images.url
+         return {
+            'thumbnail': original_url,
+            'medium': original_url,
+            'large': original_url
+         }
+      return {}
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
@@ -577,7 +649,20 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['producttype'] = instance.producttype.name
 
-      representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
+      # Use optimized images with fallback to original
+      images_data = []
+      for prod in instance.images.all():
+         if prod.public_id:
+            from .cloudinary_utils import CloudinaryOptimizer
+            optimized_url = CloudinaryOptimizer.get_optimized_url(prod.public_id, 'product_card')
+            images_data.append({
+               "url": optimized_url,
+               "original_url": prod.images.url if prod.images else None,
+               "responsive_urls": CloudinaryOptimizer.get_responsive_urls(prod.public_id)
+            })
+         else:
+            images_data.append({"url": prod.images.url if prod.images else None})
+      representation['images'] = images_data
 
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 5 mins
       return representation
@@ -701,7 +786,23 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       return representation
 
    def serialize_product_images(self, images):
-      return [{"id": image.id, "url": image.images.url if image.images else None} for image in images]
+      """Serialize product images with optimization"""
+      images_data = []
+      for image in images:
+         if image.public_id:
+            from .cloudinary_utils import CloudinaryOptimizer
+            optimized_url = CloudinaryOptimizer.get_optimized_url(image.public_id, 'product_card')
+            images_data.append({
+               "id": image.id,
+               "url": optimized_url,
+               "original_url": image.images.url if image.images else None
+            })
+         else:
+            images_data.append({
+               "id": image.id,
+               "url": image.images.url if image.images else None
+            })
+      return images_data
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
@@ -712,6 +813,22 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       model = Product
       fields = '__all__'
       read_only_fields = ('id', 'sku')
+   
+   def _get_optimized_images(self, images):
+      """Get optimized image URLs with fallback"""
+      images_data = []
+      for prod in images:
+         if prod.public_id:
+            from .cloudinary_utils import CloudinaryOptimizer
+            optimized_url = CloudinaryOptimizer.get_optimized_url(prod.public_id, 'product_card')
+            images_data.append({
+               "url": optimized_url,
+               "original_url": prod.images.url if prod.images else None,
+               "responsive_urls": CloudinaryOptimizer.get_responsive_urls(prod.public_id)
+            })
+         else:
+            images_data.append({"url": prod.images.url if prod.images else None})
+      return images_data
 
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -737,7 +854,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       representation['product'] = {
             "id": instance.id,
             "name": instance.name,
-            "images": [{"url": prod.images.url} for prod in instance.images.all()],
+            "images": self._get_optimized_images(instance.images.all()),
             "product_variant": self.serialize_product_variants(instance.product_variants.all()),
             "category": instance.category.name,
             "subcategory": instance.subcategory.name,

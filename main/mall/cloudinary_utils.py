@@ -47,20 +47,26 @@ class CloudinaryOptimizer:
         return url
     
     @classmethod
-    def upload_optimized(cls, file_content, folder="products", transformation_type='large'):
+    def upload_optimized(cls, file_content, folder="products", transformation_type='large', **kwargs):
         """Upload with optimizations"""
         transformations = cls.TRANSFORMATIONS.get(transformation_type, cls.TRANSFORMATIONS['large'])
         
-        return uploader.upload(
-            file_content,
-            folder=folder,
-            transformation=transformations,
-            eager_async=True,
-            eager=transformations,
-            resource_type="auto",
-            quality="auto:best",
-            fetch_format="auto"
-        )
+        # Merge default options with provided kwargs
+        upload_options = {
+            'folder': folder,
+            'resource_type': 'auto',
+            'quality': 'auto:best',
+            'fetch_format': 'auto',
+            'transformation': transformations,
+            'eager_async': True,
+            'eager': [transformations],
+            'use_filename': True,
+            'unique_filename': True,
+            'overwrite': False
+        }
+        upload_options.update(kwargs)
+        
+        return uploader.upload(file_content, **upload_options)
     
     @classmethod
     def get_responsive_urls(cls, public_id):

@@ -1,9 +1,10 @@
 from django.dispatch import receiver
-from django.db.models.signals import post_save, pre_save, pre_delete
+from django.db.models.signals import post_save, post_delete, pre_save, pre_delete
 import logging
 import re
 
-from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification, CustomUser
+from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification, CustomUser, Product, ProductImage
+from .cache_utils import CacheManager
 from .utils import generate_store_slug, determine_environment_config
 from .middleware import get_current_request
 from workshop.route53 import create_cname_record, delete_store_dns_record
@@ -172,3 +173,31 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
     from setup.email_service import send_store_deletion_email
     send_store_deletion_email(user_email, user_name, store_name, store_domain, success=False)
     logger.info(f"Store deletion failure email sent to {user_email} for store: {store_name}")
+
+# Cache invalidation signals
+@receiver(post_save, sender=Product)
+@receiver(post_delete, sender=Product)
+def invalidate_product_cache(sender, instance, **kwargs):
+    CacheManager.invalidate_product(instance.id)
+    for store in instance.store.all():
+        CacheManager.invalidate_store(store.id)
+
+# Safe image deletion when product is deleted
+@receiver(pre_delete, sender=Product)
+def delete_product_images(sender, instance, **kwargs):
+    """Delete all associated images when product is deleted"""
+    for image in instance.images.all():
+        try:
+            if image.images:
+                image.images.delete(save=False)
+        except Exception as e:
+            logger.error(f"Error deleting product image {image.id}: {e}")
+
+@receiver(pre_delete, sender=ProductImage)
+def delete_product_image_file(sender, instance, **kwargs):
+    """Delete image file when ProductImage is deleted"""
+    try:
+        if instance.images:
+            instance.images.delete(save=False)
+    except Exception as e:
+        logger.error(f"Error deleting image file for ProductImage {instance.id}: {e}")

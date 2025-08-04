@@ -38,6 +38,26 @@ class DropshipperDetailSerializer(serializers.ModelSerializer):
     is_active_user = serializers.SerializerMethodField()
     store = serializers.SerializerMethodField()
     
+    def update(self, instance, validated_data):
+        # Check if DNS updates should be skipped
+        skip_dns_update = self.context.get('skip_dns_update', False)
+        
+        # Handle profile image deletion safely
+        new_profile_image = validated_data.get('profile_image')
+        if 'profile_image' in validated_data and new_profile_image != instance.profile_image:
+            if instance.profile_image:
+                try:
+                    instance.profile_image.delete(save=False)
+                except Exception as e:
+                    print(f"Cloudinary deletion error during profile image update: {e}")
+        
+        # Update user fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
+    
     class Meta:
         model = CustomUser
         fields = [

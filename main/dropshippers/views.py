@@ -84,10 +84,15 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       return Response(output_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
    def update(self, request, *args, **kwargs):
-      """Handle update with proper response formatting"""
+      """Handle update with proper response formatting - no DNS updates"""
       partial = kwargs.pop('partial', False)
       instance = self.get_object()
-      serializer = self.get_serializer(instance, data=request.data, partial=partial)
+      
+      # Prevent DNS record updates by setting context flag
+      context = self.get_serializer_context()
+      context['skip_dns_update'] = True
+      
+      serializer = self.get_serializer(instance, data=request.data, partial=partial, context=context)
       serializer.is_valid(raise_exception=True)
       self.perform_update(serializer)
       
