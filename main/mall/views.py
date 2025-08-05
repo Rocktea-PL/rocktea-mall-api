@@ -111,7 +111,11 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
-   permission_classes = [IsAuthenticated]
+   
+   def get_permissions(self):
+      if self.action == 'create':
+         return [permissions.AllowAny()]
+      return [IsAuthenticated()]
    
    def get_queryset(self):
       user_id =  self.request.query_params.get("mallcli")
