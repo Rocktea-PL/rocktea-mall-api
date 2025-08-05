@@ -169,7 +169,7 @@ def paystack_webhook(request):
 
          try:
                logger.info(f"Looking up webhook record for reference: {transaction_id}")
-               paystack_webhook = PaystackWebhook.objects.select_for_update().get(reference=transaction_id)
+               paystack_webhook = PaystackWebhook.objects.get(reference=transaction_id)
                logger.info(f"FOUND existing webhook record: ID={paystack_webhook.id}, Status={paystack_webhook.status}")
          except PaystackWebhook.DoesNotExist:
                logger.warning(f"Webhook record NOT FOUND for reference: {transaction_id}")
