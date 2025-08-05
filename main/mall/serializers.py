@@ -103,6 +103,13 @@ class StoreOwnerSerializer(ModelSerializer):
          if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
             raise ValidationError({"error":"Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
 
+      # Optimize profile image if provided
+      profile_image = validated_data.get('profile_image')
+      if profile_image:
+         optimized_image_url = self._optimize_profile_image(profile_image)
+         if optimized_image_url:
+            validated_data['profile_image'] = optimized_image_url
+
       user = CustomUser.objects.create(**validated_data)
       # Confirm the user as a store owner
       user.is_store_owner = True
