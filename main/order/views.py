@@ -172,27 +172,8 @@ def paystack_webhook(request):
                paystack_webhook = PaystackWebhook.objects.get(reference=transaction_id)
                logger.info(f"FOUND existing webhook record: ID={paystack_webhook.id}, Status={paystack_webhook.status}")
          except PaystackWebhook.DoesNotExist:
-               logger.warning(f"Webhook record NOT FOUND for reference: {transaction_id}")
-               logger.info(f"Creating new webhook record for reference: {transaction_id}")
-               
-               # Get user_id from metadata for webhook record creation
-               user_id = metadata.get('user_id')
-               if user_id:
-                  try:
-                     user = CustomUser.objects.get(id=user_id)
-                     paystack_webhook = PaystackWebhook.objects.create(
-                        reference=transaction_id,
-                        status='Pending',
-                        user=user,
-                        purpose=purpose
-                     )
-                     logger.info(f"CREATED new webhook record: ID={paystack_webhook.id}, Status={paystack_webhook.status}")
-                  except CustomUser.DoesNotExist:
-                     logger.error(f"User not found for webhook creation: {user_id}")
-                     return JsonResponse({"error": "User not found for webhook creation"}, status=status.HTTP_400_BAD_REQUEST)
-               else:
-                  logger.error(f"No user_id in metadata for webhook creation")
-                  return JsonResponse({"error": "Missing user_id in metadata"}, status=status.HTTP_400_BAD_REQUEST)
+               logger.error(f"Webhook record NOT FOUND for reference: {transaction_id} - this should not happen")
+               return JsonResponse({"error": "Webhook record not found"}, status=status.HTTP_400_BAD_REQUEST)
          
          logger.info(f"Payment purpose determined: {purpose}")
          
