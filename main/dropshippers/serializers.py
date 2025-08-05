@@ -140,6 +140,23 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             'profile_image': {'allow_null': True}
         }
 
+    def validate(self, data):
+        # Validate store fields if provided
+        company_name = data.get('company_name')
+        tin_number = data.get('TIN_number')
+        
+        if company_name and Store.objects.filter(name=company_name).exists():
+            raise serializers.ValidationError({
+                'company_name': 'A store with this name already exists.'
+            })
+        
+        if tin_number and Store.objects.filter(TIN_number=tin_number).exists():
+            raise serializers.ValidationError({
+                'TIN_number': 'A store with this TIN number already exists.'
+            })
+        
+        return data
+
     def create(self, validated_data):
         # Extract store-related fields safely
         store_fields = {
@@ -230,6 +247,28 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         return user
 
     def update(self, instance, validated_data):
+        # Validate store fields for update
+        company_name = validated_data.get('company_name')
+        tin_number = validated_data.get('TIN_number')
+        
+        if company_name:
+            existing_store = Store.objects.filter(name=company_name).exclude(
+                owner=instance
+            ).first()
+            if existing_store:
+                raise serializers.ValidationError({
+                    'company_name': 'A store with this name already exists.'
+                })
+        
+        if tin_number:
+            existing_store = Store.objects.filter(TIN_number=tin_number).exclude(
+                owner=instance
+            ).first()
+            if existing_store:
+                raise serializers.ValidationError({
+                    'TIN_number': 'A store with this TIN number already exists.'
+                })
+        
         # Extract store-related fields safely
         store_fields = {
             'company_name': validated_data.pop('company_name', None),

@@ -84,23 +84,76 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    def create(self, request, *args, **kwargs):
       try:
          serializer = self.get_serializer(data=request.data)
-         serializer.is_valid(raise_exception=True)
+         if not serializer.is_valid():
+            # Handle validation errors with user-friendly messages
+            for field, field_errors in serializer.errors.items():
+               if field == 'email' and any('already exists' in str(error).lower() for error in field_errors):
+                  return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'contact' and any('already exists' in str(error).lower() for error in field_errors):
+                  return Response({'error': 'A user with this contact number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'username' and any('already exists' in str(error).lower() for error in field_errors):
+                  return Response({'error': 'A user with this username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'company_name':
+                  return Response({'error': 'A store with this name already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'TIN_number':
+                  return Response({'error': 'A store with this TIN number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+            # Return first error if no specific match
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response({'error': str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
+         
          self.perform_create(serializer)
          
-         # Return basic user data
+         # Get the created user with store data
+         user = serializer.instance
+         store_data = None
+         if hasattr(user, 'owners') and user.owners:
+            store = user.owners
+            store_data = {
+               'id': store.id,
+               'name': store.name,
+               'email': user.email,
+               'domain_name': store.domain_name,
+               'logo': store.logo.url if store.logo else None,
+               'cover_image': store.cover_image.url if store.cover_image else None,
+               'category': {
+                  'id': store.category.id,
+                  'name': store.category.name
+               } if store.category else None
+            }
+         
          return Response({
-            'id': serializer.instance.id,
-            'email': serializer.instance.email,
-            'first_name': serializer.instance.first_name,
-            'last_name': serializer.instance.last_name,
-            'is_store_owner': serializer.instance.is_store_owner,
-            'date_joined': serializer.instance.date_joined
+            'id': user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'username': user.username,
+            'email': user.email,
+            'contact': str(user.contact) if user.contact else None,
+            'profile_image': user.profile_image.url if user.profile_image else None,
+            'is_store_owner': user.is_store_owner,
+            'completed_steps': user.completed_steps,
+            'is_active': user.is_active,
+            'is_verified': user.is_verified,
+            'date_joined': user.date_joined,
+            'last_active': user.last_login,
+            'total_products': 0,
+            'total_products_available': 0,
+            'total_products_sold': 0,
+            'total_revenue': 0,
+            'store': store_data,
+            'is_active_user': False,
+            'company_name': store_data['name'] if store_data else None
          }, status=status.HTTP_201_CREATED)
       except Exception as e:
-         return Response({
-            'error': 'Failed to create dropshipper',
-            'details': str(e)
-         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+         # Handle any remaining errors
+         error_msg = str(e)
+         if 'email' in error_msg.lower() and 'already exists' in error_msg.lower():
+            return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         elif 'contact' in error_msg.lower() and 'already exists' in error_msg.lower():
+            return Response({'error': 'A user with this contact number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         elif 'username' in error_msg.lower() and 'already exists' in error_msg.lower():
+            return Response({'error': 'A user with this username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         else:
+            return Response({'error': 'Failed to create dropshipper'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
    def update(self, request, *args, **kwargs):
       try:
@@ -126,9 +179,15 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
          }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
    def get_queryset(self):
-      # Simple query to avoid complex annotations that might fail
+      # Use only() to limit fields and reduce data transfer
       return CustomUser.objects.filter(
          is_store_owner=True
-      ).select_related('owners').order_by('-date_joined')
+      ).select_related('owners__category').only(
+         'id', 'first_name', 'last_name', 'email', 'username', 'contact',
+         'profile_image', 'is_store_owner', 'completed_steps', 'is_active',
+         'is_verified', 'date_joined', 'last_login',
+         'owners__id', 'owners__name', 'owners__domain_name', 'owners__logo',
+         'owners__cover_image', 'owners__category__id', 'owners__category__name'
+      ).order_by('-date_joined')
    
    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
