@@ -3,11 +3,12 @@ from rest_framework import viewsets, status, filters
 from order.models import StoreOrder, OrderItems, PaystackWebhook
 from .serializers import AdminOrderSerializer, AdminTransactionSerializer
 from order.pagination import CustomPagination
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Count, Q
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import rest_framework as django_filters
+from django.core.cache import cache
 
 
 class OrderFilter(django_filters.FilterSet):
@@ -33,76 +34,45 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = OrderFilter
-    search_fields = [
-        'id',  # Matches order_id
-        'order_sn',  # Matches invoice_no
-        'status',
-        'total_price',  # Matches total
-        'delivery_location',
-        'tracking_id',
-        'delivery_code',
-        'buyer__first_name',  # For buyer_name
-        'buyer__last_name',  # For buyer_name
-        'buyer__contact',  # For buyer_contact
-        'items__product__name',  # For product_name in items
-        'items__product__sku',  # For product_sku in items
-    ]
+    search_fields = ['id', 'order_sn', 'status', 'buyer__email', 'store__name']
     ordering_fields = ['created_at', 'total_price']
+    ordering = ['-created_at']
 
-    def filter_queryset(self, queryset):
-        queryset = super().filter_queryset(queryset)
-        
-        # Handle custom filters
-        params = self.request.query_params
-        
-        # Handle buyer_email filter
-        if 'buyer_email' in params:
-            queryset = queryset.filter(buyer__email__icontains=params['buyer_email'])
-            
-        # Handle store_name filter
-        if 'store_name' in params:
-            queryset = queryset.filter(store__name__icontains=params['store_name'])
-            
-        return queryset
+
     
     def get_queryset(self):
-        queryset = StoreOrder.objects.select_related(
+        # Optimized query with minimal joins
+        return StoreOrder.objects.select_related(
             'buyer', 'store'
         ).prefetch_related(
             Prefetch(
                 'items',
                 queryset=OrderItems.objects.select_related(
                     'product', 'product_variant'
-                ).prefetch_related(
-                    'product__images',
-                    'product__product_variants'  # Prefetch variants
-                )
+                ).prefetch_related('product__images')
             )
-        ).order_by("-created_at")
-        
-        status = self.request.query_params.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
-            
-        return queryset
+        ).annotate(
+            item_count=Count('items')
+        )
 
     def get_object(self):
-        # Get the identifier from URL
         identifier = self.kwargs.get('identifier')
+        cache_key = f"admin_order_{identifier}"
+        
+        # Try cache first
+        cached_order = cache.get(cache_key)
+        if cached_order:
+            return cached_order
         
         try:
-            # Try to find by UUID (primary key)
-            return self.get_queryset().get(id=identifier)
-        except (StoreOrder.DoesNotExist, ValueError):
-            try:
-                # Try to find by invoice number (order_sn)
-                return self.get_queryset().get(order_sn=identifier)
-            except StoreOrder.DoesNotExist:
-                # Try to find by delivery code
-                try:
-                    return self.get_queryset().get(delivery_code=identifier)
-                except StoreOrder.DoesNotExist:
-                    raise Http404("No order found with the provided identifier")
+            # Try UUID first, then order_sn, then delivery_code
+            order = self.get_queryset().get(
+                Q(id=identifier) | Q(order_sn=identifier) | Q(delivery_code=identifier)
+            )
+            cache.set(cache_key, order, 300)  # Cache for 5 minutes
+            return order
+        except (StoreOrder.DoesNotExist, StoreOrder.MultipleObjectsReturned):
+            raise Http404("No order found with the provided identifier")
 
     def retrieve(self, request, *args, **kwargs):
         try:
@@ -110,18 +80,13 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
         except Http404:
-            return Response(
-                {
-                    "error": "Order not found",
-                    "message": "No order exists with the provided identifier. "
-                               "Please check the order ID."
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({
+                "error": "Order not found",
+                "message": "No order exists with the provided identifier."
+            }, status=status.HTTP_404_NOT_FOUND)
 
 class TransactionFilter(django_filters.FilterSet):
     user_email = django_filters.CharFilter(field_name="user__email", lookup_expr='icontains')
-    order_id = django_filters.CharFilter(field_name="order__id")
     
     class Meta:
         model = PaystackWebhook
@@ -138,52 +103,14 @@ class AdminTransactionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     pagination_class = CustomPagination
     http_method_names = ['get']
-    lookup_field = 'id'
-    lookup_url_kwarg = 'id'
-
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = TransactionFilter
-    search_fields = [
-        'reference',
-        'total_price',
-        'status',
-        'user__email',
-        'user__first_name',
-        'user__last_name',
-        'order__order_sn',
-        'order__id',
-    ]
+    search_fields = ['reference', 'user__email', 'order__order_sn']
     ordering_fields = ['created_at', 'total_price']
+    ordering = ['-created_at']
 
-    def filter_queryset(self, queryset):
-        queryset = super().filter_queryset(queryset)
-        
-        # Handle custom filters
-        params = self.request.query_params
-        
-        # Handle user_email filter
-        if 'user_email' in params:
-            queryset = queryset.filter(user__email__icontains=params['user_email'])
-            
-        # Handle order_id filter
-        if 'order_id' in params:
-            queryset = queryset.filter(order__id=params['order_id'])
-            
-        return queryset
+
     
     def get_queryset(self):
-        queryset = PaystackWebhook.objects.select_related(
-            'user', 'order'
-        ).order_by("-created_at")
-        
-        # Optional filtering
-        status = self.request.query_params.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
-            
-        purpose = self.request.query_params.get('purpose')
-        if purpose:
-            queryset = queryset.filter(purpose=purpose)
-            
-        return queryset
+        return PaystackWebhook.objects.select_related('user', 'order')
     
