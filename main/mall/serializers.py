@@ -116,7 +116,7 @@ class StoreOwnerSerializer(ModelSerializer):
       # Set active based on context - admin created users are active, self-registered need verification
       user.is_active = self.context.get('admin_created', False)
       user.is_verified = self.context.get('admin_created', False)
-      user.completed_steps = 1  # Step 1: Registration completed
+      # completed_steps will be set when they create store
 
       if password:
          # Set and save the user's password only if a valid password is provided
@@ -399,8 +399,8 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          store.domain_name = f"https://{full_domain}?mall={store.id}"
          store.save(update_fields=['domain_name'])
          
-         # Update user completed_steps to 2 (store details filled)
-         user.completed_steps = 2
+         # Update user completed_steps to 1 (store created)
+         user.completed_steps = 1
          user.save(update_fields=['completed_steps'])
          
          return store

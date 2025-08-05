@@ -301,8 +301,8 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          store.save(update_fields=['has_made_payment', 'completed'])
          logger.info(f"Store updated - has_made_payment: {store.has_made_payment}, completed: {store.completed}")
          
-         # Update user completed_steps to 4 (payment made)
-         user.completed_steps = 4
+         # Update user completed_steps to 3 (payment made)
+         user.completed_steps = 3
          user.save(update_fields=['completed_steps'])
          logger.info(f"User completed_steps updated to: {user.completed_steps}")
          

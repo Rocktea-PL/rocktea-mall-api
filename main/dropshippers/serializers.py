@@ -195,7 +195,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                     is_store_owner=True,
                     is_active=True,
                     is_verified=True,
-                    completed_steps=4
+                    completed_steps=3
                 )
                 
                 if password:
