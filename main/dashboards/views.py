@@ -2,16 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework import status as drf_status
-from django.db.models import (
-    Count, Sum, Value, DecimalField, IntegerField, Q, F,
-    When, Case, CharField, Prefetch
-)
+from django.db.models import Count, Sum, Q
 from django.db.models.functions import Coalesce
 from order.pagination import CustomPagination
-from order.models import StoreOrder, PaystackWebhook, Product
-from mall.models import CustomUser
+from order.models import StoreOrder, PaystackWebhook
+from mall.models import CustomUser, Product
 from admin_orders.serializers import AdminTransactionSerializer
-from django.utils import timezone
 from django.core.cache import cache
 
 class AdminDashboardView(APIView):
@@ -19,149 +15,138 @@ class AdminDashboardView(APIView):
     pagination_class = CustomPagination
 
     def get(self, request):
-        # Cache dashboard stats for 5 minutes
-        cache_key = "admin_dashboard_stats"
-        stats = cache.get(cache_key)
-        
-        if not stats:
-            # Single optimized query for all stats
-            transaction_stats = PaystackWebhook.objects.filter(
-                purpose='order', status='Success'
-            ).aggregate(
-                total_amount=Coalesce(Sum('total_price'), Value(0)),
-                total_count=Count('id')
-            )
+        try:
+            # Cache dashboard stats for 5 minutes
+            cache_key = "admin_dashboard_stats"
+            stats = cache.get(cache_key)
             
-            stats = {
-                'total_transactions': transaction_stats,
-                'total_orders': StoreOrder.objects.filter(status='Completed').count(),
-                'total_products': Product.objects.count(),
-                'total_dropshippers': CustomUser.objects.filter(is_store_owner=True).count()
-            }
-            cache.set(cache_key, stats, 300)  # Cache for 5 minutes
+            if not stats:
+                # Get basic counts
+                total_transactions = PaystackWebhook.objects.filter(
+                    purpose='order', status='Success'
+                ).count()
+                
+                total_amount = PaystackWebhook.objects.filter(
+                    purpose='order', status='Success'
+                ).aggregate(amount=Sum('total_price'))['amount'] or 0
+                
+                stats = {
+                    'total_transactions': {
+                        'total_count': total_transactions,
+                        'total_amount': float(total_amount)
+                    },
+                    'total_orders': StoreOrder.objects.filter(status='Completed').count(),
+                    'total_products': Product.objects.count(),
+                    'total_dropshippers': CustomUser.objects.filter(is_store_owner=True).count()
+                }
+                cache.set(cache_key, stats, 300)
 
-        # Optimized transactions query
-        transactions_queryset = PaystackWebhook.objects.select_related(
-            'user', 'order'
-        ).only(
-            'id', 'reference', 'total_price', 'status', 'purpose', 'created_at',
-            'user__first_name', 'user__last_name', 'user__email',
-            'order__id', 'order__order_sn'
-        )
+            # Get transactions with basic filtering
+            transactions_queryset = PaystackWebhook.objects.select_related('user', 'order')
 
-        # Apply filters efficiently
-        search_term = request.query_params.get('search', '').strip()
-        if search_term:
-            transactions_queryset = transactions_queryset.filter(
-                Q(reference__icontains=search_term) |
-                Q(user__email__icontains=search_term) |
-                Q(order__order_sn__icontains=search_term)
-            )
-        
-        # Simple filters
-        for param in ['status', 'purpose']:
-            value = request.query_params.get(param)
-            if value:
-                transactions_queryset = transactions_queryset.filter(**{param: value})
-        
-        # Amount range filters
-        min_amount = request.query_params.get('min_amount')
-        if min_amount:
-            transactions_queryset = transactions_queryset.filter(total_price__gte=min_amount)
+            # Apply search filter
+            search_term = request.query_params.get('search', '').strip()
+            if search_term:
+                transactions_queryset = transactions_queryset.filter(
+                    Q(reference__icontains=search_term) |
+                    Q(user__email__icontains=search_term)
+                )
             
-        max_amount = request.query_params.get('max_amount')
-        if max_amount:
-            transactions_queryset = transactions_queryset.filter(total_price__lte=max_amount)
+            # Apply status filter
+            status_filter = request.query_params.get('status')
+            if status_filter:
+                transactions_queryset = transactions_queryset.filter(status=status_filter)
+            
+            # Apply purpose filter
+            purpose_filter = request.query_params.get('purpose')
+            if purpose_filter:
+                transactions_queryset = transactions_queryset.filter(purpose=purpose_filter)
 
-        # Paginate and serialize
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(transactions_queryset, request)
-        serializer = AdminTransactionSerializer(page, many=True)
-        
-        return Response({
-            'stats': stats,
-            'transactions': paginator.get_paginated_response(serializer.data).data
-        }, status=drf_status.HTTP_200_OK)
+            # Order by created date
+            transactions_queryset = transactions_queryset.order_by('-created_at')
+
+            # Paginate and serialize
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(transactions_queryset, request)
+            serializer = AdminTransactionSerializer(page, many=True)
+            
+            return Response({
+                'stats': stats,
+                'transactions': paginator.get_paginated_response(serializer.data).data
+            }, status=drf_status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                'error': 'Failed to fetch dashboard stats',
+                'details': str(e)
+            }, status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 class DropshipperAnalyticsView(APIView):
     permission_classes = [IsAdminUser]
     pagination_class = CustomPagination
 
     def get(self, request):
-        # Optimized single query with all calculations
-        dropshippers = CustomUser.objects.filter(
-            is_store_owner=True
-        ).select_related('owners').annotate(
-            company_name=F('owners__name'),
-            total_products=Count(
-                'owners__pricings',
-                filter=Q(owners__pricings__product__is_available=True),
-                distinct=True
-            ),
-            total_revenue=Coalesce(
-                Sum('owners__store_orders__total_price',
-                    filter=Q(owners__store_orders__status='Completed')),
-                Value(0.00)
-            ),
-            active_status=Case(
-                When(last_login__gte=timezone.now() - timezone.timedelta(days=30), 
-                     then=Value('Active')),
-                default=Value('Inactive'),
-                output_field=CharField()
-            )
-        ).only(
-            'id', 'first_name', 'last_name', 'email', 'last_login',
-            'owners__name'
-        )
+        try:
+            # Get dropshippers with basic info
+            dropshippers = CustomUser.objects.filter(
+                is_store_owner=True
+            ).select_related('owners')
 
-        # Apply search filter
-        search_term = request.query_params.get('search', '').strip()
-        if search_term:
-            dropshippers = dropshippers.filter(
-                Q(first_name__icontains=search_term) |
-                Q(last_name__icontains=search_term) |
-                Q(email__icontains=search_term) |
-                Q(owners__name__icontains=search_term)
-            )
-
-        # Apply filters
-        status_filter = request.query_params.get('status')
-        if status_filter:
-            if status_filter == 'Active':
+            # Apply search filter
+            search_term = request.query_params.get('search', '').strip()
+            if search_term:
                 dropshippers = dropshippers.filter(
-                    last_login__gte=timezone.now() - timezone.timedelta(days=30)
+                    Q(first_name__icontains=search_term) |
+                    Q(last_name__icontains=search_term) |
+                    Q(email__icontains=search_term)
                 )
-            else:
-                dropshippers = dropshippers.filter(
-                    Q(last_login__lt=timezone.now() - timezone.timedelta(days=30)) |
-                    Q(last_login__isnull=True)
-                )
+
+            # Order by date joined
+            dropshippers = dropshippers.order_by('-date_joined')
+
+            # Paginate
+            paginator = self.pagination_class()
+            page = paginator.paginate_queryset(dropshippers, request)
+
+            # Build response data
+            response_data = []
+            for user in page:
+                try:
+                    # Get store info safely
+                    company_name = user.owners.name if hasattr(user, 'owners') and user.owners else 'N/A'
+                    
+                    # Calculate basic metrics
+                    total_products = 0
+                    total_revenue = 0
+                    
+                    if hasattr(user, 'owners') and user.owners:
+                        total_products = user.owners.pricings.count()
+                        completed_orders = user.owners.store_orders.filter(status='Completed')
+                        total_revenue = sum(order.total_price for order in completed_orders)
+                    
+                    # Determine status
+                    
+                    thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
+                    status = 'Active' if user.last_login and user.last_login >= thirty_days_ago else 'Inactive'
+                    
+                    response_data.append({
+                        'id': user.id,
+                        'name': user.get_full_name(),
+                        'email': user.email,
+                        'company_name': company_name,
+                        'total_products': total_products,
+                        'status': status,
+                        'revenue': str(total_revenue),
+                        'last_seen': user.last_login.isoformat() if user.last_login else None
+                    })
+                except Exception as e:
+                    # Skip problematic records
+                    continue
+
+            return paginator.get_paginated_response(response_data)
             
-        min_products = request.query_params.get('min_products')
-        if min_products:
-            dropshippers = dropshippers.filter(total_products__gte=min_products)
-            
-        min_revenue = request.query_params.get('min_revenue')
-        if min_revenue:
-            dropshippers = dropshippers.filter(total_revenue__gte=min_revenue)
-
-        # Order by creation date
-        dropshippers = dropshippers.order_by('-owners__created_at')
-
-        # Paginate
-        paginator = self.pagination_class()
-        page = paginator.paginate_queryset(dropshippers, request)
-
-        # Build optimized response
-        response_data = [{
-            'id': user.id,
-            'name': user.get_full_name(),
-            'email': user.email,
-            'company_name': user.company_name,
-            'total_products': user.total_products,
-            'status': user.active_status,
-            'revenue': str(user.total_revenue),
-            'last_seen': user.last_login.isoformat() if user.last_login else None
-        } for user in page]
-
-        return paginator.get_paginated_response(response_data)
+        except Exception as e:
+            return Response({
+                'error': 'Failed to fetch dropshipper analytics',
+                'details': str(e)
+            }, status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)

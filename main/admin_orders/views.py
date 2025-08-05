@@ -41,35 +41,17 @@ class AdminOrderViewSet(viewsets.ModelViewSet):
 
     
     def get_queryset(self):
-        # Optimized query with minimal joins
-        return StoreOrder.objects.select_related(
-            'buyer', 'store'
-        ).prefetch_related(
-            Prefetch(
-                'items',
-                queryset=OrderItems.objects.select_related(
-                    'product', 'product_variant'
-                ).prefetch_related('product__images')
-            )
-        ).annotate(
-            item_count=Count('items')
-        )
+        # Simple query to avoid complex prefetches that might fail
+        return StoreOrder.objects.select_related('buyer', 'store')
 
     def get_object(self):
         identifier = self.kwargs.get('identifier')
-        cache_key = f"admin_order_{identifier}"
-        
-        # Try cache first
-        cached_order = cache.get(cache_key)
-        if cached_order:
-            return cached_order
         
         try:
             # Try UUID first, then order_sn, then delivery_code
             order = self.get_queryset().get(
                 Q(id=identifier) | Q(order_sn=identifier) | Q(delivery_code=identifier)
             )
-            cache.set(cache_key, order, 300)  # Cache for 5 minutes
             return order
         except (StoreOrder.DoesNotExist, StoreOrder.MultipleObjectsReturned):
             raise Http404("No order found with the provided identifier")

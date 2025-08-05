@@ -33,15 +33,11 @@ class MyProducts(ListAPIView):
       if not category:
          return Product.objects.none()
       
-      # Cache category lookup
-      cache_key = f"category_{category}"
-      verified_category = cache.get(cache_key)
-      
-      if not verified_category:
+      try:
          verified_category = get_list_or_404(Category, id=category)
-         cache.set(cache_key, verified_category, 300)
-      
-      return Product.objects.filter(category__in=verified_category).select_related('category')
+         return Product.objects.filter(category__in=verified_category).select_related('category')
+      except:
+         return Product.objects.none()
 
 class DropshipperAdminViewSet(viewsets.ModelViewSet):
    """Optimized admin-only dropshipper management with analytics"""
@@ -107,42 +103,7 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       return Response(output_serializer.data)
    
    def get_queryset(self):
-      now = timezone.now()
-      thirty_days_ago = now - timezone.timedelta(days=30)
-      
-      # Optimized query with single database hit
+      # Simple query to avoid complex annotations that might fail
       return CustomUser.objects.filter(
          is_store_owner=True
-      ).select_related('owners').prefetch_related(
-         Prefetch(
-            'owners__store_orders',
-            queryset=StoreOrder.objects.filter(status='Completed').only('total_price')
-         ),
-         Prefetch(
-            'owners__pricings',
-            queryset=StoreProductPricing.objects.select_related('product').only('product__is_available')
-         )
-      ).annotate(
-         # Pre-calculate all metrics in database
-         total_products=Count('owners__pricings', distinct=True),
-         total_products_available=Count(
-            'owners__pricings',
-            filter=Q(owners__pricings__product__is_available=True),
-            distinct=True
-         ),
-         total_products_sold=Coalesce(
-            Sum('owners__store_orders__items__quantity', 
-                filter=Q(owners__store_orders__status='Completed')), 
-            0
-         ),
-         total_revenue=Coalesce(
-            Sum('owners__store_orders__total_price',
-                filter=Q(owners__store_orders__status='Completed')), 
-            0.0
-         ),
-         is_active_user=Case(
-            When(last_login__gte=thirty_days_ago, then=True),
-            default=False,
-            output_field=BooleanField()
-         )
-      )
+      ).select_related('owners').order_by('-date_joined')
