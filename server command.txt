@@ -99,6 +99,7 @@ ab -n 100 -c 10 http://yourdomain.com/api/  # Load test
 
 # 6. Monitor logs
 sudo journalctl -u gunicorn-rocktea-prod -f
+sudo journalctl -u gunicorn-rocktea -f
 sudo tail -f /var/log/nginx/access.log
 
 # Your application is now fully optimized for production!

@@ -68,7 +68,7 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
 
     # Save the initializer data in PaystackWebhook
     if response_data.get('status'):
-        PaystackWebhook.objects.create(
+        webhook_record = PaystackWebhook.objects.create(
             user_id=user_id,
             reference=response_data['data']['reference'],
             data=response_data,
@@ -76,6 +76,7 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
             status='Pending',
             purpose=purpose
         )
+        logger.info(f"Created webhook record: ID={webhook_record.id}, Reference={webhook_record.reference}, Purpose={webhook_record.purpose}")
         logger.info(f"response_data from payment initialization: {response_data}")
 
     return response_data

@@ -106,7 +106,9 @@ class StoreOwnerSerializer(ModelSerializer):
       user = CustomUser.objects.create(**validated_data)
       # Confirm the user as a store owner
       user.is_store_owner = True
-      user.is_active = False
+      # Set active based on context - admin created users are active, self-registered need verification
+      user.is_active = self.context.get('admin_created', False)
+      user.is_verified = self.context.get('admin_created', False)
       user.completed_steps = 1  # Step 1: Registration completed
 
       if password:

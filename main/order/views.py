@@ -74,11 +74,16 @@ handler = DomainNameHandler()
 
 @csrf_exempt
 def paystack_webhook(request):
+   logger.info(f"Webhook received: {request.method} from {request.META.get('REMOTE_ADDR')}")
+   
    if request.method == 'POST':
       payload = request.body
       sig_header = request.headers.get('x-paystack-signature')
       body = None
       event = None
+      
+      logger.info(f"Webhook payload size: {len(payload)} bytes")
+      logger.info(f"Webhook signature present: {bool(sig_header)}")
 
       if not sig_header:
          logger.error("Missing signature header")
@@ -135,13 +140,22 @@ def paystack_webhook(request):
                logger.info(f"Found webhook record for reference: {transaction_id}")
          except PaystackWebhook.DoesNotExist:
                logger.error(f"Transaction reference not found: {transaction_id}")
-               return JsonResponse({"error": "Transaction reference not found"}, status=status.HTTP_404_NOT_FOUND)
+               # Create webhook record if it doesn't exist
+               paystack_webhook = PaystackWebhook.objects.create(
+                  reference=transaction_id,
+                  status='Pending'
+               )
+               logger.info(f"Created new webhook record for reference: {transaction_id}")
+         
+         logger.info(f"Payment purpose determined: {purpose}")
          
          if purpose == 'order':
+               logger.info(f"Routing to ORDER payment handler")
                result = handle_order_payment(data, paystack_webhook, total_price, metadata)
                log_webhook_attempt.delay(transaction_id, email, purpose, "order_processed")
                return result
          elif purpose == 'dropshipping_payment':
+               logger.info(f"Routing to DROPSHIPPING payment handler")
                result = handle_dropshipping_payment(data, paystack_webhook, email)
                log_webhook_attempt.delay(transaction_id, email, purpose, "dropshipping_processed")
                return result
@@ -225,30 +239,48 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
 def handle_dropshipping_payment(data, paystack_webhook, email):
    """Handle dropshipping payment processing"""
    try:
-      logger.info(f"Processing dropshipping payment for email: {email}")
+      logger.info(f"=== DROPSHIPPING PAYMENT HANDLER CALLED ===")
+      logger.info(f"Email: {email}")
+      logger.info(f"Transaction reference: {data.get('reference')}")
+      logger.info(f"Amount: {data.get('amount')}")
+      logger.info(f"Status: {data.get('status')}")
+      logger.info(f"Gateway response: {data.get('gateway_response')}")
+      logger.info(f"Paid at: {data.get('paid_at')}")
+      logger.info(f"Channel: {data.get('channel')}")
+      logger.info(f"Currency: {data.get('currency')}")
+      logger.info(f"Webhook ID: {paystack_webhook.id if paystack_webhook else 'None'}")
+      logger.info(f"Webhook status before: {paystack_webhook.status if paystack_webhook else 'None'}")
+      logger.info(f"Full data payload: {data}")
       
       with transaction.atomic():
          user = CustomUser.objects.get(email=email)
-         store = Store.objects.select_for_update().get(owner=user)
+         logger.info(f"Found user: {user.email} (ID: {user.id})")
+         logger.info(f"User current completed_steps: {user.completed_steps}")
          
-         logger.info(f"Found store: {store.name} (ID: {store.id}) for user: {user.email}")
+         store = Store.objects.select_for_update().get(owner=user)
+         logger.info(f"Found store: {store.name} (ID: {store.id})")
+         logger.info(f"Store has_made_payment before: {store.has_made_payment}")
+         logger.info(f"Store completed before: {store.completed}")
 
          # Update store payment status
          store.has_made_payment = True
          store.completed = True
          store.save(update_fields=['has_made_payment', 'completed'])
+         logger.info(f"Store updated - has_made_payment: {store.has_made_payment}, completed: {store.completed}")
          
          # Update user completed_steps to 4 (payment made)
          user.completed_steps = 4
          user.save(update_fields=['completed_steps'])
+         logger.info(f"User completed_steps updated to: {user.completed_steps}")
          
          # Update webhook record
          paystack_webhook.data = data
          paystack_webhook.status = 'Success'
          paystack_webhook.store = store
          paystack_webhook.save(update_fields=['data', 'status', 'store'])
+         logger.info(f"Webhook updated - status: {paystack_webhook.status}, store_id: {paystack_webhook.store.id if paystack_webhook.store else 'None'}")
          
-         logger.info(f"Dropshipping payment processed successfully for store {store.name} (ID: {store.id})")
+         logger.info(f"=== DROPSHIPPING PAYMENT COMPLETED SUCCESSFULLY ===")
          
       return JsonResponse({
          "message": "Dropshipping payment processed successfully",
@@ -422,9 +454,12 @@ class InitiatePayment(viewsets.ViewSet):
          else:
             base_url = "https://rocktea-dropshippers.vercel.app/domain_creation"  # Default fallback
          amount = 150000  # Fixed price for dropshipper payments
+         logger.info(f"Dropshipping payment - Amount: {amount}, Purpose: {purpose}")
 
       # Initiate payment
+      logger.info(f"Calling initiate_payment with: email={email}, amount={amount}, user_id={user_id}, purpose={purpose}")
       payment_response = initiate_payment(email, amount, user_id, purpose, base_url)
+      logger.info(f"Payment response received: {payment_response}")
 
       if payment_response.get("status") is True:
          payment_url = payment_response["data"]
