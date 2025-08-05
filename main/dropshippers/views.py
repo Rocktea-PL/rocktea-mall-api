@@ -62,10 +62,25 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       try:
          instance = self.get_object()
 
-         # Safe image deletion
+         # Safe image deletion with Cloudinary
          if hasattr(instance, 'profile_image') and instance.profile_image:
             try:
-               instance.profile_image.delete()
+               # Extract public_id from Cloudinary URL
+               image_url = str(instance.profile_image)
+               if 'cloudinary.com' in image_url:
+                  import cloudinary.uploader as uploader
+                  # Extract public_id from URL (format: .../upload/v123456/folder/filename.ext)
+                  parts = image_url.split('/')
+                  if 'upload' in parts:
+                     upload_index = parts.index('upload')
+                     if upload_index + 2 < len(parts):
+                        # Skip version if present (v123456)
+                        start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
+                        public_id_parts = parts[start_index:]
+                        public_id = '/'.join(public_id_parts).split('.')[0]  # Remove extension
+                        uploader.destroy(public_id)
+               # Delete the file field
+               instance.profile_image.delete(save=False)
             except Exception as e:
                print(f"Image deletion error: {str(e)}")
          
@@ -128,7 +143,7 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
             'username': user.username,
             'email': user.email,
             'contact': str(user.contact) if user.contact else None,
-            'profile_image': user.profile_image.url if user.profile_image else None,
+            'profile_image': self._get_optimized_profile_image(user.profile_image),
             'is_store_owner': user.is_store_owner,
             'completed_steps': user.completed_steps,
             'is_active': user.is_active,
@@ -191,3 +206,28 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
       ).order_by('-date_joined')
    
    http_method_names = ['get', 'post', 'put', 'patch', 'delete']
+   
+   def _get_optimized_profile_image(self, profile_image):
+      """Get optimized profile image URL using Cloudinary"""
+      if not profile_image:
+         return None
+      
+      try:
+         from mall.cloudinary_utils import CloudinaryOptimizer
+         # Extract public_id from Cloudinary URL
+         image_url = str(profile_image)
+         if 'cloudinary.com' in image_url:
+            # Extract public_id from URL
+            parts = image_url.split('/')
+            if 'upload' in parts:
+               upload_index = parts.index('upload')
+               if upload_index + 2 < len(parts):
+                  start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
+                  public_id_parts = parts[start_index:]
+                  public_id = '/'.join(public_id_parts).split('.')[0]
+                  return CloudinaryOptimizer.get_optimized_url(public_id, 'thumbnail')
+         # Fallback to original URL
+         return image_url if hasattr(profile_image, 'url') else str(profile_image)
+      except Exception:
+         # Fallback to regular URL
+         return profile_image.url if hasattr(profile_image, 'url') else str(profile_image)

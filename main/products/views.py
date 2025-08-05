@@ -140,14 +140,25 @@ class AdminProductViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(data=request.data)
             if not serializer.is_valid():
                 logger.error(f"Product creation validation errors: {serializer.errors}")
-                return Response(
-                    {
-                        'error': 'Validation failed',
-                        'details': serializer.errors,
-                        'message': 'Please check the provided data and try again.'
-                    },
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                # Handle validation errors with user-friendly messages
+                for field, field_errors in serializer.errors.items():
+                    if field == 'name':
+                        return Response({'error': 'A product with this name already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+                    elif field == 'category':
+                        return Response({'error': 'Invalid category provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                    elif field == 'subcategory':
+                        return Response({'error': 'Invalid subcategory provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                    elif field == 'brand':
+                        return Response({'error': 'Invalid brand provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                    elif field == 'producttype':
+                        return Response({'error': 'Invalid product type provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                    elif field == 'wholesale_price':
+                        return Response({'error': 'Invalid wholesale price provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                    elif field == 'quantity':
+                        return Response({'error': 'Invalid quantity provided.'}, status=status.HTTP_400_BAD_REQUEST)
+                # Return first error if no specific match
+                first_error = next(iter(serializer.errors.values()))[0]
+                return Response({'error': str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
             
             # Save the product
             product = serializer.save()
@@ -166,32 +177,19 @@ class AdminProductViewSet(viewsets.ModelViewSet):
             
         except serializers.ValidationError as ve:
             # Handle validation errors from serializer
-            error_detail = ve.detail
-            if isinstance(error_detail, dict) and 'code' in error_detail:
-                # This is our structured error
-                return Response(error_detail, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                # Convert DRF validation errors to our format
-                error_message = " ".join([
-                    f"{field}: {msg}" 
-                    for field, messages in error_detail.items() 
-                    for msg in messages
-                ])
-                return Response({
-                    'error': 'Validation failed',
-                    'details': error_message,
-                    'code': 'validation_error'
-                }, status=status.HTTP_400_BAD_REQUEST)
+            logger.error(f"Serializer validation error: {ve}")
+            return Response({'error': 'Product creation failed. Please check your data.'}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Unexpected error creating product: {str(e)}")
-            return Response(
-                {
-                    'error': 'Product creation failed',
-                    'details': 'An unexpected error occurred',
-                    'code': 'internal_error'
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            # Check if product was actually created despite the error
+            if 'product' in locals() and hasattr(product, 'id'):
+                # Product was created successfully, return success
+                response_serializer = AdminProductDetailSerializer(product)
+                return Response({
+                    'message': 'Product created successfully',
+                    'product': response_serializer.data
+                }, status=status.HTTP_201_CREATED)
+            return Response({'error': 'Product creation failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @transaction.atomic
     def update(self, request, *args, **kwargs):

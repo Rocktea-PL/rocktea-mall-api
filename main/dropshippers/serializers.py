@@ -184,13 +184,14 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         username = f"{base_username}{counter}"
                         counter += 1
                 
-                # Create user with basic fields
+                # Create user with basic fields including profile_image
                 user = CustomUser.objects.create(
                     first_name=validated_data.get('first_name', ''),
                     last_name=validated_data.get('last_name', ''),
                     email=validated_data.get('email'),
                     username=username,
                     contact=contact,
+                    profile_image=validated_data.get('profile_image'),
                     is_store_owner=True,
                     is_active=True,
                     is_verified=True,

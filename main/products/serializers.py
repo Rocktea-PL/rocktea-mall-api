@@ -59,8 +59,31 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
         return obj.images.count()
     
     def get_product_images(self, obj):
-        """Return all image URLs for the product"""
-        return [img.images.url for img in obj.images.all() if img.images]
+        """Return optimized image URLs for the product"""
+        optimized_images = []
+        for img in obj.images.all():
+            if img.images:
+                try:
+                    from mall.cloudinary_utils import CloudinaryOptimizer
+                    # Extract public_id from URL
+                    image_url = str(img.images.url)
+                    if 'cloudinary.com' in image_url:
+                        parts = image_url.split('/')
+                        if 'upload' in parts:
+                            upload_index = parts.index('upload')
+                            if upload_index + 2 < len(parts):
+                                start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
+                                public_id_parts = parts[start_index:]
+                                public_id = '/'.join(public_id_parts).split('.')[0]
+                                optimized_url = CloudinaryOptimizer.get_optimized_url(public_id, 'product_card')
+                                optimized_images.append(optimized_url)
+                                continue
+                    # Fallback to original URL
+                    optimized_images.append(img.images.url)
+                except Exception:
+                    # Fallback to original URL on any error
+                    optimized_images.append(img.images.url)
+        return optimized_images
     
     def get_category(self, obj):
         if obj.category:
@@ -211,11 +234,26 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
             variant.product.add(product)
             logger.info(f"Linked product {product.id} to variant {variant.id}")
 
-            # Handle images with backward compatibility
+            # Handle images with Cloudinary optimization
             for image in images:
                 try:
                     # Create ProductImage instance with the uploaded image
                     product_image = ProductImage.objects.create(images=image)
+                    
+                    # Extract and store public_id for optimization
+                    if hasattr(product_image.images, 'url'):
+                        image_url = str(product_image.images.url)
+                        if 'cloudinary.com' in image_url:
+                            # Extract public_id from URL
+                            parts = image_url.split('/')
+                            if 'upload' in parts:
+                                upload_index = parts.index('upload')
+                                if upload_index + 2 < len(parts):
+                                    start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
+                                    public_id_parts = parts[start_index:]
+                                    public_id = '/'.join(public_id_parts).split('.')[0]
+                                    product_image.public_id = public_id
+                                    product_image.save()
                     
                     # Add the image to the product's images
                     product.images.add(product_image)
@@ -348,8 +386,20 @@ class AdminProductSerializer(serializers.ModelSerializer):
                 # Delete old images from Cloudinary and database
                 for old_image in current_images:
                     try:
-                        # Delete from Cloudinary first
+                        # Delete from Cloudinary using public_id
                         if old_image.images:
+                            image_url = str(old_image.images.url)
+                            if 'cloudinary.com' in image_url:
+                                import cloudinary.uploader as uploader
+                                # Extract public_id from URL
+                                parts = image_url.split('/')
+                                if 'upload' in parts:
+                                    upload_index = parts.index('upload')
+                                    if upload_index + 2 < len(parts):
+                                        start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
+                                        public_id_parts = parts[start_index:]
+                                        public_id = '/'.join(public_id_parts).split('.')[0]
+                                        uploader.destroy(public_id)
                             old_image.images.delete(save=False)
                     except Exception as e:
                         logger.error(f"Failed to delete image from Cloudinary: {e}")
@@ -360,11 +410,27 @@ class AdminProductSerializer(serializers.ModelSerializer):
                     except Exception as e:
                         logger.error(f"Failed to delete ProductImage instance: {e}")
                 
-                # Add new images
+                # Add new images with Cloudinary optimization
                 for img in new_images:
                     try:
                         # Create new ProductImage with the uploaded image
                         product_image = ProductImage.objects.create(images=img)
+                        
+                        # Extract and store public_id for optimization
+                        if hasattr(product_image.images, 'url'):
+                            image_url = str(product_image.images.url)
+                            if 'cloudinary.com' in image_url:
+                                # Extract public_id from URL
+                                parts = image_url.split('/')
+                                if 'upload' in parts:
+                                    upload_index = parts.index('upload')
+                                    if upload_index + 2 < len(parts):
+                                        start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
+                                        public_id_parts = parts[start_index:]
+                                        public_id = '/'.join(public_id_parts).split('.')[0]
+                                        product_image.public_id = public_id
+                                        product_image.save()
+                        
                         instance.images.add(product_image)
                         logger.info(f"Successfully created new ProductImage with ID: {product_image.id}")
                     except Exception as e:
