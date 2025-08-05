@@ -108,6 +108,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
     is_payment = serializers.BooleanField(write_only=True, default=False)
     contact = serializers.CharField(write_only=True, required=False, allow_null=True)
     username = serializers.CharField(write_only=True, required=False, allow_null=True)
+    category = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     last_active = serializers.DateTimeField(source='last_login', read_only=True, allow_null=True)
     store = StoreSerializer(source='owners', read_only=True, allow_null=True)
@@ -128,7 +129,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             'company_name', 'date_joined', 'logo', 'contact', 'username',
             'last_active', 'store', 'total_products', 'total_products_available',
             'total_products_sold', 'total_revenue', 'is_active_user',
-            'TIN_number', 'year_of_establishment', 'is_payment'
+            'TIN_number', 'year_of_establishment', 'is_payment', 'category'
         )
         read_only_fields = ('completed_steps', 'date_joined')
         extra_kwargs = {
@@ -146,7 +147,8 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             'tin_number': validated_data.pop('TIN_number', None),
             'logo': validated_data.pop('logo', None),
             'year': validated_data.pop('year_of_establishment', None),
-            'is_payment': validated_data.pop('is_payment', False)
+            'is_payment': validated_data.pop('is_payment', False),
+            'category': validated_data.pop('category', None)
         }
         
         # Extract user fields
@@ -191,7 +193,8 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         TIN_number=store_fields['tin_number'],
                         logo=store_fields['logo'],
                         year_of_establishment=store_fields['year'],
-                        has_made_payment=store_fields['is_payment']
+                        has_made_payment=store_fields['is_payment'],
+                        category_id=store_fields['category']
                     )
                 
                 # Send welcome email
@@ -225,6 +228,101 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             })
 
         return user
+
+    def update(self, instance, validated_data):
+        # Extract store-related fields safely
+        store_fields = {
+            'company_name': validated_data.pop('company_name', None),
+            'tin_number': validated_data.pop('TIN_number', None),
+            'logo': validated_data.pop('logo', None),
+            'year': validated_data.pop('year_of_establishment', None),
+            'is_payment': validated_data.pop('is_payment', None),
+            'category': validated_data.pop('category', None)
+        }
+        
+        # Extract user fields
+        password = validated_data.pop('password', None)
+        contact = validated_data.pop('contact', None)
+        username = validated_data.pop('username', None)
+
+        try:
+            with transaction.atomic():
+                # Handle username uniqueness if provided
+                if username and username != instance.username:
+                    if CustomUser.objects.filter(username=username).exclude(id=instance.id).exists():
+                        raise serializers.ValidationError({
+                            'username': 'A user with this username already exists.'
+                        })
+                    instance.username = username
+                
+                # Update user fields
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                
+                if contact:
+                    instance.contact = contact
+                if password:
+                    instance.set_password(password)
+                
+                instance.save()
+
+                # Update or create store if company name provided
+                if store_fields['company_name']:
+                    if hasattr(instance, 'owners') and instance.owners:
+                        # Update existing store
+                        store = instance.owners
+                        store.name = store_fields['company_name']
+                        if store_fields['tin_number'] is not None:
+                            store.TIN_number = store_fields['tin_number']
+                        if store_fields['logo'] is not None:
+                            store.logo = store_fields['logo']
+                        if store_fields['year'] is not None:
+                            store.year_of_establishment = store_fields['year']
+                        if store_fields['is_payment'] is not None:
+                            store.has_made_payment = store_fields['is_payment']
+                        if store_fields['category'] is not None:
+                            store.category_id = store_fields['category']
+                        store.save()
+                    else:
+                        # Create new store
+                        Store.objects.create(
+                            owner=instance,
+                            name=store_fields['company_name'],
+                            TIN_number=store_fields['tin_number'],
+                            logo=store_fields['logo'],
+                            year_of_establishment=store_fields['year'],
+                            has_made_payment=store_fields['is_payment'] or False,
+                            category_id=store_fields['category']
+                        )
+                    
+        except IntegrityError as e:
+            error_msg = str(e).lower()
+            if 'email' in error_msg:
+                raise serializers.ValidationError({
+                    'email': 'A user with this email already exists.'
+                })
+            elif 'contact' in error_msg:
+                raise serializers.ValidationError({
+                    'contact': 'A user with this contact number already exists.'
+                })
+            elif 'username' in error_msg:
+                raise serializers.ValidationError({
+                    'username': 'A user with this username already exists.'
+                })
+            elif 'name' in error_msg:
+                raise serializers.ValidationError({
+                    'company_name': 'A store with this name already exists.'
+                })
+            else:
+                raise serializers.ValidationError({
+                    'non_field_errors': ['This data already exists in the system.']
+                })
+        except Exception as e:
+            raise serializers.ValidationError({
+                'non_field_errors': [str(e)]
+            })
+
+        return instance
 
     def _send_welcome_email(self, user):
         """Send welcome email asynchronously"""

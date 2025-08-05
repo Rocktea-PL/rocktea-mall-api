@@ -54,7 +54,7 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
    def get_serializer_class(self):
       if self.action == 'list':
          return DropshipperListSerializer
-      elif self.action == 'create':
+      elif self.action in ['create', 'update', 'partial_update']:
          return DropshipperAdminSerializer
       return DropshipperDetailSerializer
 

@@ -35,7 +35,7 @@ def create_store_dns_async(self, store_id):
         # Skip DNS provisioning when server is running locally
         if env_config['environment'] == 'local':
             logger.info("Server running locally - skipping DNS provisioning")
-            final_url = f"http://localhost:8000?mallcli={store.id}"
+            final_url = f"http://localhost:8000?mall={store.id}"
             store.domain_name = final_url
             store.save(update_fields=['domain_name'])
             
@@ -66,7 +66,7 @@ def create_store_dns_async(self, store_id):
             store.save(update_fields=['dns_record_created', 'domain_name'])
 
             # Build the clickable URL
-            final_url = f"https://{full_domain}?mallcli={store.id}"
+            final_url = f"https://{full_domain}?mall={store.id}"
 
             # Send success email
             from .signals import send_store_success_email

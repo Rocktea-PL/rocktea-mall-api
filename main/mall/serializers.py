@@ -380,13 +380,13 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          
          # Generate domain name
          full_domain = generate_store_domain(slug, env_config['environment'])
-         validated_data['domain_name'] = f"https://{full_domain}?mallcli={{store_id}}"
+         validated_data['domain_name'] = f"https://{full_domain}?mall={{store_id}}"
          validated_data['slug'] = slug
          
          store = Store.objects.create(**validated_data)
          
          # Update domain name with actual store ID
-         store.domain_name = f"https://{full_domain}?mallcli={store.id}"
+         store.domain_name = f"https://{full_domain}?mall={store.id}"
          store.save(update_fields=['domain_name'])
          
          return store

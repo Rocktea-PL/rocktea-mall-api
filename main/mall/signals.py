@@ -38,11 +38,11 @@ def generate_store_domain_info(sender, instance, **kwargs):
     
     # Generate domain based on environment
     if env_config.get('is_local', False):
-        instance.domain_name = f"http://localhost:8000?mallcli={instance.id}"
+        instance.domain_name = f"http://localhost:8000?mall={instance.id}"
     else:
         slug = generate_store_slug(instance.name)
         full_domain = f"{slug}.{env_config['target_domain']}"
-        instance.domain_name = f"https://{full_domain}?mallcli={instance.id}"
+        instance.domain_name = f"https://{full_domain}?mall={instance.id}"
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):
