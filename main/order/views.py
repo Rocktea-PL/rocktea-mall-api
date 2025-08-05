@@ -295,7 +295,7 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          logger.info(f"Found user: {user.email} (ID: {user.id})")
          logger.info(f"User current completed_steps: {user.completed_steps}")
          
-         store = Store.objects.select_for_update().get(owner=user)
+         store = Store.objects.get(owner=user)
          logger.info(f"Found store: {store.name} (ID: {store.id})")
          logger.info(f"Store has_made_payment before: {store.has_made_payment}")
          logger.info(f"Store completed before: {store.completed}")
