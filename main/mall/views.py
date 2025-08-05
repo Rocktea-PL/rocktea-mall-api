@@ -133,22 +133,66 @@ class CreateOperationsAccount(viewsets.ModelViewSet):
 
 class CreateStore(viewsets.ModelViewSet):
     serializer_class = CreateStoreSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        store = get_store_from_request(self.request)
-        if store:
-            return Store.objects.filter(id=store.id)
-        else:
-            return Store.objects.none()
+        # Only show stores owned by the authenticated user
+        return Store.objects.filter(owner=self.request.user)
    
     def get_serializer_context(self):
         return {'request': self.request}
+    
+
 
 class GetStoreDropshippers(viewsets.ModelViewSet):
    serializer_class = OptimizedStoreSerializer
+   permission_classes = [IsAuthenticated]
    
    def get_queryset(self):
       return Store.objects.completed()
+   
+   def partial_update(self, request, pk=None):
+      """Update store category via PATCH request"""
+      try:
+         store = Store.objects.get(id=pk)
+      except Store.DoesNotExist:
+         return Response(
+            {'error': 'Store not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
+      
+      # Check if user owns the store
+      if store.owner != request.user:
+         return Response(
+            {'error': 'You can only update your own store'},
+            status=status.HTTP_403_FORBIDDEN
+         )
+      
+      category_id = request.data.get('category')
+      if not category_id:
+         return Response(
+            {'error': 'Category ID is required'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      try:
+         category = Category.objects.get(pk=category_id)
+         store.category = category
+         store.save(update_fields=['category'])
+         
+         return Response({
+            'message': 'Store category updated successfully',
+            'category': {
+               'id': category.id,
+               'name': category.name
+            }
+         }, status=status.HTTP_200_OK)
+         
+      except Category.DoesNotExist:
+         return Response(
+            {'error': 'Category not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
