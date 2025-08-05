@@ -183,8 +183,9 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                     user.save()
 
                 # Create store if company name provided
+                store = None
                 if store_fields['company_name']:
-                    Store.objects.create(
+                    store = Store.objects.create(
                         owner=user,
                         name=store_fields['company_name'],
                         TIN_number=store_fields['tin_number'],
@@ -192,6 +193,9 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         year_of_establishment=store_fields['year'],
                         has_made_payment=store_fields['is_payment']
                     )
+                
+                # Send welcome email
+                transaction.on_commit(lambda: self._send_welcome_email(user))
                     
         except IntegrityError as e:
             error_msg = str(e).lower()
