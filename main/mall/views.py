@@ -111,6 +111,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
+   permission_classes = [IsAuthenticated]
    
    def get_queryset(self):
       user_id =  self.request.query_params.get("mallcli")
@@ -122,6 +123,45 @@ class CreateStoreOwner(viewsets.ModelViewSet):
          # If user_id is not present, return an empty queryset or handle it as per your requirement
          queryset = CustomUser.objects.none()
       return queryset
+   
+   def partial_update(self, request, pk=None):
+      """Update user details like completed_steps"""
+      user_id = request.query_params.get('mallcli')
+      if not user_id:
+         return Response(
+            {'error': 'mallcli parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      try:
+         user = CustomUser.objects.get(id=user_id)
+      except CustomUser.DoesNotExist:
+         return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
+      
+      # Check if user can update (owns the account or is admin)
+      if user != request.user and not request.user.is_superuser:
+         return Response(
+            {'error': 'You can only update your own account'},
+            status=status.HTTP_403_FORBIDDEN
+         )
+      
+      completed_steps = request.data.get('completed_steps')
+      if completed_steps is not None:
+         user.completed_steps = completed_steps
+         user.save(update_fields=['completed_steps'])
+         
+         return Response({
+            'message': 'User details updated successfully',
+            'completed_steps': user.completed_steps
+         }, status=status.HTTP_200_OK)
+      
+      return Response(
+         {'error': 'No valid fields to update'},
+         status=status.HTTP_400_BAD_REQUEST
+      )
 
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)
