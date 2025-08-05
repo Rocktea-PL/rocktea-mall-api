@@ -140,7 +140,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         }
 
     def create(self, validated_data):
-        # Extract store-related fields
+        # Extract store-related fields safely
         store_fields = {
             'company_name': validated_data.pop('company_name', None),
             'tin_number': validated_data.pop('TIN_number', None),
@@ -156,25 +156,25 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
         try:
             with transaction.atomic():
-                # Create user
-                user = CustomUser(**validated_data)
-                user.is_store_owner = True
-                user.is_active = True
-                user.is_verified = True
+                # Create user with basic fields
+                user = CustomUser.objects.create(
+                    first_name=validated_data.get('first_name', ''),
+                    last_name=validated_data.get('last_name', ''),
+                    email=validated_data.get('email'),
+                    username=username or validated_data.get('email'),
+                    contact=contact,
+                    is_store_owner=True,
+                    is_active=True,
+                    is_verified=True
+                )
                 
-                if username:
-                    user.username = username
-                if contact:
-                    user.contact = contact
                 if password:
                     user.set_password(password)
-                
-                user.save()
+                    user.save()
 
                 # Create store if company name provided
-                store = None
                 if store_fields['company_name']:
-                    store = Store.objects.create(
+                    Store.objects.create(
                         owner=user,
                         name=store_fields['company_name'],
                         TIN_number=store_fields['tin_number'],
@@ -183,18 +183,18 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         has_made_payment=store_fields['is_payment']
                     )
                     
-                # Schedule welcome email
-                if store:
-                    transaction.on_commit(lambda: self._send_welcome_email(user))
-                    
         except IntegrityError as e:
-            if 'mall_store_name_key' in str(e):
+            if 'email' in str(e).lower():
+                raise serializers.ValidationError({
+                    'email': 'A user with this email already exists.'
+                })
+            elif 'name' in str(e).lower():
                 raise serializers.ValidationError({
                     'company_name': 'A store with this name already exists.'
                 })
-            raise
+            raise serializers.ValidationError({'error': str(e)})
         except Exception as e:
-            raise serializers.ValidationError({'non_field_errors': [str(e)]})
+            raise serializers.ValidationError({'error': str(e)})
 
         return user
 
