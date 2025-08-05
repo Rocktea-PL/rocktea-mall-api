@@ -156,16 +156,26 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
         try:
             with transaction.atomic():
+                # Generate unique username if not provided
+                if not username:
+                    base_username = validated_data.get('email', '').split('@')[0]
+                    username = base_username
+                    counter = 1
+                    while CustomUser.objects.filter(username=username).exists():
+                        username = f"{base_username}{counter}"
+                        counter += 1
+                
                 # Create user with basic fields
                 user = CustomUser.objects.create(
                     first_name=validated_data.get('first_name', ''),
                     last_name=validated_data.get('last_name', ''),
                     email=validated_data.get('email'),
-                    username=username or validated_data.get('email'),
+                    username=username,
                     contact=contact,
                     is_store_owner=True,
                     is_active=True,
-                    is_verified=True
+                    is_verified=True,
+                    completed_steps=4
                 )
                 
                 if password:
@@ -184,17 +194,31 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                     )
                     
         except IntegrityError as e:
-            if 'email' in str(e).lower():
+            error_msg = str(e).lower()
+            if 'email' in error_msg:
                 raise serializers.ValidationError({
                     'email': 'A user with this email already exists.'
                 })
-            elif 'name' in str(e).lower():
+            elif 'contact' in error_msg:
+                raise serializers.ValidationError({
+                    'contact': 'A user with this contact number already exists.'
+                })
+            elif 'username' in error_msg:
+                raise serializers.ValidationError({
+                    'username': 'A user with this username already exists.'
+                })
+            elif 'name' in error_msg:
                 raise serializers.ValidationError({
                     'company_name': 'A store with this name already exists.'
                 })
-            raise serializers.ValidationError({'error': str(e)})
+            else:
+                raise serializers.ValidationError({
+                    'non_field_errors': ['This data already exists in the system.']
+                })
         except Exception as e:
-            raise serializers.ValidationError({'error': str(e)})
+            raise serializers.ValidationError({
+                'non_field_errors': [str(e)]
+            })
 
         return user
 
