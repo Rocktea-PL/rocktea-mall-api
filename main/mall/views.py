@@ -129,8 +129,10 @@ class CreateStoreOwner(viewsets.ModelViewSet):
       return queryset
    
    def partial_update(self, request, pk=None):
-      """Update user details like completed_steps"""
+      """Update user details or store details"""
       user_id = request.query_params.get('mallcli')
+      store_id = request.query_params.get('mall')
+      
       if not user_id:
          return Response(
             {'error': 'mallcli parameter is required'},
@@ -152,20 +154,67 @@ class CreateStoreOwner(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN
          )
       
-      completed_steps = request.data.get('completed_steps')
-      if completed_steps is not None:
-         user.completed_steps = completed_steps
-         user.save(update_fields=['completed_steps'])
-         
-         return Response({
-            'message': 'User details updated successfully',
-            'completed_steps': user.completed_steps
-         }, status=status.HTTP_200_OK)
+      # Handle user details update
+      user_fields = ['completed_steps', 'first_name', 'last_name', 'contact', 'shipping_address']
+      user_updated = False
       
-      return Response(
-         {'error': 'No valid fields to update'},
-         status=status.HTTP_400_BAD_REQUEST
-      )
+      for field in user_fields:
+         if field in request.data:
+            setattr(user, field, request.data[field])
+            user_updated = True
+      
+      if user_updated:
+         user.save()
+      
+      # Handle store details update if store_id provided and not 'null'
+      store_updated = False
+      store_data = {}
+      
+      if store_id and store_id != 'null':
+         try:
+            store = Store.objects.get(id=store_id, owner=user)
+            store_fields = ['name', 'category', 'theme', 'background_color', 'button_color']
+            
+            for field in store_fields:
+               if field in request.data:
+                  if field == 'category':
+                     try:
+                        category = Category.objects.get(id=request.data[field])
+                        store.category = category
+                        store_data['category'] = {'id': category.id, 'name': category.name}
+                        store_updated = True
+                     except Category.DoesNotExist:
+                        return Response(
+                           {'error': 'Category not found'},
+                           status=status.HTTP_404_NOT_FOUND
+                        )
+                  else:
+                     setattr(store, field, request.data[field])
+                     store_data[field] = request.data[field]
+                     store_updated = True
+            
+            if store_updated:
+               store.save()
+               
+         except Store.DoesNotExist:
+            return Response(
+               {'error': 'Store not found'},
+               status=status.HTTP_404_NOT_FOUND
+            )
+      
+      if not user_updated and not store_updated:
+         return Response(
+            {'error': 'No valid fields to update'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      response_data = {'message': 'Updated successfully'}
+      if user_updated:
+         response_data['user'] = {'completed_steps': user.completed_steps}
+      if store_updated:
+         response_data['store'] = store_data
+      
+      return Response(response_data, status=status.HTTP_200_OK)
 
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)
