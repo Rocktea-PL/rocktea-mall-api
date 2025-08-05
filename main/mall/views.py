@@ -191,8 +191,32 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
    def get_queryset(self):
       return Store.objects.completed()
    
+   def retrieve(self, request, pk=None):
+      """Get single store details"""
+      if pk == 'null' or not pk:
+         return Response(
+            {'error': 'Invalid store ID'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      try:
+         store = Store.objects.get(id=pk)
+         serializer = self.get_serializer(store)
+         return Response(serializer.data)
+      except Store.DoesNotExist:
+         return Response(
+            {'error': 'Store not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
+   
    def partial_update(self, request, pk=None):
       """Update store category via PATCH request"""
+      if pk == 'null' or not pk:
+         return Response(
+            {'error': 'Invalid store ID'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
       try:
          store = Store.objects.get(id=pk)
       except Store.DoesNotExist:
