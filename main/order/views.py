@@ -238,6 +238,10 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          store.completed = True
          store.save(update_fields=['has_made_payment', 'completed'])
          
+         # Update user completed_steps to 4 (payment made)
+         user.completed_steps = 4
+         user.save(update_fields=['completed_steps'])
+         
          # Update webhook record
          paystack_webhook.data = data
          paystack_webhook.status = 'Success'

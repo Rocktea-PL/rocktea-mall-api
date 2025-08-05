@@ -248,6 +248,10 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
          store.category = category
          store.save(update_fields=['category'])
          
+         # Update user completed_steps to 3 (category selected)
+         request.user.completed_steps = 3
+         request.user.save(update_fields=['completed_steps'])
+         
          return Response({
             'message': 'Store category updated successfully',
             'category': {

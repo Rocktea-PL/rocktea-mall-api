@@ -107,6 +107,7 @@ class StoreOwnerSerializer(ModelSerializer):
       # Confirm the user as a store owner
       user.is_store_owner = True
       user.is_active = False
+      user.completed_steps = 1  # Step 1: Registration completed
 
       if password:
          # Set and save the user's password only if a valid password is provided
@@ -388,6 +389,10 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          # Update domain name with actual store ID
          store.domain_name = f"https://{full_domain}?mall={store.id}"
          store.save(update_fields=['domain_name'])
+         
+         # Update user completed_steps to 2 (store details filled)
+         user.completed_steps = 2
+         user.save(update_fields=['completed_steps'])
          
          return store
          
