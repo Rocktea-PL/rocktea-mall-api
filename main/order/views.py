@@ -31,6 +31,7 @@ from .serializers import (
 from django.http import JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.viewsets import ModelViewSet, ViewSet
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
@@ -74,7 +75,20 @@ handler = DomainNameHandler()
 
 @csrf_exempt
 def paystack_webhook(request):
-   logger.info(f"Webhook received: {request.method} from {request.META.get('REMOTE_ADDR')}")
+   logger.info(f"=== WEBHOOK ENDPOINT HIT ===")
+   logger.info(f"Method: {request.method}")
+   logger.info(f"Remote Address: {request.META.get('REMOTE_ADDR')}")
+   logger.info(f"User Agent: {request.META.get('HTTP_USER_AGENT')}")
+   logger.info(f"Content Type: {request.META.get('CONTENT_TYPE')}")
+   logger.info(f"Content Length: {request.META.get('CONTENT_LENGTH')}")
+   logger.info(f"Request Path: {request.path}")
+   logger.info(f"Full URL: {request.build_absolute_uri()}")
+   logger.info(f"Headers: {dict(request.headers)}")
+   
+   # Handle GET requests for testing
+   if request.method == 'GET':
+      logger.info(f"GET request received - webhook endpoint is reachable")
+      return JsonResponse({"message": "Webhook endpoint is active", "timestamp": str(timezone.now())}, status=200)
    
    if request.method == 'POST':
       payload = request.body
@@ -90,82 +104,106 @@ def paystack_webhook(request):
          return JsonResponse({"error": "Missing signature header"}, status=status.HTTP_400_BAD_REQUEST)
       
       try:
+         logger.info(f"Starting signature verification...")
          hash = hmac.new(secret.encode('utf-8'), payload, digestmod=hashlib.sha512).hexdigest()
+         logger.info(f"Computed hash: {hash[:20]}...")
+         logger.info(f"Received signature: {sig_header[:20]}...")
+         
          if hash == sig_header:
+               logger.info(f"Signature verification PASSED")
                body_unicode = payload.decode('utf-8')
                body = json.loads(body_unicode)
                event = body['event']
+               logger.info(f"Parsed event type: {event}")
+               logger.info(f"Full webhook payload: {json.dumps(body, indent=2)}")
          else:
+               logger.error(f"Signature verification FAILED - computed hash doesn't match")
                raise Exception("Invalid signature")
       except ValueError as e:
-         logger.error(f"Failed to decode JSON payload: {e}")
+         logger.error(f"JSON DECODE ERROR: {e}")
+         logger.error(f"Raw payload: {payload[:200]}...")
          return JsonResponse({"error": "Invalid JSON payload"}, status=status.HTTP_400_BAD_REQUEST)
       except KeyError as e:
-         logger.error(f"Missing key in payload: {e}")
+         logger.error(f"MISSING KEY ERROR: {e}")
+         logger.error(f"Parsed body keys: {list(body.keys()) if 'body' in locals() else 'body not parsed'}")
          return JsonResponse({"error": "Invalid payload"}, status=status.HTTP_400_BAD_REQUEST)
       except Exception as e:
-         logger.error(f"Signature verification failed: {e}")
+         logger.error(f"SIGNATURE VERIFICATION ERROR: {e}")
+         logger.error(f"Secret key length: {len(secret)}")
          return JsonResponse({"error": "Invalid signature"}, status=status.HTTP_400_BAD_REQUEST)
 
       if event == 'charge.success':
+         logger.info(f"=== PROCESSING CHARGE.SUCCESS EVENT ===")
          data = body["data"]
          transaction_id = data.get('reference')
          total_price = data.get('amount') / 100 
-         email = data.get('email')
+         # Try multiple locations for email
+         email = data.get('email') or data.get('customer', {}).get('email')
          metadata = data.get('metadata', {})
          purpose = metadata.get('purpose')
          
+         logger.info(f"Raw webhook data: {json.dumps(data, indent=2)}")
+         logger.info(f"Extracted - Transaction ID: {transaction_id}")
+         logger.info(f"Extracted - Email: {email}")
+         logger.info(f"Extracted - Amount: {total_price}")
+         logger.info(f"Extracted - Metadata: {metadata}")
+         logger.info(f"Extracted - Purpose: {purpose}")
+         
          # Validate required fields
          if not transaction_id:
-            logger.error("Missing transaction reference in webhook data")
+            logger.error("VALIDATION FAILED: Missing transaction reference in webhook data")
             return JsonResponse({"error": "Missing transaction reference"}, status=status.HTTP_400_BAD_REQUEST)
          
          if not email:
-            logger.error("Missing email in webhook data")
+            logger.error("VALIDATION FAILED: Missing email in webhook data")
+            logger.error(f"Available data keys: {list(data.keys())}")
+            logger.error(f"Customer data: {data.get('customer', 'No customer field')}")
+            logger.error(f"Authorization data: {data.get('authorization', 'No authorization field')}")
             return JsonResponse({"error": "Missing email"}, status=status.HTTP_400_BAD_REQUEST)
          
          if not purpose:
-            logger.error("Missing purpose in webhook metadata")
+            logger.error("VALIDATION FAILED: Missing purpose in webhook metadata")
             return JsonResponse({"error": "Missing payment purpose"}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Log the incoming webhook data for debugging
-         logger.info(f"Webhook received - Event: {event}")
-         logger.info(f"Transaction ID: {transaction_id}")
-         logger.info(f"Email: {email}")
-         logger.info(f"Purpose: {purpose}")
-         logger.info(f"Amount: {total_price}")
+         logger.info(f"VALIDATION PASSED - Processing {purpose} payment for {email}")
 
          try:
+               logger.info(f"Looking up webhook record for reference: {transaction_id}")
                paystack_webhook = PaystackWebhook.objects.select_for_update().get(reference=transaction_id)
-               logger.info(f"Found webhook record for reference: {transaction_id}")
+               logger.info(f"FOUND existing webhook record: ID={paystack_webhook.id}, Status={paystack_webhook.status}")
          except PaystackWebhook.DoesNotExist:
-               logger.error(f"Transaction reference not found: {transaction_id}")
-               # Create webhook record if it doesn't exist
+               logger.warning(f"Webhook record NOT FOUND for reference: {transaction_id}")
+               logger.info(f"Creating new webhook record for reference: {transaction_id}")
                paystack_webhook = PaystackWebhook.objects.create(
                   reference=transaction_id,
                   status='Pending'
                )
-               logger.info(f"Created new webhook record for reference: {transaction_id}")
+               logger.info(f"CREATED new webhook record: ID={paystack_webhook.id}, Status={paystack_webhook.status}")
          
          logger.info(f"Payment purpose determined: {purpose}")
          
          if purpose == 'order':
-               logger.info(f"Routing to ORDER payment handler")
+               logger.info(f"=== ROUTING TO ORDER PAYMENT HANDLER ===")
                result = handle_order_payment(data, paystack_webhook, total_price, metadata)
                log_webhook_attempt.delay(transaction_id, email, purpose, "order_processed")
+               logger.info(f"Order payment handler completed, logging webhook attempt")
                return result
          elif purpose == 'dropshipping_payment':
-               logger.info(f"Routing to DROPSHIPPING payment handler")
+               logger.info(f"=== ROUTING TO DROPSHIPPING PAYMENT HANDLER ===")
                result = handle_dropshipping_payment(data, paystack_webhook, email)
                log_webhook_attempt.delay(transaction_id, email, purpose, "dropshipping_processed")
+               logger.info(f"Dropshipping payment handler completed, logging webhook attempt")
                return result
          else:
-               logger.error(f"Unknown payment purpose: {purpose}")
+               logger.error(f"UNKNOWN PAYMENT PURPOSE: {purpose}")
                log_webhook_attempt.delay(transaction_id, email, purpose, "unknown_purpose")
                return JsonResponse({"error": "Unknown payment purpose"}, status=status.HTTP_400_BAD_REQUEST)
       else:
-         logger.warning(f"Unhandled event type: {event}")
+         logger.warning(f"=== UNHANDLED EVENT TYPE: {event} ===")
+         logger.info(f"Full webhook body for unhandled event: {json.dumps(body, indent=2)}")
          return JsonResponse({"error": "Unhandled event type"}, status=status.HTTP_400_BAD_REQUEST)
+   else:
+      logger.error(f"=== INVALID REQUEST METHOD: {request.method} ===")
    return JsonResponse({"error": "Invalid request method"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 def handle_order_payment(data, paystack_webhook, total_price, metadata):
@@ -290,13 +328,28 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
       }, status=status.HTTP_200_OK)
       
    except CustomUser.DoesNotExist:
-      logger.error(f"User not found with email: {email}")
+      logger.error(f"=== USER NOT FOUND ERROR ===")
+      logger.error(f"Email searched: {email}")
+      logger.error(f"Available users: {list(CustomUser.objects.values_list('email', flat=True)[:5])}")
       return JsonResponse({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
    except Store.DoesNotExist:
-      logger.error(f"Store not found for user: {email}")
+      logger.error(f"=== STORE NOT FOUND ERROR ===")
+      logger.error(f"User email: {email}")
+      try:
+         user = CustomUser.objects.get(email=email)
+         logger.error(f"User found but no store: User ID {user.id}")
+         stores = Store.objects.filter(owner=user)
+         logger.error(f"Stores for user: {list(stores.values_list('id', 'name'))}")
+      except:
+         logger.error(f"Could not find user for store lookup")
       return JsonResponse({"error": "Store not found"}, status=status.HTTP_404_NOT_FOUND)
    except Exception as e:
-      logger.error(f"Error processing dropshipping payment: {str(e)}", exc_info=True)
+      logger.error(f"=== UNEXPECTED ERROR IN DROPSHIPPING HANDLER ===")
+      logger.error(f"Error type: {type(e).__name__}")
+      logger.error(f"Error message: {str(e)}")
+      logger.error(f"Email: {email}")
+      logger.error(f"Transaction reference: {data.get('reference')}")
+      logger.error(f"Full traceback:", exc_info=True)
       return JsonResponse({"error": "Error processing dropshipping payment"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def process_shipment_details(user_id, order):
