@@ -227,10 +227,6 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
             'is_verified': user.is_verified,
             'date_joined': user.date_joined,
             'last_active': user.last_login,
-            'total_products': 0,
-            'total_products_available': 0,
-            'total_products_sold': 0,
-            'total_revenue': 0,
             'store': store_data,
             'is_active_user': False,
             'company_name': store_data['name'] if store_data else None

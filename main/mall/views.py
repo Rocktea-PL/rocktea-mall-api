@@ -244,7 +244,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
       return Store.objects.completed()
    
    def retrieve(self, request, pk=None):
-      """Get single store details"""
+      """Get comprehensive store details"""
       if pk == 'null' or not pk:
          return Response(
             {'error': 'Invalid store ID'},
@@ -252,9 +252,45 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
          )
       
       try:
-         store = Store.objects.get(id=pk)
-         serializer = self.get_serializer(store)
-         return Response(serializer.data)
+         store = Store.objects.select_related('owner', 'category').get(id=pk)
+         
+         # Get comprehensive store data
+         store_data = {
+            'id': store.id,
+            'name': store.name,
+            'domain_name': store.domain_name,
+            'logo': store.logo.url if store.logo else None,
+            'cover_image': store.cover_image.url if store.cover_image else None,
+            'TIN_number': store.TIN_number,
+            'year_of_establishment': store.year_of_establishment,
+            'facebook': store.facebook,
+            'whatsapp': store.whatsapp,
+            'instagram': store.instagram,
+            'twitter': store.twitter,
+            'background_color': store.background_color,
+            'button_color': store.button_color,
+            'card_elevation': store.card_elevation,
+            'card_view': store.card_view,
+            'color_gradient': store.color_gradient,
+            'patterns': store.patterns,
+            'card_color': store.card_color,
+            'completed': store.completed,
+            'has_made_payment': store.has_made_payment,
+            'created_at': store.created_at,
+            'category': {
+               'id': store.category.id,
+               'name': store.category.name
+            } if store.category else None,
+            'owner': {
+               'id': store.owner.id,
+               'first_name': store.owner.first_name,
+               'last_name': store.owner.last_name,
+               'email': store.owner.email,
+               'contact': str(store.owner.contact) if store.owner.contact else None
+            }
+         }
+         
+         return Response(store_data)
       except Store.DoesNotExist:
          return Response(
             {'error': 'Store not found'},
