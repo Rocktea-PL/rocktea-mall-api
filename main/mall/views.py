@@ -850,9 +850,6 @@ class UploadProductImage(ListCreateAPIView):
       
       return True
 
-class MarketPlacePagination(PageNumberPagination):
-   page_size = 5
-
 class MarketPlaceView(viewsets.ModelViewSet):
    serializer_class = MarketPlaceSerializer
    pagination_class = OptimizedPageNumberPagination
@@ -1309,4 +1306,3 @@ class EmailVerificationViewSet(viewsets.ViewSet):
          'success': False,
          'errors': serializer.errors
       }, status=status.HTTP_400_BAD_REQUEST)
-
