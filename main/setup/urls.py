@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.contrib import admin
 from rest_framework import routers
 
@@ -75,7 +75,8 @@ schema_view = get_schema_view(
 router = routers.DefaultRouter()
 # Store Owner
 
-router.register('storeowner', CreateStoreOwner, basename="user")
+# router.register('storeowner', CreateStoreOwner, basename="user")
+# router.register(r'storeowner', CreateStoreOwner, basename='user')
 router.register('dropshippers/store', GetStoreDropshippers, basename="dropship")
 
 router.register('categories', GetCategories, basename='categories')
@@ -164,6 +165,11 @@ urlpatterns = [
      EmailVerificationViewSet.as_view({'post': 'resend_verification'}), 
      name='resend-verification-email'),
     path('health/', health_check, name='health_check'),
+    re_path(r'^rocktea/storeowner/$', CreateStoreOwner.as_view({
+        'get': 'list',
+        'post': 'create',
+        'patch': 'update_user_store'  # This maps PATCH to your custom action
+    }), name='storeowner-list-patch'),
 ]
 
 urlpatterns += router.urls

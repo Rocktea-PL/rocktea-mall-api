@@ -103,7 +103,6 @@ handler = DomainNameHandler()
 logger = logging.getLogger(__name__)
 
 # Create your views here.
-# TODO DONE
 class CreateStoreOwner(viewsets.ModelViewSet):
    """
    Sign Up Store Owners Feature
@@ -128,9 +127,10 @@ class CreateStoreOwner(viewsets.ModelViewSet):
          # If user_id is not present, return an empty queryset or handle it as per your requirement
          queryset = CustomUser.objects.none()
       return queryset
-   
-   def partial_update(self, request, pk=None):
-      """Update user details or store details"""
+
+   @action(detail=False, methods=['patch'])
+   def update_user_store(self, request):
+      """Handle PATCH requests on list endpoint via custom action"""
       user_id = request.query_params.get('mallcli')
       store_id = request.query_params.get('mall')
       
@@ -171,7 +171,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
       store_updated = False
       store_data = {}
       
-      if store_id and store_id != 'null':
+      if store_id and store_id != 'null' and store_id.strip():
          try:
             store = Store.objects.get(id=store_id, owner=user)
             store_fields = ['name', 'category', 'theme', 'background_color', 'button_color']
@@ -216,7 +216,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
          response_data['store'] = store_data
       
       return Response(response_data, status=status.HTTP_200_OK)
-
+   
 class CreateLogisticsAccount(viewsets.ModelViewSet):
    queryset = CustomUser.objects.filter(is_logistics=True)
    serializer_class = LogisticSerializer
