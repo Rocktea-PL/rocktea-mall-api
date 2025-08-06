@@ -111,6 +111,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
+   http_method_names = ['get', 'post', 'patch', 'delete']
    
    def get_permissions(self):
       if self.action == 'create':
