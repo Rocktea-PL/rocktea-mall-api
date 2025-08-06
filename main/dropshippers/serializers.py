@@ -141,7 +141,31 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         }
 
     def validate(self, data):
-        # Validate store fields if provided
+        # Skip validation during updates - handled in update method
+        if self.instance:
+            return data
+            
+        # Validate user fields for creation
+        email = data.get('email')
+        contact = data.get('contact')
+        username = data.get('username')
+        
+        if email and CustomUser.objects.filter(email=email).exists():
+            raise serializers.ValidationError({
+                'email': 'A user with this email already exists.'
+            })
+        
+        if contact and CustomUser.objects.filter(contact=contact).exists():
+            raise serializers.ValidationError({
+                'contact': 'A user with this contact number already exists.'
+            })
+            
+        if username and CustomUser.objects.filter(username=username).exists():
+            raise serializers.ValidationError({
+                'username': 'A user with this username already exists.'
+            })
+            
+        # Validate store fields for creation
         company_name = data.get('company_name')
         tin_number = data.get('TIN_number')
         
@@ -236,6 +260,10 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                 raise serializers.ValidationError({
                     'company_name': 'A store with this name already exists.'
                 })
+            elif 'tin_number' in error_msg:
+                raise serializers.ValidationError({
+                    'TIN_number': 'A store with this TIN number already exists.'
+                })
             else:
                 raise serializers.ValidationError({
                     'non_field_errors': ['This data already exists in the system.']
@@ -253,22 +281,32 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
         tin_number = validated_data.get('TIN_number')
         
         if company_name:
-            existing_store = Store.objects.filter(name=company_name).exclude(
-                owner=instance
-            ).first()
+            # Check if user already has a store with this name (allow same user to keep their name)
+            if hasattr(instance, 'owners') and instance.owners:
+                existing_store = Store.objects.filter(name=company_name).exclude(
+                    id=instance.owners.id
+                ).first()
+            else:
+                existing_store = Store.objects.filter(name=company_name).exclude(
+                    owner=instance
+                ).first()
             if existing_store:
-                raise serializers.ValidationError({
-                    'error': 'A store with this name already exists.'
-                })
+                from workshop.exceptions import ValidationError
+                raise ValidationError('A store with this name already exists.')
         
         if tin_number:
-            existing_store = Store.objects.filter(TIN_number=tin_number).exclude(
-                owner=instance
-            ).first()
+            # Check if user already has a store with this TIN (allow same user to keep their TIN)
+            if hasattr(instance, 'owners') and instance.owners:
+                existing_store = Store.objects.filter(TIN_number=tin_number).exclude(
+                    id=instance.owners.id
+                ).first()
+            else:
+                existing_store = Store.objects.filter(TIN_number=tin_number).exclude(
+                    owner=instance
+                ).first()
             if existing_store:
-                raise serializers.ValidationError({
-                    'error': 'A store with this TIN number already exists.'
-                })
+                from workshop.exceptions import ValidationError
+                raise ValidationError('A store with this TIN number already exists.')
         
         # Extract store-related fields safely
         store_fields = {
@@ -287,12 +325,23 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
 
         try:
             with transaction.atomic():
+                # Handle email uniqueness if provided
+                if 'email' in validated_data and validated_data['email'] != instance.email:
+                    if CustomUser.objects.filter(email=validated_data['email']).exclude(id=instance.id).exists():
+                        from workshop.exceptions import ValidationError
+                        raise ValidationError('A user with this email already exists.')
+                
+                # Handle contact uniqueness if provided
+                if contact and contact != str(instance.contact):
+                    if CustomUser.objects.filter(contact=contact).exclude(id=instance.id).exists():
+                        from workshop.exceptions import ValidationError
+                        raise ValidationError('A user with this contact number already exists.')
+                
                 # Handle username uniqueness if provided
                 if username and username != instance.username:
                     if CustomUser.objects.filter(username=username).exclude(id=instance.id).exists():
-                        raise serializers.ValidationError({
-                            'error': 'A user with this username already exists.'
-                        })
+                        from workshop.exceptions import ValidationError
+                        raise ValidationError('A user with this username already exists.')
                     instance.username = username
                 
                 # Update user fields
@@ -352,6 +401,10 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             elif 'name' in error_msg:
                 raise serializers.ValidationError({
                     'error': 'A store with this name already exists.'
+                })
+            elif 'tin_number' in error_msg:
+                raise serializers.ValidationError({
+                    'error': 'A store with this TIN number already exists.'
                 })
             else:
                 raise serializers.ValidationError({

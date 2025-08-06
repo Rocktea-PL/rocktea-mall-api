@@ -176,22 +176,79 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
          instance = self.get_object()
          
          serializer = self.get_serializer(instance, data=request.data, partial=partial)
-         serializer.is_valid(raise_exception=True)
+         if not serializer.is_valid():
+            # Handle validation errors with user-friendly messages
+            for field, field_errors in serializer.errors.items():
+               if field == 'company_name':
+                  return Response({'error': 'A store with this name already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'TIN_number':
+                  return Response({'error': 'A store with this TIN number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'email':
+                  return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'contact':
+                  return Response({'error': 'A user with this contact number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+               elif field == 'username':
+                  return Response({'error': 'A user with this username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+            # Return first error if no specific match
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response({'error': str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
+         
          self.perform_update(serializer)
          
+         # Get updated user with store data
+         user = instance
+         store_data = None
+         if hasattr(user, 'owners') and user.owners:
+            store = user.owners
+            store_data = {
+               'id': store.id,
+               'name': store.name,
+               'email': user.email,
+               'domain_name': store.domain_name,
+               'logo': store.logo.url if store.logo else None,
+               'cover_image': store.cover_image.url if store.cover_image else None,
+               'category': {
+                  'id': store.category.id,
+                  'name': store.category.name
+               } if store.category else None
+            }
+         
          return Response({
-            'id': instance.id,
-            'email': instance.email,
-            'first_name': instance.first_name,
-            'last_name': instance.last_name,
-            'is_active': instance.is_active,
-            'last_login': instance.last_login
+            'id': user.id,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'username': user.username,
+            'email': user.email,
+            'contact': str(user.contact) if user.contact else None,
+            'profile_image': self._get_optimized_profile_image(user.profile_image),
+            'is_store_owner': user.is_store_owner,
+            'completed_steps': user.completed_steps,
+            'is_active': user.is_active,
+            'is_verified': user.is_verified,
+            'date_joined': user.date_joined,
+            'last_active': user.last_login,
+            'total_products': 0,
+            'total_products_available': 0,
+            'total_products_sold': 0,
+            'total_revenue': 0,
+            'store': store_data,
+            'is_active_user': False,
+            'company_name': store_data['name'] if store_data else None
          })
       except Exception as e:
-         return Response({
-            'error': 'Failed to update dropshipper',
-            'details': str(e)
-         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+         error_msg = str(e)
+         if 'store with this name already exists' in error_msg.lower():
+            return Response({'error': 'A store with this name already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         elif 'store with this tin number already exists' in error_msg.lower():
+            return Response({'error': 'A store with this TIN number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         elif 'email already exists' in error_msg.lower():
+            return Response({'error': 'A user with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         elif 'contact already exists' in error_msg.lower():
+            return Response({'error': 'A user with this contact number already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         elif 'username already exists' in error_msg.lower():
+            return Response({'error': 'A user with this username already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+         else:
+            return Response({'error': 'Failed to update dropshipper'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
    def get_queryset(self):
       # Use only() to limit fields and reduce data transfer
