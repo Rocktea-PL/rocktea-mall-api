@@ -236,8 +236,6 @@ class CreateStore(viewsets.ModelViewSet):
     def get_serializer_context(self):
         return {'request': self.request}
     
-
-
 class GetStoreDropshippers(viewsets.ModelViewSet):
    serializer_class = OptimizedStoreSerializer
    permission_classes = [IsAuthenticated]
