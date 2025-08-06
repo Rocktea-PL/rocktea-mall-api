@@ -263,7 +263,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
          )
    
    def partial_update(self, request, pk=None):
-      """Update store category via PATCH request"""
+      """Update store details via PATCH request"""
       if pk == 'null' or not pk:
          return Response(
             {'error': 'Invalid store ID'},
@@ -285,35 +285,101 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN
          )
       
-      category_id = request.data.get('category')
-      if category_id is None:
+      # Validate TIN_number uniqueness (smart check)
+      tin_number = request.data.get('TIN_number')
+      if tin_number and Store.objects.filter(TIN_number=tin_number).exclude(id=store.id).exists():
          return Response(
-            {'error': 'Category ID is required'},
+            {'error': 'A store with this TIN number already exists'},
             status=status.HTTP_400_BAD_REQUEST
          )
       
-      try:
-         category = Category.objects.get(pk=category_id)
-         store.category = category
-         store.save(update_fields=['category'])
+      updated_fields = []
+      response_data = {'message': 'Store updated successfully'}
+      
+      # Handle category update
+      category_id = request.data.get('category')
+      if category_id is not None:
+         try:
+            category = Category.objects.get(pk=category_id)
+            store.category = category
+            updated_fields.append('category')
+            response_data['category'] = {'id': category.id, 'name': category.name}
+            
+            # Update user completed_steps to 2 (category selected)
+            request.user.completed_steps = 2
+            request.user.save(update_fields=['completed_steps'])
+         except Category.DoesNotExist:
+            return Response(
+               {'error': 'Category not found'},
+               status=status.HTTP_404_NOT_FOUND
+            )
+      
+      # Handle regular store fields
+      store_fields = ['name', 'TIN_number', 'year_of_establishment', 'facebook', 'whatsapp', 
+                     'instagram', 'twitter', 'background_color', 'button_color', 'card_elevation', 
+                     'card_view', 'color_gradient', 'patterns', 'card_color']
+      for field in store_fields:
+         if field in request.data:
+            setattr(store, field, request.data[field])
+            updated_fields.append(field)
+            response_data[field] = request.data[field]
+      
+      # Handle logo update with Cloudinary optimization
+      if 'logo' in request.FILES:
+         if store.logo:
+            try:
+               store.logo.delete(save=False)
+            except Exception as e:
+               logger.warning(f"Logo deletion error: {e}")
          
-         # Update user completed_steps to 2 (category selected)
-         request.user.completed_steps = 2
-         request.user.save(update_fields=['completed_steps'])
+         logo_file = request.FILES['logo']
+         optimized_logo_url = self._optimize_store_image(logo_file, 'store_logos', 'store_logo')
+         if optimized_logo_url:
+            store.logo = optimized_logo_url
+         else:
+            store.logo = logo_file
+         updated_fields.append('logo')
+         response_data['logo'] = store.logo.url if hasattr(store.logo, 'url') else store.logo
+      
+      # Handle cover_image update with Cloudinary optimization
+      if 'cover_image' in request.FILES:
+         if store.cover_image:
+            try:
+               store.cover_image.delete(save=False)
+            except Exception as e:
+               logger.warning(f"Cover image deletion error: {e}")
          
-         return Response({
-            'message': 'Store category updated successfully',
-            'category': {
-               'id': category.id,
-               'name': category.name
-            }
-         }, status=status.HTTP_200_OK)
-         
-      except Category.DoesNotExist:
+         cover_file = request.FILES['cover_image']
+         optimized_cover_url = self._optimize_store_image(cover_file, 'store_covers', 'store_cover')
+         if optimized_cover_url:
+            store.cover_image = optimized_cover_url
+         else:
+            store.cover_image = cover_file
+         updated_fields.append('cover_image')
+         response_data['cover_image'] = store.cover_image.url if hasattr(store.cover_image, 'url') else store.cover_image
+      
+      if updated_fields:
+         store.save(update_fields=updated_fields)
+         return Response(response_data, status=status.HTTP_200_OK)
+      else:
          return Response(
-            {'error': 'Category not found'},
-            status=status.HTTP_404_NOT_FOUND
+            {'error': 'No valid fields to update'},
+            status=status.HTTP_400_BAD_REQUEST
          )
+   
+   def _optimize_store_image(self, image_file, folder, transformation_type):
+      """Optimize store images using Cloudinary"""
+      try:
+         from .cloudinary_utils import CloudinaryOptimizer
+         result = CloudinaryOptimizer.upload_optimized(
+            image_file.read(),
+            folder=folder,
+            transformation_type=transformation_type
+         )
+         return result.get('secure_url')
+      except Exception as e:
+         logger.error(f"Error optimizing store image: {e}")
+         return None
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
