@@ -286,7 +286,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
          )
       
       category_id = request.data.get('category')
-      if not category_id:
+      if category_id is None:
          return Response(
             {'error': 'Category ID is required'},
             status=status.HTTP_400_BAD_REQUEST

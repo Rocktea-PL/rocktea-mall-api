@@ -258,7 +258,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             ).first()
             if existing_store:
                 raise serializers.ValidationError({
-                    'company_name': 'A store with this name already exists.'
+                    'error': 'A store with this name already exists.'
                 })
         
         if tin_number:
@@ -267,7 +267,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             ).first()
             if existing_store:
                 raise serializers.ValidationError({
-                    'TIN_number': 'A store with this TIN number already exists.'
+                    'error': 'A store with this TIN number already exists.'
                 })
         
         # Extract store-related fields safely
@@ -291,7 +291,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                 if username and username != instance.username:
                     if CustomUser.objects.filter(username=username).exclude(id=instance.id).exists():
                         raise serializers.ValidationError({
-                            'username': 'A user with this username already exists.'
+                            'error': 'A user with this username already exists.'
                         })
                     instance.username = username
                 
@@ -339,27 +339,27 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             error_msg = str(e).lower()
             if 'email' in error_msg:
                 raise serializers.ValidationError({
-                    'email': 'A user with this email already exists.'
+                    'error': 'A user with this email already exists.'
                 })
             elif 'contact' in error_msg:
                 raise serializers.ValidationError({
-                    'contact': 'A user with this contact number already exists.'
+                    'error': 'A user with this contact number already exists.'
                 })
             elif 'username' in error_msg:
                 raise serializers.ValidationError({
-                    'username': 'A user with this username already exists.'
+                    'error': 'A user with this username already exists.'
                 })
             elif 'name' in error_msg:
                 raise serializers.ValidationError({
-                    'company_name': 'A store with this name already exists.'
+                    'error': 'A store with this name already exists.'
                 })
             else:
                 raise serializers.ValidationError({
-                    'non_field_errors': ['This data already exists in the system.']
+                    'error': 'This data already exists in the system.'
                 })
         except Exception as e:
             raise serializers.ValidationError({
-                'non_field_errors': [str(e)]
+                'error': str(e)
             })
 
         return instance
