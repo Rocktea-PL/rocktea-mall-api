@@ -228,25 +228,34 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       return token
 
    def validate(self, attrs):
-      data = super().validate(attrs)
-      user = self.user  # Already authenticated user from parent class
-
-      # 2. Reject non-verified or inactive accounts
-      if not user.is_active:
-         raise ValidationError("User account is inactive. Please contact support.")
-      if not user.is_verified:
-         raise ValidationError("User account not verified. Please check your email for verification instructions.")
+      email = attrs.get('email')
+      password = attrs.get('password')
       
+      # Check if user exists and password is correct
+      try:
+         user = CustomUser.objects.get(email=email)
+         if not user.check_password(password):
+            raise ValidationError("Invalid credentials. Please check your email and password.")
+      except CustomUser.DoesNotExist:
+         raise ValidationError("Invalid credentials. Please check your email and password.")
+      
+      # Check if account is active
+      if not user.is_active:
+         raise ValidationError("Your account is inactive. Please contact support.")
+      
+      # Check if account is verified
+      if not user.is_verified:
+         raise ValidationError("Your account is not verified. Please check your email for verification instructions.")
+      
+      # Check if user is store owner
       if not user.is_store_owner:
          raise ValidationError("Access denied. Only store owners can log in here.")
+      
+      # Call parent validate to get tokens
+      data = super().validate(attrs)
+      user = self.user
 
-      # Get user with permissions (allow all valid users)
-      try:
-         user = CustomUser.objects.get(id=user.id)
-      except CustomUser.DoesNotExist:
-         raise ValidationError("User Does Not Exist")
-      except CustomUser.MultipleObjectsReturned:
-         raise ValidationError("Multiple users found - database inconsistency")
+
 
       # Initialize store-related variables
       has_store = False

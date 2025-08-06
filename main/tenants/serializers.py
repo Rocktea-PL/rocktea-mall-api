@@ -143,16 +143,30 @@ class UserLogin(TokenObtainPairSerializer):
             return None
 
     def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+        
+        # Check if user exists and password is correct
+        try:
+            user = CustomUser.objects.get(email=email)
+            if not user.check_password(password):
+                from workshop.exceptions import ValidationError
+                raise ValidationError("Invalid credentials. Please check your email and password.")
+        except CustomUser.DoesNotExist:
+            from workshop.exceptions import ValidationError
+            raise ValidationError("Invalid credentials. Please check your email and password.")
+        
+        # Call parent validate to get tokens
         data = super().validate(attrs)
-
+        
         # Check if user is verified
         if not self.user.is_verified:
-            raise serializers.ValidationError({
-                'error': 'Email not verified. Please check your email for verification link.'
-            })
+            from workshop.exceptions import ValidationError
+            raise ValidationError("Email not verified. Please check your email for verification link.")
       
         if not self.user.is_consumer:
-            raise serializers.ValidationError({'error': 'User is not a consumer'})
+            from workshop.exceptions import ValidationError
+            raise ValidationError("User is not a consumer")
 
         store = self.get_store(self.user)
         

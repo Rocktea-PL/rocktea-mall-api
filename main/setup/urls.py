@@ -29,6 +29,7 @@ from mall.views import (
         ProductRatingViewSet,
         EmailVerificationViewSet
 )
+from mall.change_password import ChangePasswordView
 from mall.health_views import health_check
 
 from mall.custom_view.reportuser import ReportUserView
@@ -164,6 +165,7 @@ urlpatterns = [
     path('resend-verification-email/', 
      EmailVerificationViewSet.as_view({'post': 'resend_verification'}), 
      name='resend-verification-email'),
+    path('api/auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('health/', health_check, name='health_check'),
     re_path(r'^rocktea/storeowner/$', CreateStoreOwner.as_view({
         'get': 'list',
