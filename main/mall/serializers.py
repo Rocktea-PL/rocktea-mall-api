@@ -999,9 +999,7 @@ class ResendVerificationSerializer(serializers.Serializer):
       if user.verification_token_created_at:
          time_since_last_request = timezone.now() - user.verification_token_created_at
          if time_since_last_request.total_seconds() < 1200:  # 20 minutes
-               raise ValidationError({
-                  "error": "Please wait at least 20 minutes before requesting another verification email."
-               })
+               raise ValidationError("Please wait at least 20 minutes before requesting another verification email.")
       
       # Generate new token
       token_generator = PasswordResetTokenGenerator()
@@ -1046,9 +1044,7 @@ class ResendVerificationSerializer(serializers.Serializer):
          
       except Exception as e:
          logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
-         raise ValidationError({
-               "error": "Failed to send verification email. Please try again later."
-         })
+         raise ValidationError("Failed to send verification email. Please try again later.")
    
    def _build_verification_url(self, token, request):
       """Build verification URL with proper domain handling"""

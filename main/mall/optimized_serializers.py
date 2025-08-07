@@ -7,13 +7,14 @@ class OptimizedProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
     brand_name = serializers.CharField(source='brand.name', read_only=True)
+    producttype_name = serializers.CharField(source='producttype.name', read_only=True)
     optimized_image = serializers.SerializerMethodField()
     product_images = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
         fields = ['id', 'name', 'description', 'category_name', 'subcategory_name', 
-                 'brand_name', 'optimized_image', 'product_images', 'sales_count', 'is_available']
+                 'brand_name', 'producttype_name', 'optimized_image', 'product_images', 'sales_count', 'is_available']
     
     def get_optimized_image(self, obj):
         """Return optimized image URL for the product"""

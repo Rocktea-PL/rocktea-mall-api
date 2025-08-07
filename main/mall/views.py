@@ -429,8 +429,8 @@ class ProductViewSet(viewsets.ModelViewSet):
    def get_queryset(self):
       category_id = self.request.query_params.get('category')
       if category_id:
-         return Product.objects.by_category(category_id)
-      return Product.objects.available()
+         return Product.objects.by_category(category_id).select_related('category', 'subcategory', 'brand', 'producttype')
+      return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype')
 
    @transaction.atomic
    def perform_create(self, serializer):
