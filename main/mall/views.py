@@ -925,10 +925,10 @@ class DropshipperDashboardCounts(APIView):
 
 # Best Selling Product Data
 class BestSellingProductView(ListAPIView):
-   serializer_class = ProductSerializer
+   serializer_class = OptimizedProductSerializer
 
    def get_queryset(self):
-      return Product.objects.available().order_by('-sales_count')[:3]
+      return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype').order_by('-sales_count')[:3]
 
 class SalesCountView(APIView):
    def get_object(self, product_id):

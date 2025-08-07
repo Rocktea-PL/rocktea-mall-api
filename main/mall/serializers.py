@@ -812,22 +812,19 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 
    def serialize_product_images(self, images):
       """Serialize product images with optimization"""
-      images_data = []
-      for image in images:
-         if hasattr(image, 'public_id') and image.public_id:
-            from .cloudinary_utils import CloudinaryOptimizer
-            optimized_url = CloudinaryOptimizer.get_optimized_url(image.public_id, 'product_card')
-            images_data.append({
-               "id": image.id,
-               "url": optimized_url,
-               "original_url": image.images.url if image.images else None
-            })
-         else:
-            images_data.append({
-               "id": image.id,
-               "url": image.images.url if image.images else None
-            })
-      return images_data
+      optimized_images = []
+      for img in images:
+         if img.images:
+            try:
+               if hasattr(img, 'public_id') and img.public_id:
+                  from .cloudinary_utils import CloudinaryOptimizer
+                  optimized_url = CloudinaryOptimizer.get_optimized_url(img.public_id, 'product_card')
+                  optimized_images.append(optimized_url)
+               else:
+                  optimized_images.append(img.images.url)
+            except Exception:
+               optimized_images.append(img.images.url)
+      return optimized_images
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
@@ -836,24 +833,29 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
    class Meta:
       model = Product
-      fields = '__all__'
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 'created_at', 'on_promo', 
+                'is_available', 'upload_status', 'sales_count', 'category', 'subcategory', 
+                'producttype', 'brand', 'store']
       read_only_fields = ('id', 'sku')
    
    def _get_optimized_images(self, images):
       """Get optimized image URLs with fallback"""
-      images_data = []
-      for prod in images:
-         if hasattr(prod, 'public_id') and prod.public_id:
-            from .cloudinary_utils import CloudinaryOptimizer
-            optimized_url = CloudinaryOptimizer.get_optimized_url(prod.public_id, 'product_card')
-            images_data.append({
-               "url": optimized_url,
-               "original_url": prod.images.url if prod.images else None,
-               "responsive_urls": CloudinaryOptimizer.get_responsive_urls(prod.public_id)
-            })
-         else:
-            images_data.append({"url": prod.images.url if prod.images else None})
-      return images_data
+      optimized_images = []
+      for img in images:
+         if img.images:
+            try:
+               # Use stored public_id if available for Cloudinary optimization
+               if hasattr(img, 'public_id') and img.public_id:
+                  from .cloudinary_utils import CloudinaryOptimizer
+                  optimized_url = CloudinaryOptimizer.get_optimized_url(img.public_id, 'product_card')
+                  optimized_images.append(optimized_url)
+               else:
+                  # Fallback to original URL
+                  optimized_images.append(img.images.url)
+            except Exception:
+               # Fallback to original URL on any error
+               optimized_images.append(img.images.url)
+      return optimized_images
 
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -868,13 +870,10 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       if representation['description'] is None:
          del representation['description']
 
-      if representation['images'] is None:
-         del representation['images']
-
       representation['brand'] = {"id": instance.brand.id, "name": instance.brand.name}
       representation['category'] = {"id": instance.category.id, "name": instance.category.name}
       representation['subcategory'] = {"id": instance.subcategory.id, "name": instance.subcategory.name}
-      # representation['producttype'] = {"id": instance.producttype.id, "name": instance.producttype.name}
+      representation['producttype'] = {"id": instance.producttype.id, "name": instance.producttype.name}
 
       representation['product'] = {
             "id": instance.id,
@@ -883,9 +882,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "product_variant": self.serialize_product_variants(instance.product_variants.all()),
             "category": instance.category.name,
             "subcategory": instance.subcategory.name,
-            # "producttype": getattr(instance.producttypes, 'name', None),
+            "producttype": instance.producttype.name,
             "upload_status": instance.upload_status
          }
+      
+      # Clear cache to ensure fresh data
+      cache.delete(cache_key)
       cache.set(cache_key, representation, timeout=60 * 5)
       return representation
 
