@@ -206,20 +206,11 @@ def delete_product_images(sender, instance, **kwargs):
     for image in instance.images.all():
         try:
             if image.images:
-                # Delete from Cloudinary if it's a Cloudinary URL
-                image_url = str(image.images)
-                if 'cloudinary.com' in image_url:
+                # Delete from Cloudinary using stored public_id
+                if hasattr(image, 'public_id') and image.public_id:
                     try:
                         import cloudinary.uploader as uploader
-                        # Extract public_id from URL
-                        parts = image_url.split('/')
-                        if 'upload' in parts:
-                            upload_index = parts.index('upload')
-                            if upload_index + 2 < len(parts):
-                                start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
-                                public_id_parts = parts[start_index:]
-                                public_id = '/'.join(public_id_parts).split('.')[0]
-                                uploader.destroy(public_id)
+                        uploader.destroy(image.public_id)
                     except Exception as cloudinary_error:
                         logger.error(f"Error deleting from Cloudinary: {cloudinary_error}")
                 
@@ -233,20 +224,11 @@ def delete_product_image_file(sender, instance, **kwargs):
     """Delete image file when ProductImage is deleted"""
     try:
         if instance.images:
-            # Delete from Cloudinary if it's a Cloudinary URL
-            image_url = str(instance.images)
-            if 'cloudinary.com' in image_url:
+            # Delete from Cloudinary using stored public_id
+            if hasattr(instance, 'public_id') and instance.public_id:
                 try:
                     import cloudinary.uploader as uploader
-                    # Extract public_id from URL
-                    parts = image_url.split('/')
-                    if 'upload' in parts:
-                        upload_index = parts.index('upload')
-                        if upload_index + 2 < len(parts):
-                            start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
-                            public_id_parts = parts[start_index:]
-                            public_id = '/'.join(public_id_parts).split('.')[0]
-                            uploader.destroy(public_id)
+                    uploader.destroy(instance.public_id)
                 except Exception as cloudinary_error:
                     logger.error(f"Error deleting from Cloudinary: {cloudinary_error}")
             

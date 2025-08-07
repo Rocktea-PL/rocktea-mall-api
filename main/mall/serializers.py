@@ -677,7 +677,7 @@ class ProductSerializer(serializers.ModelSerializer):
       # Use optimized images with fallback to original
       images_data = []
       for prod in instance.images.all():
-         if prod.public_id:
+         if hasattr(prod, 'public_id') and prod.public_id:
             from .cloudinary_utils import CloudinaryOptimizer
             optimized_url = CloudinaryOptimizer.get_optimized_url(prod.public_id, 'product_card')
             images_data.append({
@@ -814,7 +814,7 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       """Serialize product images with optimization"""
       images_data = []
       for image in images:
-         if image.public_id:
+         if hasattr(image, 'public_id') and image.public_id:
             from .cloudinary_utils import CloudinaryOptimizer
             optimized_url = CloudinaryOptimizer.get_optimized_url(image.public_id, 'product_card')
             images_data.append({
@@ -843,7 +843,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       """Get optimized image URLs with fallback"""
       images_data = []
       for prod in images:
-         if prod.public_id:
+         if hasattr(prod, 'public_id') and prod.public_id:
             from .cloudinary_utils import CloudinaryOptimizer
             optimized_url = CloudinaryOptimizer.get_optimized_url(prod.public_id, 'product_card')
             images_data.append({

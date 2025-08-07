@@ -64,22 +64,14 @@ class BaseAdminProductSerializer(serializers.ModelSerializer):
         for img in obj.images.all():
             if img.images:
                 try:
-                    from mall.cloudinary_utils import CloudinaryOptimizer
-                    # Extract public_id from URL
-                    image_url = str(img.images.url)
-                    if 'cloudinary.com' in image_url:
-                        parts = image_url.split('/')
-                        if 'upload' in parts:
-                            upload_index = parts.index('upload')
-                            if upload_index + 2 < len(parts):
-                                start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
-                                public_id_parts = parts[start_index:]
-                                public_id = '/'.join(public_id_parts).split('.')[0]
-                                optimized_url = CloudinaryOptimizer.get_optimized_url(public_id, 'product_card')
-                                optimized_images.append(optimized_url)
-                                continue
-                    # Fallback to original URL
-                    optimized_images.append(img.images.url)
+                    # Use stored public_id if available
+                    if hasattr(img, 'public_id') and img.public_id:
+                        from mall.cloudinary_utils import CloudinaryOptimizer
+                        optimized_url = CloudinaryOptimizer.get_optimized_url(img.public_id, 'product_card')
+                        optimized_images.append(optimized_url)
+                    else:
+                        # Fallback to original URL
+                        optimized_images.append(img.images.url)
                 except Exception:
                     # Fallback to original URL on any error
                     optimized_images.append(img.images.url)
