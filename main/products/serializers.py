@@ -232,20 +232,10 @@ class AdminProductCreateSerializer(serializers.ModelSerializer):
                     # Create ProductImage instance with the uploaded image
                     product_image = ProductImage.objects.create(images=image)
                     
-                    # Extract and store public_id for optimization
-                    if hasattr(product_image.images, 'url'):
-                        image_url = str(product_image.images.url)
-                        if 'cloudinary.com' in image_url:
-                            # Extract public_id from URL
-                            parts = image_url.split('/')
-                            if 'upload' in parts:
-                                upload_index = parts.index('upload')
-                                if upload_index + 2 < len(parts):
-                                    start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
-                                    public_id_parts = parts[start_index:]
-                                    public_id = '/'.join(public_id_parts).split('.')[0]
-                                    product_image.public_id = public_id
-                                    product_image.save()
+                    # Extract and store public_id from Cloudinary response
+                    if hasattr(product_image.images, 'public_id'):
+                        product_image.public_id = product_image.images.public_id
+                        product_image.save()
                     
                     # Add the image to the product's images
                     product.images.add(product_image)
@@ -408,20 +398,10 @@ class AdminProductSerializer(serializers.ModelSerializer):
                         # Create new ProductImage with the uploaded image
                         product_image = ProductImage.objects.create(images=img)
                         
-                        # Extract and store public_id for optimization
-                        if hasattr(product_image.images, 'url'):
-                            image_url = str(product_image.images.url)
-                            if 'cloudinary.com' in image_url:
-                                # Extract public_id from URL
-                                parts = image_url.split('/')
-                                if 'upload' in parts:
-                                    upload_index = parts.index('upload')
-                                    if upload_index + 2 < len(parts):
-                                        start_index = upload_index + 2 if parts[upload_index + 1].startswith('v') else upload_index + 1
-                                        public_id_parts = parts[start_index:]
-                                        public_id = '/'.join(public_id_parts).split('.')[0]
-                                        product_image.public_id = public_id
-                                        product_image.save()
+                        # Extract and store public_id from Cloudinary response
+                        if hasattr(product_image.images, 'public_id'):
+                            product_image.public_id = product_image.images.public_id
+                            product_image.save()
                         
                         instance.images.add(product_image)
                         logger.info(f"Successfully created new ProductImage with ID: {product_image.id}")

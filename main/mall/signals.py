@@ -236,3 +236,52 @@ def delete_product_image_file(sender, instance, **kwargs):
             instance.images.delete(save=False)
     except Exception as e:
         logger.error(f"Error deleting image file for ProductImage {instance.id}: {e}")
+@receiver(pre_save, sender=CustomUser)
+def delete_old_profile_image(sender, instance, **kwargs):
+    """Delete old profile image when user updates it"""
+    if not instance.pk:
+        return
+    
+    try:
+        old_instance = CustomUser.objects.get(pk=instance.pk)
+        if old_instance.profile_image and old_instance.profile_image != instance.profile_image:
+            if hasattr(old_instance.profile_image, 'public_id') and old_instance.profile_image.public_id:
+                try:
+                    import cloudinary.uploader as uploader
+                    uploader.destroy(old_instance.profile_image.public_id)
+                except Exception as e:
+                    logger.error(f"Error deleting old profile image from Cloudinary: {e}")
+            old_instance.profile_image.delete(save=False)
+    except CustomUser.DoesNotExist:
+        pass
+
+@receiver(pre_save, sender=Store)
+def delete_old_store_images(sender, instance, **kwargs):
+    """Delete old store logo and cover image when updated"""
+    if not instance.pk:
+        return
+    
+    try:
+        old_instance = Store.objects.get(pk=instance.pk)
+        
+        # Handle logo deletion
+        if old_instance.logo and old_instance.logo != instance.logo:
+            if hasattr(old_instance.logo, 'public_id') and old_instance.logo.public_id:
+                try:
+                    import cloudinary.uploader as uploader
+                    uploader.destroy(old_instance.logo.public_id)
+                except Exception as e:
+                    logger.error(f"Error deleting old logo from Cloudinary: {e}")
+            old_instance.logo.delete(save=False)
+        
+        # Handle cover image deletion
+        if old_instance.cover_image and old_instance.cover_image != instance.cover_image:
+            if hasattr(old_instance.cover_image, 'public_id') and old_instance.cover_image.public_id:
+                try:
+                    import cloudinary.uploader as uploader
+                    uploader.destroy(old_instance.cover_image.public_id)
+                except Exception as e:
+                    logger.error(f"Error deleting old cover image from Cloudinary: {e}")
+            old_instance.cover_image.delete(save=False)
+    except Store.DoesNotExist:
+        pass
