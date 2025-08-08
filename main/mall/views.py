@@ -600,54 +600,66 @@ class CreateAndGetStoreProductPricing(APIView):
       elif self.request.method == "DELETE":
          return [IsStoreOwnerOrAdminDelete()]
       return super().get_permissions()
+   
+   def _sync_existing_products_to_marketplace(self, store):
+      """Optimized bulk sync of existing store products to marketplace"""
+      try:
+         # Get products that don't exist in marketplace yet
+         existing_product_ids = StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True)
+         marketplace_product_ids = MarketPlace.objects.filter(store=store).values_list('product_id', flat=True)
+         missing_product_ids = set(existing_product_ids) - set(marketplace_product_ids)
+         
+         # Bulk create missing marketplace entries
+         if missing_product_ids:
+            marketplace_entries = [MarketPlace(product_id=pid, store=store, list_product=True) for pid in missing_product_ids]
+            MarketPlace.objects.bulk_create(marketplace_entries, ignore_conflicts=True)
+      except Exception as e:
+         logger.error(f"Error syncing existing products to marketplace: {e}")
 
+   @transaction.atomic
    def post(self, request):
       try:
-         collect = request.data
          store = getattr(request.user, 'owners', None)
          if not store:
-            return Response(
-                  {"error": "You are not associated with a store."},
-                  status=status.HTTP_400_BAD_REQUEST
-            )
-         store_id = store.id
-         # store_id = handler.process_request(store_domain=get_store_domain(request))
-         product_id = collect.get("product")
-         retail_price = collect.get("retail_price")
+            return Response({"error": "You are not associated with a store."}, status=status.HTTP_400_BAD_REQUEST)
+         
+         product_id = request.data.get("product")
+         retail_price = request.data.get("retail_price")
+         
+         if not product_id or not retail_price:
+            return Response({"error": "Product and retail_price are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Log the incoming data
-         logger.info(f"Creating StoreProductPricing for store: {store_id}, product: {product_id}")
+         # Check if pricing already exists
+         if StoreProductPricing.objects.filter(store=store, product_id=product_id).exists():
+            return Response({"error": "Pricing for this product in this store already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Fetch the store and product objects
-         store = get_object_or_404(Store, id=store_id)
-         product = get_object_or_404(Product, id=product_id)
-
-         # Check if the product pricing is valid before proceeding
-         self.validate_product_pricing(store, product)
-
-         # Create the StoreProductPricing instance
+         # Create both StoreProductPricing and MarketPlace in single transaction
          store_product_price = StoreProductPricing.objects.create(
-               store=store,
-               product=product,
-               retail_price=retail_price
+            store=store,
+            product_id=product_id,
+            retail_price=retail_price
          )
+
+         MarketPlace.objects.get_or_create(
+            product_id=product_id,
+            store=store,
+            defaults={'list_product': True}
+         )
+
+         # Sync existing products only once per store (optimize with cache check)
+         from django.core.cache import cache
+         cache_key = f"marketplace_synced_{store.id}"
+         if not cache.get(cache_key):
+            self._sync_existing_products_to_marketplace(store)
+            cache.set(cache_key, True, timeout=3600)  # Cache for 1 hour
 
          serializer = StoreProductPricingSerializer(store_product_price)
          return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
       except Exception as e:
-         # Log the exception
          logger.error(f"Error creating StoreProductPricing: {e}", exc_info=True)
          return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-   def validate_product_pricing(self, store, product):
-      try:
-         existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=None).first()
-         if existing_pricing:
-               raise serializers.ValidationError("Pricing for this product in this store already exists.")
-      except serializers.ValidationError as e:
-         # Log the validation error
-         logger.warning(f"Validation error in product pricing: {e}")
-         raise
+
 
    def get(self, request):
       # store_product_prices = StoreProductPricing.objects.all()
