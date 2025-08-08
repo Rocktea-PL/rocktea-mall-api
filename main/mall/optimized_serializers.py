@@ -13,7 +13,7 @@ class OptimizedProductSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'category_name', 'subcategory_name', 
+        fields = ['id', 'name', 'description', 'quantity', 'category_name', 'subcategory_name', 
                  'brand_name', 'producttype_name', 'optimized_image', 'product_images', 'sales_count', 'is_available']
     
     def get_optimized_image(self, obj):
