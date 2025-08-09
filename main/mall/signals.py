@@ -84,44 +84,78 @@ def create_marketplace(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=CustomUser)
 def delete_dropshipper_domain(sender, instance, **kwargs):
     """Delete DNS record when dropshipper is deleted"""
+    logger.info(f"Delete signal triggered for user: {instance.email}, is_store_owner: {instance.is_store_owner}")
+    logger.info(f"User instance details: ID={instance.id}, email={instance.email}, first_name={instance.first_name}, last_name={instance.last_name}")
+    
     if not instance.is_store_owner:
+        logger.info(f"User {instance.email} is not a store owner, skipping DNS deletion")
         return
         
+    user_email = instance.email
+    user_name = instance.get_full_name() or instance.first_name or instance.email
+    
     try:
-        # Get the store associated with this dropshipper
-        if hasattr(instance, 'owners') and instance.owners:
-            store = instance.owners
+        # Query store directly before it gets deleted
+        store = Store.objects.filter(owner=instance).first()
+        logger.info(f"Store query result: {store}")
+        
+        if store:
+            logger.info(f"Found store: name={store.name}, ID={store.id}, dns_record_created={store.dns_record_created}, domain_name={store.domain_name}")
             
-            # Store data before deletion for email
-            user_email = instance.email
-            user_name = instance.get_full_name() or instance.first_name or instance.email
-            store_name = store.name
-            store_domain = store.domain_name
-            
-            # Only delete DNS if it was actually created
-            if store.dns_record_created and store.slug:
-                logger.info(f"Processing DNS deletion for dropshipper: {user_email}, store: {store_name}")
+            if store.dns_record_created and store.domain_name:
+                # Extract clean domain from domain_name
+                from urllib.parse import urlparse
+                parsed_url = urlparse(store.domain_name)
+                clean_domain = parsed_url.netloc
+                logger.info(f"Extracted clean domain: {clean_domain} from {store.domain_name}")
                 
                 try:
-                    success = delete_store_dns_record(store.slug)
+                    success = delete_store_dns_record(clean_domain)
                     
                     if success:
-                        logger.info(f"Successfully deleted DNS record for store: {store_name}")
-                        # Send success email after deletion
-                        _send_deletion_success_email(user_email, user_name, store_name, store_domain)
+                        logger.info(f"Successfully deleted DNS record for store: {store.name}")
+                        _send_deletion_success_email(user_email, user_name, store.name, store.domain_name)
                     else:
-                        logger.error(f"Failed to delete DNS record for store: {store_name}")
-                        _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
+                        logger.error(f"Failed to delete DNS record for store: {store.name}")
+                        _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
                         
                 except Exception as dns_error:
-                    logger.error(f"DNS deletion error for store {store_name}: {dns_error}")
-                    _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
+                    logger.error(f"DNS deletion error for store {store.name}: {dns_error}")
+                    _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
             else:
-                logger.info(f"No DNS record to delete for store: {store_name}")
+                logger.info(f"Store {store.name} has dns_record_created={store.dns_record_created} and domain_name={store.domain_name} - skipping DNS deletion")
+        else:
+            logger.info(f"No store found for user: {instance.email}")
                 
     except Exception as e:
         logger.error(f"Error in delete_dropshipper_domain for {instance.email}: {e}")
 
+
+@receiver(pre_delete, sender=Store)
+def delete_store_domain_on_store_delete(sender, instance, **kwargs):
+    """Delete DNS record when store is deleted directly"""
+    logger.info(f"Store deletion signal triggered for: {instance.name} (ID: {instance.id})")
+    
+    if instance.dns_record_created and instance.domain_name:
+        logger.info(f"Deleting DNS record for store: {instance.name}")
+        
+        try:
+            from urllib.parse import urlparse
+            parsed_url = urlparse(instance.domain_name)
+            clean_domain = parsed_url.netloc
+            logger.info(f"Extracted clean domain: {clean_domain} from {instance.domain_name}")
+            
+            success = delete_store_dns_record(clean_domain)
+            
+            if success:
+                logger.info(f"Successfully deleted DNS record for store: {instance.name}")
+            else:
+                logger.error(f"Failed to delete DNS record for store: {instance.name}")
+                
+        except Exception as e:
+            logger.error(f"Error deleting DNS record for store {instance.name}: {e}")
+    else:
+        logger.info(f"Store {instance.name} has dns_record_created={instance.dns_record_created} and domain_name={instance.domain_name} - skipping DNS deletion")
 
 def _send_deletion_success_email(user_email, user_name, store_name, store_domain):
     """Send email notification when store and domain are successfully deleted"""
