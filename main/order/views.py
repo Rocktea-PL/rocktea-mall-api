@@ -322,19 +322,10 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          logger.info(f"Webhook updated - status: {paystack_webhook.status}, store_id: {paystack_webhook.store.id if paystack_webhook.store else 'None'}")
          
          # Create domain and DNS after payment confirmation
-         from setup.tasks import create_store_domain_task
-         logger.info(f"Queueing domain creation task for store: {store.id}")
-         try:
-            transaction.on_commit(lambda: create_store_domain_task.delay(store.id))
-            logger.info(f"Domain creation task queued successfully for store: {store.id}")
-         except Exception as task_error:
-            logger.error(f"Failed to queue domain creation task: {task_error}")
-            # Fallback: call synchronously if async fails
-            try:
-               create_store_domain_task(store.id)
-               logger.info(f"Domain creation executed synchronously for store: {store.id}")
-            except Exception as sync_error:
-               logger.error(f"Synchronous domain creation also failed: {sync_error}")
+         from mall.signals import create_store_domain_after_payment
+         logger.info(f"Starting domain creation for store: {store.id}")
+         transaction.on_commit(lambda: create_store_domain_after_payment(store))
+         logger.info(f"Domain creation initiated for store: {store.id}")
          
          logger.info(f"=== DROPSHIPPING PAYMENT COMPLETED SUCCESSFULLY ===")
          

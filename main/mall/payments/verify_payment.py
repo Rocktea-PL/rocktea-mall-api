@@ -63,8 +63,26 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
 
     url = 'https://api.paystack.co/transaction/initialize'
     
-    response = requests.post(url, headers=headers, json=data)
-    response_data = response.json()
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        
+        if response.text.strip():
+            response_data = response.json()
+        else:
+            logger.error(f"Empty response from Paystack API")
+            return {"status": False, "message": "Empty response from payment gateway"}
+            
+    except requests.exceptions.Timeout:
+        logger.error(f"Paystack API timeout")
+        return {"status": False, "message": "Payment gateway timeout"}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Paystack API request error: {e}")
+        return {"status": False, "message": "Payment gateway error"}
+    except ValueError as e:
+        logger.error(f"Invalid JSON response from Paystack: {e}")
+        logger.error(f"Response text: {response.text[:200]}")
+        return {"status": False, "message": "Invalid response from payment gateway"}
 
     # Save the initializer data in PaystackWebhook
     if response_data.get('status'):
