@@ -139,6 +139,11 @@ def delete_store_domain_on_store_delete(sender, instance, **kwargs):
     if instance.dns_record_created and instance.domain_name:
         logger.info(f"Deleting DNS record for store: {instance.name}")
         
+        # Get owner info for email before deletion
+        owner = instance.owner
+        user_email = owner.email
+        user_name = owner.get_full_name() or owner.first_name or owner.email
+        
         try:
             from urllib.parse import urlparse
             parsed_url = urlparse(instance.domain_name)
@@ -149,11 +154,14 @@ def delete_store_domain_on_store_delete(sender, instance, **kwargs):
             
             if success:
                 logger.info(f"Successfully deleted DNS record for store: {instance.name}")
+                _send_deletion_success_email(user_email, user_name, instance.name, instance.domain_name)
             else:
                 logger.error(f"Failed to delete DNS record for store: {instance.name}")
+                _send_deletion_failure_email(user_email, user_name, instance.name, instance.domain_name)
                 
         except Exception as e:
             logger.error(f"Error deleting DNS record for store {instance.name}: {e}")
+            _send_deletion_failure_email(user_email, user_name, instance.name, instance.domain_name)
     else:
         logger.info(f"Store {instance.name} has dns_record_created={instance.dns_record_created} and domain_name={instance.domain_name} - skipping DNS deletion")
 
