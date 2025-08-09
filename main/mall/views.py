@@ -122,7 +122,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
 
       # If user_id is present in cookies, filter the queryset by it
       if user_id:
-            queryset = CustomUser.objects.filter(id=user_id)
+            queryset = CustomUser.objects.filter(id=user_id).order_by('-date_joined')
       else:
          # If user_id is not present, return an empty queryset or handle it as per your requirement
          queryset = CustomUser.objects.none()

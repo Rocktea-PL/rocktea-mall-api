@@ -84,13 +84,17 @@ def create_marketplace(sender, instance, created, **kwargs):
 @receiver(pre_delete, sender=CustomUser)
 def delete_dropshipper_domain(sender, instance, **kwargs):
     """Delete DNS record when dropshipper is deleted"""
+    logger.info(f"Delete signal triggered for user: {instance.email}, is_store_owner: {instance.is_store_owner}")
+    
     if not instance.is_store_owner:
+        logger.info(f"User {instance.email} is not a store owner, skipping DNS deletion")
         return
         
     try:
         # Get the store associated with this dropshipper
         try:
             store = Store.objects.get(owner=instance)
+            logger.info(f"Found store for user {instance.email}: {store.name} (ID: {store.id})")
             
             # Store data before deletion for email
             user_email = instance.email
@@ -121,6 +125,9 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
                 
         except Store.DoesNotExist:
             logger.info(f"No store found for user: {instance.email}")
+            # Check if there are any stores with this user as owner
+            all_stores = Store.objects.filter(owner=instance)
+            logger.info(f"All stores for user {instance.email}: {list(all_stores.values_list('id', 'name'))}")
             return
                 
     except Exception as e:
