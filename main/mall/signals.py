@@ -188,42 +188,60 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
 
 def create_store_domain_after_payment(store):
     """Create domain for store after payment confirmation"""
+    logger.info(f"Starting domain creation for store: {store.name} (ID: {store.id})")
+    
     if store.dns_record_created:
         logger.info(f"DNS already created for store: {store.name}")
         return
         
-    env_config = determine_environment_config(get_current_request())
-    
-    # Handle local environment
-    if env_config.get('is_local', False):
-        send_local_development_email(store, store.domain_name)
-        return
-    
-    # Extract domain from domain_name for DNS creation
-    domain_match = re.search(r'https://([^?]+)', store.domain_name or '')
-    if not domain_match:
-        logger.error(f"Invalid domain_name for store {store.name}")
-        return
-        
-    full_domain = domain_match.group(1)
-    
     try:
+        env_config = determine_environment_config(get_current_request())
+        logger.info(f"Environment config: {env_config}")
+        
+        # Handle local environment
+        if env_config.get('is_local', False):
+            logger.info(f"Local environment detected for store: {store.name}")
+            send_local_development_email(store, store.domain_name)
+            store.dns_record_created = True
+            store.save(update_fields=['dns_record_created'])
+            return
+        
+        # Extract domain from domain_name for DNS creation
+        domain_match = re.search(r'https://([^?]+)', store.domain_name or '')
+        if not domain_match:
+            logger.error(f"Invalid domain_name for store {store.name}: {store.domain_name}")
+            return
+            
+        full_domain = domain_match.group(1)
+        logger.info(f"Creating DNS record for domain: {full_domain}")
+        
         # Create DNS record
-        if create_cname_record(
+        logger.info(f"Attempting DNS creation with zone_id: {env_config['hosted_zone_id']}, domain: {full_domain}, target: {env_config['target_domain']}")
+        
+        dns_result = create_cname_record(
             zone_id=env_config['hosted_zone_id'],
             subdomain=full_domain,
             target=env_config['target_domain']
-        ):
+        )
+        
+        logger.info(f"DNS creation result: {dns_result is not None}, Result: {dns_result}")
+        
+        if dns_result is not None:
             store.dns_record_created = True
             store.save(update_fields=['dns_record_created'])
-            # Only send email after DNS is successfully created
+            logger.info(f"DNS record marked as created for store: {store.name}")
+            
+            # Send success email
             send_store_success_email(store, store.domain_name, env_config['environment'])
-            logger.info(f"DNS record created successfully for store: {store.name}")
+            logger.info(f"Success email sent for store: {store.name}")
         else:
+            logger.error(f"DNS creation failed for store: {store.name}")
+            # Still send failure email so user knows what happened
             send_store_dns_failure_email(store, full_domain)
+            logger.info(f"DNS failure email sent for store: {store.name}")
             
     except Exception as e:
-        logger.error(f"DNS creation failed for {store.name}: {e}")
+        logger.error(f"DNS creation failed for {store.name}: {e}", exc_info=True)
         send_store_dns_error_email(store, str(e))
 
 # Cache invalidation signals

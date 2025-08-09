@@ -61,19 +61,23 @@ def send_email_task(self, recipient_email: str, template_name: str, context: dic
         logger.error(f"Unexpected email error to {recipient_email}: {e}")
         return None
 
-@app.task(bind=True, default_retry_delay=60, max_retries=3)
+@app.task(bind=True, default_retry_delay=60, max_retries=3, queue='domains')
 def create_store_domain_task(self, store_id):
     """Async task to create store domain after payment confirmation"""
+    logger.info(f"=== DOMAIN CREATION TASK STARTED for store_id: {store_id} ===")
+    
     try:
         from mall.models import Store
         from mall.signals import create_store_domain_after_payment
         
         store = Store.objects.get(id=store_id)
-        logger.info(f"Creating domain for store: {store.name} (ID: {store_id})")
+        logger.info(f"Found store: {store.name} (ID: {store_id})")
+        logger.info(f"Store has_made_payment: {store.has_made_payment}")
+        logger.info(f"Store dns_record_created: {store.dns_record_created}")
         
         create_store_domain_after_payment(store)
         
-        logger.info(f"Domain creation completed for store: {store.name}")
+        logger.info(f"=== DOMAIN CREATION COMPLETED for store: {store.name} ===")
         return f"Domain created for store: {store.name}"
         
     except Store.DoesNotExist:
@@ -81,7 +85,7 @@ def create_store_domain_task(self, store_id):
         return f"Store not found: {store_id}"
         
     except Exception as e:
-        logger.error(f"Domain creation failed for store {store_id}: {e}")
+        logger.error(f"Domain creation failed for store {store_id}: {e}", exc_info=True)
         try:
             self.retry(exc=e)
         except self.MaxRetriesExceededError:
