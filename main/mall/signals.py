@@ -52,8 +52,9 @@ def create_wallet(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Store)
 def create_dropshipper_dns_record(sender, instance, created, **kwargs):
-    """Create DNS record for new stores - only send email after DNS success"""
-    if not created or instance.dns_record_created:
+    """Create DNS record only after payment is confirmed"""
+    # Only create DNS record if store is created AND payment is confirmed
+    if not created or instance.dns_record_created or not instance.has_made_payment:
         return
         
     # Use transaction.on_commit to ensure email is sent after successful DB commit
@@ -184,6 +185,46 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
     from setup.email_service import send_store_deletion_email
     send_store_deletion_email(user_email, user_name, store_name, store_domain, success=False)
     logger.info(f"Store deletion failure email sent to {user_email} for store: {store_name}")
+
+def create_store_domain_after_payment(store):
+    """Create domain for store after payment confirmation"""
+    if store.dns_record_created:
+        logger.info(f"DNS already created for store: {store.name}")
+        return
+        
+    env_config = determine_environment_config(get_current_request())
+    
+    # Handle local environment
+    if env_config.get('is_local', False):
+        send_local_development_email(store, store.domain_name)
+        return
+    
+    # Extract domain from domain_name for DNS creation
+    domain_match = re.search(r'https://([^?]+)', store.domain_name or '')
+    if not domain_match:
+        logger.error(f"Invalid domain_name for store {store.name}")
+        return
+        
+    full_domain = domain_match.group(1)
+    
+    try:
+        # Create DNS record
+        if create_cname_record(
+            zone_id=env_config['hosted_zone_id'],
+            subdomain=full_domain,
+            target=env_config['target_domain']
+        ):
+            store.dns_record_created = True
+            store.save(update_fields=['dns_record_created'])
+            # Only send email after DNS is successfully created
+            send_store_success_email(store, store.domain_name, env_config['environment'])
+            logger.info(f"DNS record created successfully for store: {store.name}")
+        else:
+            send_store_dns_failure_email(store, full_domain)
+            
+    except Exception as e:
+        logger.error(f"DNS creation failed for {store.name}: {e}")
+        send_store_dns_error_email(store, str(e))
 
 # Cache invalidation signals
 @receiver(post_save, sender=Product)

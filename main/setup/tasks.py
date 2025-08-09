@@ -61,4 +61,41 @@ def send_email_task(self, recipient_email: str, template_name: str, context: dic
         logger.error(f"Unexpected email error to {recipient_email}: {e}")
         return None
 
-__all__ = ['send_email_task']
+@app.task(bind=True, default_retry_delay=60, max_retries=3)
+def create_store_domain_task(self, store_id):
+    """Async task to create store domain after payment confirmation"""
+    try:
+        from mall.models import Store
+        from mall.signals import create_store_domain_after_payment
+        
+        store = Store.objects.get(id=store_id)
+        logger.info(f"Creating domain for store: {store.name} (ID: {store_id})")
+        
+        create_store_domain_after_payment(store)
+        
+        logger.info(f"Domain creation completed for store: {store.name}")
+        return f"Domain created for store: {store.name}"
+        
+    except Store.DoesNotExist:
+        logger.error(f"Store not found: {store_id}")
+        return f"Store not found: {store_id}"
+        
+    except Exception as e:
+        logger.error(f"Domain creation failed for store {store_id}: {e}")
+        try:
+            self.retry(exc=e)
+        except self.MaxRetriesExceededError:
+            logger.error(f"Max retries exceeded for domain creation: {store_id}")
+        return None
+
+@app.task(bind=True, default_retry_delay=300, max_retries=3)
+def log_webhook_attempt(self, reference, email, purpose, status):
+    """Log webhook processing attempts for monitoring"""
+    try:
+        logger.info(f"Webhook processed - Ref: {reference}, Email: {email}, Purpose: {purpose}, Status: {status}")
+        return f"Logged webhook: {reference}"
+    except Exception as e:
+        logger.error(f"Failed to log webhook {reference}: {e}")
+        return None
+
+__all__ = ['send_email_task', 'create_store_domain_task', 'log_webhook_attempt']

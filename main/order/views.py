@@ -313,6 +313,10 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          paystack_webhook.save(update_fields=['data', 'status', 'store'])
          logger.info(f"Webhook updated - status: {paystack_webhook.status}, store_id: {paystack_webhook.store.id if paystack_webhook.store else 'None'}")
          
+         # Create domain after payment confirmation (async)
+         from setup.tasks import create_store_domain_task
+         create_store_domain_task.delay(store.id)
+         
          logger.info(f"=== DROPSHIPPING PAYMENT COMPLETED SUCCESSFULLY ===")
          
       return JsonResponse({
