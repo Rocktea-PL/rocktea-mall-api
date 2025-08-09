@@ -129,9 +129,10 @@ def get_existing_record(zone_id, subdomain):
         return None
 
 
-def delete_store_dns_record(store_slug, environment='dev'):
+def delete_store_dns_record(domain_identifier, environment='dev'):
     """
     Delete DNS record for a store when dropshipper is deleted.
+    domain_identifier can be either a store slug or a full domain name.
     """
     from mall.utils import determine_environment_config, generate_store_domain
     
@@ -141,14 +142,21 @@ def delete_store_dns_record(store_slug, environment='dev'):
         
         # Skip deletion for local environment
         if env_config['environment'] == 'local':
-            logger.info(f"Local environment - skipping DNS deletion for store: {store_slug}")
+            logger.info(f"Local environment - skipping DNS deletion for: {domain_identifier}")
             return True
         
-        # Generate the domain that was created
-        full_domain = generate_store_domain(store_slug, env_config['environment'])
+        # Determine if domain_identifier is a full domain or just a slug
+        if '.' in domain_identifier and not domain_identifier.startswith('http'):
+            # It's already a full domain
+            full_domain = domain_identifier
+            logger.info(f"Using provided domain: {full_domain}")
+        else:
+            # It's a slug, generate the full domain
+            full_domain = generate_store_domain(domain_identifier, env_config['environment'])
+            logger.info(f"Generated domain from slug: {full_domain}")
         
         if not full_domain:
-            logger.warning(f"No domain to delete for store slug: {store_slug}")
+            logger.warning(f"No domain to delete for identifier: {domain_identifier}")
             return False
         
         # Check if record exists first
@@ -169,12 +177,12 @@ def delete_store_dns_record(store_slug, environment='dev'):
         )
         
         if response:
-            logger.info(f"Successfully deleted DNS record for store: {store_slug}")
+            logger.info(f"Successfully deleted DNS record: {full_domain}")
             return True
         else:
-            logger.error(f"Failed to delete DNS record for store: {store_slug}")
+            logger.error(f"Failed to delete DNS record: {full_domain}")
             return False
             
     except Exception as e:
-        logger.error(f"Error deleting DNS record for store {store_slug}: {e}")
+        logger.error(f"Error deleting DNS record for {domain_identifier}: {e}")
         return False
