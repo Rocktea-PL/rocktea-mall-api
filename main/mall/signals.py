@@ -28,9 +28,10 @@ logger = logging.getLogger(__name__)
 @receiver(pre_save, sender=Store)
 def generate_store_domain_info(sender, instance, **kwargs):
     """
-    Generate domain information before saving the store.
+    Generate domain information and create DNS record simultaneously when payment is confirmed.
     """
-    if instance.domain_name or instance.dns_record_created:
+    # Only proceed if payment is confirmed and DNS not yet created
+    if not instance.has_made_payment or instance.dns_record_created or instance.domain_name:
         return
         
     # Get environment configuration once
@@ -39,10 +40,29 @@ def generate_store_domain_info(sender, instance, **kwargs):
     # Generate domain based on environment
     if env_config.get('is_local', False):
         instance.domain_name = f"http://localhost:8000?mall={instance.id}"
+        instance.dns_record_created = True  # Mark as created for local
     else:
         slug = generate_store_slug(instance.name)
         full_domain = f"{slug}.{env_config['target_domain']}"
-        instance.domain_name = f"https://{full_domain}?mall={instance.id}"
+        
+        # Try to create DNS record first
+        dns_result = create_cname_record(
+            zone_id=env_config['hosted_zone_id'],
+            subdomain=full_domain,
+            target=env_config['target_domain']
+        )
+        
+        if dns_result is not None:
+            # DNS creation successful - set domain and mark as created
+            instance.domain_name = f"https://{full_domain}?mall={instance.id}"
+            instance.dns_record_created = True
+            logger.info(f"DNS and domain created successfully for store: {instance.name}")
+        else:
+            # DNS creation failed - don't set domain_name
+            logger.error(f"DNS creation failed for store: {instance.name}, domain not set")
+            # Send failure email
+            from django.db import transaction
+            transaction.on_commit(lambda: send_store_dns_failure_email(instance, full_domain))
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):
@@ -51,51 +71,31 @@ def create_wallet(sender, instance, created, **kwargs):
         Wallet.objects.get_or_create(store=instance)
 
 @receiver(post_save, sender=Store)
-def create_dropshipper_dns_record(sender, instance, created, **kwargs):
-    """Create DNS record only after payment is confirmed"""
-    # Only create DNS record if store is created AND payment is confirmed
-    if not created or instance.dns_record_created or not instance.has_made_payment:
+def send_store_creation_email(sender, instance, created, **kwargs):
+    """Send appropriate email after store is saved"""
+    # Only send email if payment is confirmed and this is an update (not creation)
+    if created or not instance.has_made_payment:
         return
         
     # Use transaction.on_commit to ensure email is sent after successful DB commit
     from django.db import transaction
     
-    def send_store_email():
+    def send_email():
         env_config = determine_environment_config(get_current_request())
         
-        # Handle local environment
-        if env_config.get('is_local', False):
-            send_local_development_email(instance, instance.domain_name)
-            return
-        
-        # Extract domain from domain_name for DNS creation
-        domain_match = re.search(r'https://([^?]+)', instance.domain_name or '')
-        if not domain_match:
-            logger.error(f"Invalid domain_name for store {instance.name}")
-            return
-            
-        full_domain = domain_match.group(1)
-        
-        try:
-            # Create DNS record
-            if create_cname_record(
-                zone_id=env_config['hosted_zone_id'],
-                subdomain=full_domain,
-                target=env_config['target_domain']
-            ):
-                instance.dns_record_created = True
-                instance.save(update_fields=['dns_record_created'])
-                # Only send email after DNS is successfully created
-                send_store_success_email(instance, instance.domain_name, env_config['environment'])
+        if instance.dns_record_created and instance.domain_name:
+            # DNS was successful - send success email
+            if env_config.get('is_local', False):
+                send_local_development_email(instance, instance.domain_name)
             else:
-                send_store_dns_failure_email(instance, full_domain)
-                
-        except Exception as e:
-            logger.error(f"DNS creation failed for {instance.name}: {e}")
-            send_store_dns_error_email(instance, str(e))
+                send_store_success_email(instance, instance.domain_name, env_config['environment'])
+            logger.info(f"Success email sent for store: {instance.name}")
+        else:
+            # DNS failed - failure email already sent in pre_save
+            logger.info(f"DNS creation failed for store: {instance.name}, failure email already sent")
     
     # Schedule email sending after transaction commits
-    transaction.on_commit(send_store_email)
+    transaction.on_commit(send_email)
 
 def send_local_development_email(store_instance, store_url):
     """Send welcome email for local development environment"""
