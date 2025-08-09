@@ -254,8 +254,6 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       data = super().validate(attrs)
       user = self.user
 
-
-
       # Initialize store-related variables
       has_store = False
       store_id = None
@@ -310,7 +308,8 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          "category": category,
          "domain_name": domain_name,
          "completed": completed,
-         "hasMadePayment": has_made_payment
+         "hasMadePayment": has_made_payment,
+         "completed_step": user.completed_steps
       }
 
       if user.is_services:

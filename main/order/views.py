@@ -380,7 +380,6 @@ def process_shipment_details(user_id, order):
       except KeyError as e:
          logger.error(f"Missing key in shipment data: {e}")
 
-
 class InitiatePayment(viewsets.ViewSet):
     
    def get_permissions(self):
@@ -436,6 +435,7 @@ class InitiatePayment(viewsets.ViewSet):
       else:
          error_message = payment_response.get("message", "Payment initialization failed")
          return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
+
 class OrderPagination(PageNumberPagination):
    page_size = 5
    page_size_query_param = 'page_size'
