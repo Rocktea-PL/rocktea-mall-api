@@ -89,8 +89,8 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         
     try:
         # Get the store associated with this dropshipper
-        if hasattr(instance, 'owners') and instance.owners:
-            store = instance.owners
+        try:
+            store = Store.objects.get(owner=instance)
             
             # Store data before deletion for email
             user_email = instance.email
@@ -118,6 +118,10 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
                     _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
             else:
                 logger.info(f"No DNS record to delete for store: {store_name}")
+                
+        except Store.DoesNotExist:
+            logger.info(f"No store found for user: {instance.email}")
+            return
                 
     except Exception as e:
         logger.error(f"Error in delete_dropshipper_domain for {instance.email}: {e}")
@@ -150,10 +154,10 @@ def create_store_domain_after_payment(store):
         # Handle local environment
         if env_config.get('is_local', False):
             logger.info(f"Local environment detected for store: {store.name}")
-            # Set domain name for local environment
-            store.domain_name = f"http://localhost:8000?mall={store.id}"
+            # Set domain name for local environment only after marking DNS as created
             store.dns_record_created = True
-            store.save(update_fields=['domain_name', 'dns_record_created'])
+            store.domain_name = f"http://localhost:8000?mall={store.id}"
+            store.save(update_fields=['dns_record_created', 'domain_name'])
             send_local_development_email(store, store.domain_name)
             return
         
@@ -178,9 +182,9 @@ def create_store_domain_after_payment(store):
         
         if dns_result is not None:
             # Set domain name only after successful DNS creation
-            store.domain_name = f"https://{full_domain}?mall={store.id}"
             store.dns_record_created = True
-            store.save(update_fields=['domain_name', 'dns_record_created'])
+            store.domain_name = f"https://{full_domain}?mall={store.id}"
+            store.save(update_fields=['dns_record_created', 'domain_name'])
             logger.info(f"DNS record and domain name set for store: {store.name}")
             
             # Send success email
