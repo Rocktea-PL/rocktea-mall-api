@@ -63,22 +63,69 @@ def send_email_task(self, recipient_email: str, template_name: str, context: dic
 
 @app.task(bind=True, default_retry_delay=60, max_retries=3, queue='domains')
 def create_store_domain_task(self, store_id):
-    """Async task to create store domain after payment confirmation"""
+    """Async task to create DNS record and update domain after payment confirmation"""
     logger.info(f"=== DOMAIN CREATION TASK STARTED for store_id: {store_id} ===")
     
     try:
         from mall.models import Store
-        from mall.signals import create_store_domain_after_payment
+        from mall.utils import determine_environment_config, generate_store_slug
+        from workshop.route53 import create_cname_record
+        from mall.signals import send_store_success_email, send_store_dns_failure_email
         
         store = Store.objects.get(id=store_id)
         logger.info(f"Found store: {store.name} (ID: {store_id})")
-        logger.info(f"Store has_made_payment: {store.has_made_payment}")
-        logger.info(f"Store dns_record_created: {store.dns_record_created}")
         
-        create_store_domain_after_payment(store)
+        if store.dns_record_created:
+            logger.info(f"DNS already created for store: {store.name}")
+            return f"DNS already exists for store: {store.name}"
         
-        logger.info(f"=== DOMAIN CREATION COMPLETED for store: {store.name} ===")
-        return f"Domain created for store: {store.name}"
+        # Get environment config
+        env_config = determine_environment_config(None)
+        
+        if env_config.get('is_local', False):
+            # Local environment - just mark as created and send email
+            store.dns_record_created = True
+            store.save(update_fields=['dns_record_created'])
+            from mall.signals import send_local_development_email
+            send_local_development_email(store, store.domain_name)
+            logger.info(f"Local domain setup completed for store: {store.name}")
+            return f"Local domain created for store: {store.name}"
+        
+        # Extract domain from existing domain_name
+        import re
+        domain_match = re.search(r'https://([^?]+)', store.domain_name or '')
+        if not domain_match:
+            logger.error(f"Invalid domain_name for store {store.name}: {store.domain_name}")
+            return f"Invalid domain for store: {store.name}"
+            
+        full_domain = domain_match.group(1)
+        logger.info(f"Creating DNS record for domain: {full_domain}")
+        
+        # Create DNS record
+        dns_result = create_cname_record(
+            zone_id=env_config['hosted_zone_id'],
+            subdomain=full_domain,
+            target=env_config['target_domain']
+        )
+        
+        if dns_result is not None:
+            # DNS creation successful
+            store.dns_record_created = True
+            store.save(update_fields=['dns_record_created'])
+            logger.info(f"DNS record created successfully for store: {store.name}")
+            
+            # Send success email
+            send_store_success_email(store, store.domain_name, env_config['environment'])
+            logger.info(f"Success email sent for store: {store.name}")
+            
+            return f"DNS and email sent for store: {store.name}"
+        else:
+            # DNS creation failed
+            logger.error(f"DNS creation failed for store: {store.name}")
+            send_store_dns_failure_email(store, full_domain)
+            logger.info(f"Failure email sent for store: {store.name}")
+            
+            return f"DNS failed but email sent for store: {store.name}"
         
     except Store.DoesNotExist:
         logger.error(f"Store not found: {store_id}")

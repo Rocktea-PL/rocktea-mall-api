@@ -271,6 +271,8 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
 
 def handle_dropshipping_payment(data, paystack_webhook, email):
    """Handle dropshipping payment processing"""
+   from django.db import transaction
+   
    try:
       logger.info(f"=== DROPSHIPPING PAYMENT HANDLER CALLED ===")
       logger.info(f"Email: {email}")
@@ -313,9 +315,8 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          paystack_webhook.save(update_fields=['data', 'status', 'store'])
          logger.info(f"Webhook updated - status: {paystack_webhook.status}, store_id: {paystack_webhook.store.id if paystack_webhook.store else 'None'}")
          
-         # Create domain after payment confirmation (async)
+         # Create domain and DNS after payment confirmation
          from setup.tasks import create_store_domain_task
-         from django.db import transaction
          transaction.on_commit(lambda: create_store_domain_task.delay(store.id))
          
          logger.info(f"=== DROPSHIPPING PAYMENT COMPLETED SUCCESSFULLY ===")
