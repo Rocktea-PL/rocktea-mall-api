@@ -367,99 +367,6 @@ def process_shipment_details(user_id, order):
          logger.error(f"Missing key in shipment data: {e}")
 
 
-""" @csrf_exempt
-def paystack_webhooks(request):
-   "Handle Paystack webhook requests."
-   try:
-      if request.method != 'POST':
-         return JsonResponse(
-               {"error": "Invalid request method"},
-               status=status.HTTP_405_METHOD_NOT_ALLOWED
-         )
-
-      signature = request.headers.get('x-paystack-signature')
-      if not signature:
-         logger.error("Missing Paystack signature header")
-         return JsonResponse(
-               {"error": "Missing signature header"},
-               status=status.HTTP_400_BAD_REQUEST
-         )
-
-      # Initialize webhook processor
-      processor = WebhookProcessor(request.body, signature, secret)
-      
-      if not processor.verify_signature():
-         logger.error("Invalid Paystack signature")
-         return JsonResponse(
-               {"error": "Invalid signature"},
-               status=status.HTTP_400_BAD_REQUEST
-         )
-
-      if not processor.parse_payload():
-         logger.error("Failed to parse Paystack payload")
-         return JsonResponse(
-               {"error": "Invalid payload"},
-               status=status.HTTP_400_BAD_REQUEST
-         )
-
-      if processor.event == 'charge.success':
-         data = processor.body["data"]
-         metadata = data.get('metadata', {})
-         
-         if metadata.get('purpose') == 'order':
-               logger.info(f"Processing order payment for reference: {data.get('reference')}")
-               order_processor = OrderProcessor(data, metadata, data.get('reference'))
-               return order_processor.process_order()
-         else:
-               # Handle store payment
-               logger.info(f"Processing store payment for reference: {data.get('reference')}")
-               email = data.get('email')
-               if not email:
-                  return JsonResponse(
-                     {"error": "Email not found in payload"},
-                     status=status.HTTP_400_BAD_REQUEST
-                  )
-
-               try:
-                  user = get_object_or_404(CustomUser, email=email)
-                  store = get_object_or_404(Store, owner=user)
-                  
-                  with transaction.atomic():
-                     store.has_made_payment = True
-                     store.save()
-                     
-                     paystack_webhook = PaystackWebhook.objects.filter(
-                           reference=data.get('reference')
-                     ).first()
-                     if paystack_webhook:
-                           paystack_webhook.data = data
-                           paystack_webhook.status = 'Success'
-                           paystack_webhook.store_id = store.id
-                           paystack_webhook.save()
-                     
-                  return JsonResponse(
-                     {"message": "Store payment processed successfully"},
-                     status=status.HTTP_200_OK
-                  )
-               except Exception as e:
-                  logger.error(f"Store payment processing failed: {e}")
-                  return JsonResponse(
-                     {"error": "Failed to process store payment"},
-                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                  )
-      
-      logger.warning(f"Unhandled Paystack event type: {processor.event}")
-      return JsonResponse(
-         {"error": "Unhandled event type"},
-         status=status.HTTP_400_BAD_REQUEST
-      )
-   except Exception as e:
-      logger.error(f"Unexpected error in paystack webhook: {e}")
-      return JsonResponse(
-         {"error": "Internal server error"},
-         status=status.HTTP_500_INTERNAL_SERVER_ERROR
-      )
- """
 class InitiatePayment(viewsets.ViewSet):
     
    def get_permissions(self):
@@ -780,14 +687,13 @@ class PaymentHistoryView(viewsets.ModelViewSet):
    permission_classes = [IsAuthenticated]
    
    def get_queryset(self):
-      store_id = handler.process_request(store_domain=get_store_domain(self.request))
-      
-      verified_store = get_object_or_404(Store, id=store_id)
-      
       try:
-         queryset = PaymentHistory.objects.filter(store=verified_store).order_by("payment_date")
+         # Get store owned by the authenticated user (for dropshippers)
+         user_store = Store.objects.get(owner=self.request.user)
+         queryset = PaymentHistory.objects.filter(store=user_store).order_by("-payment_date")
          return queryset
-      except PaymentHistory.DoesNotExist:
+      except Store.DoesNotExist:
+         logger.warning(f"No store found for user: {self.request.user.email}")
          return PaymentHistory.objects.none()
 
 class ShipbubbleViewSet(viewsets.ViewSet):
