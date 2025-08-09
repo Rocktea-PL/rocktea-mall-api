@@ -43,8 +43,6 @@ def generate_store_domain_info(sender, instance, **kwargs):
         slug = generate_store_slug(instance.name)
         full_domain = f"{slug}.{env_config['target_domain']}"
         instance.domain_name = f"https://{full_domain}?mall={instance.id}"
-            # Send failure email
-            logger.error(f"DNS creation failed for store: {instance.name}, domain not set")
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):
