@@ -61,10 +61,11 @@ def send_email_task(self, recipient_email: str, template_name: str, context: dic
         logger.error(f"Unexpected email error to {recipient_email}: {e}")
         return None
 
-@app.task(bind=True, default_retry_delay=60, max_retries=3, queue='domains')
+@app.task(bind=True, default_retry_delay=60, max_retries=3)
 def create_store_domain_task(self, store_id):
     """Async task to create DNS record and update domain after payment confirmation"""
     logger.info(f"=== DOMAIN CREATION TASK STARTED for store_id: {store_id} ===")
+    print(f"=== DOMAIN CREATION TASK STARTED for store_id: {store_id} ===")  # Force console output
     
     try:
         from mall.models import Store
