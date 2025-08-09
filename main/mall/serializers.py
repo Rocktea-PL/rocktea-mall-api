@@ -394,20 +394,14 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          # Create store with owner
          validated_data['owner'] = user
          
-         # Generate slug and domain
+         # Only generate slug, not domain name
          slug = generate_store_slug(validated_data['name'])
-         env_config = determine_environment_config(self.context.get('request'))
-         
-         # Generate domain name
-         full_domain = generate_store_domain(slug, env_config['environment'])
-         validated_data['domain_name'] = f"https://{full_domain}?mall={{store_id}}"
          validated_data['slug'] = slug
          
-         store = Store.objects.create(**validated_data)
+         # Remove domain_name from validated_data to prevent setting it
+         validated_data.pop('domain_name', None)
          
-         # Update domain name with actual store ID
-         store.domain_name = f"https://{full_domain}?mall={store.id}"
-         store.save(update_fields=['domain_name'])
+         store = Store.objects.create(**validated_data)
          
          # Update user completed_steps to 1 (store created)
          user.completed_steps = 1
