@@ -687,13 +687,33 @@ class PaymentHistoryView(viewsets.ModelViewSet):
    permission_classes = [IsAuthenticated]
    
    def get_queryset(self):
+      user = self.request.user
+      logger.info(f"PaymentHistory request from user: {user.email} (ID: {user.id})")
+      logger.info(f"User is_store_owner: {user.is_store_owner}")
+      
       try:
-         # Get store owned by the authenticated user (for dropshippers)
-         user_store = Store.objects.get(owner=self.request.user)
+         # Try to get store owned by the authenticated user
+         user_store = Store.objects.get(owner=user)
+         logger.info(f"Store found: {user_store.name} (ID: {user_store.id})")
+         
+         # Get payment history for this store
          queryset = PaymentHistory.objects.filter(store=user_store).order_by("-payment_date")
+         logger.info(f"Payment history count: {queryset.count()}")
+         
          return queryset
       except Store.DoesNotExist:
-         logger.warning(f"No store found for user: {self.request.user.email}")
+         logger.warning(f"No store found for user: {user.email}")
+         
+         # Fallback: Check if user has associated_domain (alternative relationship)
+         if hasattr(user, 'associated_domain') and user.associated_domain:
+            logger.info(f"Trying associated_domain: {user.associated_domain.name}")
+            queryset = PaymentHistory.objects.filter(store=user.associated_domain).order_by("-payment_date")
+            logger.info(f"Payment history count via associated_domain: {queryset.count()}")
+            return queryset
+         
+         # Debug info
+         all_stores = Store.objects.all().values_list('owner__email', 'name')
+         logger.warning(f"Available stores: {list(all_stores)[:5]}")
          return PaymentHistory.objects.none()
 
 class ShipbubbleViewSet(viewsets.ViewSet):
