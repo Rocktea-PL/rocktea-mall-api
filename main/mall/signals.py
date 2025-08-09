@@ -26,23 +26,13 @@ from django.conf import settings
 logger = logging.getLogger(__name__)
 
 @receiver(pre_save, sender=Store)
-def generate_store_domain_info(sender, instance, **kwargs):
+def generate_store_slug_only(sender, instance, **kwargs):
     """
-    Generate domain information before saving the store.
+    Generate only the slug before saving the store.
+    Domain name will be set after successful DNS creation.
     """
-    if instance.domain_name or instance.dns_record_created:
-        return
-        
-    # Get environment configuration once
-    env_config = determine_environment_config(get_current_request())
-    
-    # Generate domain based on environment
-    if env_config.get('is_local', False):
-        instance.domain_name = f"http://localhost:8000?mall={instance.id}"
-    else:
-        slug = generate_store_slug(instance.name)
-        full_domain = f"{slug}.{env_config['target_domain']}"
-        instance.domain_name = f"https://{full_domain}?mall={instance.id}"
+    if not instance.slug and instance.name:
+        instance.slug = generate_store_slug(instance.name)
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):
@@ -160,18 +150,19 @@ def create_store_domain_after_payment(store):
         # Handle local environment
         if env_config.get('is_local', False):
             logger.info(f"Local environment detected for store: {store.name}")
-            send_local_development_email(store, store.domain_name)
+            # Set domain name for local environment
+            store.domain_name = f"http://localhost:8000?mall={store.id}"
             store.dns_record_created = True
-            store.save(update_fields=['dns_record_created'])
+            store.save(update_fields=['domain_name', 'dns_record_created'])
+            send_local_development_email(store, store.domain_name)
             return
         
-        # Extract domain from domain_name for DNS creation
-        domain_match = re.search(r'https://([^?]+)', store.domain_name or '')
-        if not domain_match:
-            logger.error(f"Invalid domain_name for store {store.name}: {store.domain_name}")
+        # Generate full domain using existing slug
+        if not store.slug:
+            logger.error(f"No slug found for store {store.name}")
             return
             
-        full_domain = domain_match.group(1)
+        full_domain = f"{store.slug}.{env_config['target_domain']}"
         logger.info(f"Creating DNS record for domain: {full_domain}")
         
         # Create DNS record
@@ -186,9 +177,11 @@ def create_store_domain_after_payment(store):
         logger.info(f"DNS creation result: {dns_result is not None}, Result: {dns_result}")
         
         if dns_result is not None:
+            # Set domain name only after successful DNS creation
+            store.domain_name = f"https://{full_domain}?mall={store.id}"
             store.dns_record_created = True
-            store.save(update_fields=['dns_record_created'])
-            logger.info(f"DNS record marked as created for store: {store.name}")
+            store.save(update_fields=['domain_name', 'dns_record_created'])
+            logger.info(f"DNS record and domain name set for store: {store.name}")
             
             # Send success email
             send_store_success_email(store, store.domain_name, env_config['environment'])

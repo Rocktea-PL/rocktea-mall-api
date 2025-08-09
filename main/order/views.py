@@ -171,6 +171,12 @@ def paystack_webhook(request):
                logger.info(f"Looking up webhook record for reference: {transaction_id}")
                paystack_webhook = PaystackWebhook.objects.get(reference=transaction_id)
                logger.info(f"FOUND existing webhook record: ID={paystack_webhook.id}, Status={paystack_webhook.status}")
+               
+               # Check if this webhook was already processed successfully
+               if paystack_webhook.status == 'Success':
+                  logger.info(f"Webhook already processed successfully for reference: {transaction_id}")
+                  return JsonResponse({"message": "Webhook already processed"}, status=status.HTTP_200_OK)
+                  
          except PaystackWebhook.DoesNotExist:
                logger.error(f"Webhook record NOT FOUND for reference: {transaction_id} - this should not happen")
                return JsonResponse({"error": "Webhook record not found"}, status=status.HTTP_400_BAD_REQUEST)
