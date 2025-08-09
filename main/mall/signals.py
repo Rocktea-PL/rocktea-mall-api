@@ -90,78 +90,40 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         logger.info(f"User {instance.email} is not a store owner, skipping DNS deletion")
         return
         
-    # Store user data for email notifications
     user_email = instance.email
     user_name = instance.get_full_name() or instance.first_name or instance.email
     
     try:
-        # Try to get the store associated with this dropshipper
-        try:
-            store = Store.objects.get(owner=instance)
+        # Get store using the OneToOne relationship from Store model
+        store = getattr(instance, 'owners', None)
+        
+        if store and store.dns_record_created:
             logger.info(f"Found store for user {instance.email}: {store.name} (ID: {store.id})")
             
-            store_name = store.name
-            store_domain = store.domain_name
-            store_slug = store.slug
-            
-            # Extract domain without query string for DNS deletion
-            if store_domain:
-                # Remove protocol and query string to get clean domain
-                import re
+            # Extract clean domain from domain_name
+            if store.domain_name:
                 from urllib.parse import urlparse
-                parsed_url = urlparse(store_domain)
-                clean_domain = parsed_url.netloc or parsed_url.path.split('?')[0]
-                logger.info(f"Extracted clean domain: {clean_domain} from {store_domain}")
-            else:
-                clean_domain = None
-            
-            # Only delete DNS if it was actually created
-            if store.dns_record_created and (store_slug or clean_domain):
-                logger.info(f"Processing DNS deletion for dropshipper: {user_email}, store: {store_name}")
+                parsed_url = urlparse(store.domain_name)
+                clean_domain = parsed_url.netloc
+                logger.info(f"Extracted clean domain: {clean_domain} from {store.domain_name}")
                 
                 try:
-                    # Use clean domain if available, otherwise fallback to slug
-                    domain_to_delete = clean_domain if clean_domain else store_slug
-                    success = delete_store_dns_record(domain_to_delete)
+                    success = delete_store_dns_record(clean_domain)
                     
                     if success:
-                        logger.info(f"Successfully deleted DNS record for store: {store_name}")
-                        _send_deletion_success_email(user_email, user_name, store_name, store_domain)
+                        logger.info(f"Successfully deleted DNS record for store: {store.name}")
+                        _send_deletion_success_email(user_email, user_name, store.name, store.domain_name)
                     else:
-                        logger.error(f"Failed to delete DNS record for store: {store_name}")
-                        _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
+                        logger.error(f"Failed to delete DNS record for store: {store.name}")
+                        _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
                         
                 except Exception as dns_error:
-                    logger.error(f"DNS deletion error for store {store_name}: {dns_error}")
-                    _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
+                    logger.error(f"DNS deletion error for store {store.name}: {dns_error}")
+                    _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
             else:
-                logger.info(f"No DNS record to delete for store: {store_name}")
-                
-        except Store.DoesNotExist:
-            logger.info(f"No store found for user: {instance.email}")
-            
-            # If no store exists, try to delete DNS record based on user email slug
-            # This handles cases where store was deleted but DNS record still exists
-            try:
-                from .utils import generate_store_slug
-                # Generate potential slug from user email
-                email_username = instance.email.split('@')[0]
-                potential_slug = generate_store_slug(email_username)
-                
-                logger.info(f"Attempting DNS cleanup with potential slug: {potential_slug}")
-                
-                # Try to delete DNS record with the potential slug
-                success = delete_store_dns_record(potential_slug)
-                
-                if success:
-                    logger.info(f"Successfully cleaned up DNS record for user: {user_email}")
-                else:
-                    logger.info(f"No DNS record found to clean up for user: {user_email}")
-                    
-            except Exception as cleanup_error:
-                logger.error(f"Error during DNS cleanup for {user_email}: {cleanup_error}")
-            
-            return
+                logger.info(f"No domain_name found for store: {store.name}")
+        else:
+            logger.info(f"No store with DNS record found for user: {instance.email}")
                 
     except Exception as e:
         logger.error(f"Error in delete_dropshipper_domain for {instance.email}: {e}")
@@ -171,7 +133,7 @@ def _send_deletion_success_email(user_email, user_name, store_name, store_domain
     """Send email notification when store and domain are successfully deleted"""
     try:
         from setup.email_service import send_store_deletion_email
-        send_store_deletion_email(user_email, user_name, store_name or "Your Store", store_domain or "N/A", success=True)
+        send_store_deletion_email(user_email, user_name, store_name, store_domain, success=True)
         logger.info(f"Store deletion email sent to {user_email} for store: {store_name}")
     except Exception as e:
         logger.error(f"Failed to send deletion success email to {user_email}: {e}")
@@ -180,7 +142,7 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
     """Send email when DNS deletion fails"""
     try:
         from setup.email_service import send_store_deletion_email
-        send_store_deletion_email(user_email, user_name, store_name or "Your Store", store_domain or "N/A", success=False)
+        send_store_deletion_email(user_email, user_name, store_name, store_domain, success=False)
         logger.info(f"Store deletion failure email sent to {user_email} for store: {store_name}")
     except Exception as e:
         logger.error(f"Failed to send deletion failure email to {user_email}: {e}")
