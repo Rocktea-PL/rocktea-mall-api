@@ -239,13 +239,12 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       except CustomUser.DoesNotExist:
          raise ValidationError("Invalid credentials. Please check your email and password.")
       
-      # Check if account is active
-      if not user.is_active:
-         raise ValidationError("Your account is inactive. Please contact support.")
-      
-      # Check if account is verified
+      # Check verification and activation status
       if not user.is_verified:
          raise ValidationError("Your account is not verified. Please check your email for verification instructions.")
+      
+      if not user.is_active:
+         raise ValidationError("Your account is inactive. Please contact support.")
       
       # Check if user is store owner
       if not user.is_store_owner:
