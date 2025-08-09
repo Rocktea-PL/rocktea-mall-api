@@ -323,7 +323,9 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          
          # Create domain and DNS after payment confirmation
          from setup.tasks import create_store_domain_task
+         logger.info(f"Queueing domain creation task for store: {store.id}")
          transaction.on_commit(lambda: create_store_domain_task.delay(store.id))
+         logger.info(f"Domain creation task queued for store: {store.id}")
          
          logger.info(f"=== DROPSHIPPING PAYMENT COMPLETED SUCCESSFULLY ===")
          
