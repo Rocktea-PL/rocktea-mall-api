@@ -308,6 +308,11 @@ LOGGING = {
             'level': 'INFO',
             'propagate': True,
         },
+        'order': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
     },
 }
 
