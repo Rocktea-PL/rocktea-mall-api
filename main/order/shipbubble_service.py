@@ -3,6 +3,10 @@ from django.conf import settings
 from datetime import datetime, timedelta
 from django.core.cache import cache
 import json
+import logging
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
 
 class ShipbubbleService:
 
@@ -15,12 +19,13 @@ class ShipbubbleService:
         }
     
     def validate_address(self, shipment_data): 
-        required_fields = ['phone', 'email', 'name', 'address'] 
+        required_fields = ['phone', 'email', 'name', 'address']
         missing_fields = [field for field in required_fields if field not in shipment_data] 
         if missing_fields: 
             return { 'success': False, 'message': f'Missing required fields: {", ".join(missing_fields)}' } 
         url = f'{self.api_url}/shipping/address/validate' 
         response = requests.post(url, json=shipment_data, headers=self.headers) 
+        logger.info(f"response from shibubble: {response}")
         return response.json()
 
     def get_rates(self, rate_data):
@@ -41,6 +46,7 @@ class ShipbubbleService:
     def process_shipping(self, shipment_data, package_items):
         # Step 1: Validate Address
         validation_response = self.validate_address(shipment_data)
+        logger.info(f"validation_response from shibubble: {validation_response}")
         if validation_response.get('status') != 'success':
             return {'status': 'error', 'message': 'shipping details is missing'}
         
