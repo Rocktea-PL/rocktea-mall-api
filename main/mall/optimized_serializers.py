@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product, Store, Category
+from .models import Product, Store, Category, StoreProductPricing
 from .cloudinary_utils import optimize_product_image
 
 class OptimizedProductSerializer(serializers.ModelSerializer):
@@ -10,11 +10,13 @@ class OptimizedProductSerializer(serializers.ModelSerializer):
     producttype_name = serializers.CharField(source='producttype.name', read_only=True)
     optimized_image = serializers.SerializerMethodField()
     product_images = serializers.SerializerMethodField()
+    store_price = serializers.SerializerMethodField()
     
     class Meta:
         model = Product
-        fields = ['id', 'name', 'description', 'quantity', 'category_name', 'subcategory_name', 
-                 'brand_name', 'producttype_name', 'optimized_image', 'product_images', 'sales_count', 'is_available']
+        fields = ['id', 'sku', 'name', 'description', 'quantity', 'category_name', 'subcategory_name', 
+                 'brand_name', 'producttype_name', 'optimized_image', 'product_images', 'sales_count', 
+                 'is_available', 'store_price', 'created_at']
     
     def get_optimized_image(self, obj):
         """Return optimized image URL for the product"""
@@ -63,6 +65,24 @@ class OptimizedProductSerializer(serializers.ModelSerializer):
                     # Fallback to original URL on any error
                     optimized_images.append(img.images.url)
         return optimized_images
+    
+    def get_store_price(self, obj):
+        """Get store-specific pricing if store context is provided"""
+        store = self.context.get('store')
+        if not store:
+            return None
+        
+        try:
+            from .models import StoreProductPricing
+            pricing = StoreProductPricing.objects.get(product=obj, store=store)
+            return {
+                'retail_price': float(pricing.retail_price),
+                'formatted_price': f"₦{pricing.retail_price:,.2f}"
+            }
+        except StoreProductPricing.DoesNotExist:
+            return None
+        except Exception:
+            return None
 
 class OptimizedStoreSerializer(serializers.ModelSerializer):
     """Optimized store serializer"""

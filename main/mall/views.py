@@ -437,7 +437,7 @@ class ProductViewSet(viewsets.ModelViewSet):
                id__in=StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True),
                is_available=True,
                upload_status='Approved'
-            ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images')
+            ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images').distinct().order_by('-created_at')
          except Store.DoesNotExist:
             return Product.objects.none()
       
@@ -467,11 +467,17 @@ class ProductViewSet(viewsets.ModelViewSet):
          try:
             store = Store.objects.get(id=store_id)
             context['store'] = store
+            
             # Use pagination for store-specific requests
             page = self.paginate_queryset(queryset)
             if page is not None:
                serializer = self.get_serializer(page, many=True, context=context)
                return self.get_paginated_response(serializer.data)
+            
+            # If no pagination, return all products with store context
+            serializer = self.get_serializer(queryset, many=True, context=context)
+            return Response(serializer.data)
+            
          except Store.DoesNotExist:
             return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
       
@@ -562,7 +568,7 @@ class ProductViewSet(viewsets.ModelViewSet):
          )
       
       # Check if user owns the store
-      if not request.user.is_superuser and not store.owners.filter(id=request.user.id).exists():
+      if not request.user.is_superuser and store.owner != request.user:
          return Response(
                {"error": "You are not an owner of this store."},
                status=status.HTTP_403_FORBIDDEN
