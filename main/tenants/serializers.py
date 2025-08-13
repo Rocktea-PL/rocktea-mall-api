@@ -180,7 +180,7 @@ class UserLogin(TokenObtainPairSerializer):
                 "is_store_owner": self.user.is_store_owner,
                 "is_verified": self.user.is_verified,
                 "associated_domain": self.user.associated_domain.id if self.user.associated_domain else None,
-                "profile_image": self.user.profile_image,
+                "profile_image": self.user.profile_image.url if self.user.profile_image else None,
             }
 
         if store:
