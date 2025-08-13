@@ -427,9 +427,25 @@ class ProductViewSet(viewsets.ModelViewSet):
    pagination_class = LargeDatasetPagination
    
    def get_queryset(self):
+      # Handle store-specific products
+      store_id = self.request.query_params.get('mall')
+      if store_id:
+         try:
+            store = Store.objects.get(id=store_id)
+            # Get products that are in this store's marketplace and available
+            return Product.objects.filter(
+               id__in=StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True),
+               is_available=True,
+               upload_status='Approved'
+            ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images')
+         except Store.DoesNotExist:
+            return Product.objects.none()
+      
+      # Handle category filtering
       category_id = self.request.query_params.get('category')
       if category_id:
          return Product.objects.by_category(category_id).select_related('category', 'subcategory', 'brand', 'producttype')
+      
       return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype')
 
    @transaction.atomic
@@ -440,9 +456,27 @@ class ProductViewSet(viewsets.ModelViewSet):
       return Response({"error": "Error occurs while creating product"}, status=status.HTTP_400_BAD_REQUEST)
 
    def list(self, request, *args, **kwargs):
-      """Override the list method to disable pagination for the main GET request."""
+      """Enhanced list method with store-specific context and optimized serialization."""
       queryset = self.get_queryset()
-      serializer = self.get_serializer(queryset, many=True)
+      
+      # Add store context for pricing if mall parameter is provided
+      store_id = request.query_params.get('mall')
+      context = {'request': request}
+      
+      if store_id:
+         try:
+            store = Store.objects.get(id=store_id)
+            context['store'] = store
+            # Use pagination for store-specific requests
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+               serializer = self.get_serializer(page, many=True, context=context)
+               return self.get_paginated_response(serializer.data)
+         except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+      
+      # For general product listing, disable pagination
+      serializer = self.get_serializer(queryset, many=True, context=context)
       return Response(serializer.data)
 
    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='by-shop')
