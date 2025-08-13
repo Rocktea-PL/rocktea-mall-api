@@ -179,6 +179,8 @@ class UserLogin(TokenObtainPairSerializer):
                 "contact": str(self.user.contact),
                 "is_store_owner": self.user.is_store_owner,
                 "is_verified": self.user.is_verified,
+                "associated_domain": self.user.associated_domain,
+                "profile_image": self.user.profile_image,
             }
 
         if store:
