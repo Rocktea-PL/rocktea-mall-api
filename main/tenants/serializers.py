@@ -180,7 +180,7 @@ class UserLogin(TokenObtainPairSerializer):
                 "is_store_owner": self.user.is_store_owner,
                 "is_verified": self.user.is_verified,
                 "associated_domain": self.user.associated_domain.id if self.user.associated_domain else None,
-                "profile_image": self.user.profile_image.url if self.user.profile_image else None,
+                "profile_image": self._get_profile_image_url(),
             }
 
         if store:
@@ -197,6 +197,25 @@ class UserLogin(TokenObtainPairSerializer):
 
         return data
    
+   def _get_profile_image_url(self):
+        """Get optimized profile image URL using cloudinary"""
+        if not self.user.profile_image:
+            return None
+        
+        try:
+            # Check if it's a cloudinary URL
+            if hasattr(self.user.profile_image, 'url') and 'cloudinary.com' in str(self.user.profile_image.url):
+                from mall.cloudinary_utils import CloudinaryOptimizer
+                # Extract public_id from cloudinary URL
+                url_parts = str(self.user.profile_image.url).split('/')
+                if len(url_parts) > 1:
+                    public_id = url_parts[-1].split('.')[0]
+                    return CloudinaryOptimizer.get_optimized_url(public_id, 'thumbnail')
+            
+            # Fallback to direct URL
+            return self.user.profile_image.url if hasattr(self.user.profile_image, 'url') else None
+        except Exception:
+            return None
 
 def sendStoreWelcomeEmail(token, email, firstName, store, request):
     # Get verification URL (keep for backend processing but don't show in email)
