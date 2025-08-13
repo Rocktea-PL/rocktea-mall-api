@@ -273,48 +273,48 @@ SESSION_SAVE_EVERY_REQUEST = False
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
 # Optimized logging configuration
-# LOGGING = {
-#     'version': 1,
-#     'disable_existing_loggers': False,
-#     'formatters': {
-#         'verbose': {
-#             'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
-#             'style': '{',
-#         },
-#     },
-#     'handlers': {
-#         'file': {
-#             'level': 'WARNING',
-#             'class': 'logging.handlers.RotatingFileHandler',
-#             'filename': 'django.log',
-#             'maxBytes': 1024*1024*5,  # 5MB
-#             'backupCount': 3,
-#             'formatter': 'verbose',
-#         },
-#         'console': {
-#             'level': 'INFO',
-#             'class': 'logging.StreamHandler',
-#             'formatter': 'verbose',
-#         },
-#     },
-#     'loggers': {
-#         'django': {
-#             'handlers': ['file', 'console'],
-#             'level': 'WARNING',
-#             'propagate': True,
-#         },
-#         'mall': {
-#             'handlers': ['file', 'console'],
-#             'level': 'INFO',
-#             'propagate': True,
-#         },
-#         'order': {
-#             'handlers': ['file', 'console'],
-#             'level': 'INFO',
-#             'propagate': True,
-#         },
-#     },
-# }
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'WARNING',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': 'django.log',
+            'maxBytes': 1024*1024*5,  # 5MB
+            'backupCount': 3,
+            'formatter': 'verbose',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+        'mall': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'order': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
 
 # =====================
 # REST FRAMEWORK
