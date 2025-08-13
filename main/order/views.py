@@ -529,6 +529,7 @@ class CheckOutCart(viewsets.ViewSet):
    renderer_classes = [JSONRenderer,]
    permission_classes = [IsAuthenticated]
 
+   @transaction.atomic
    def create(self, request):
       # Collect Data
       user = request.user
@@ -550,7 +551,14 @@ class CheckOutCart(viewsets.ViewSet):
 
       payment_response = verify_payment_paystack(transaction_id)
       if payment_response.data['status'] != True:
-               return Response({"error": "Payment verification failed"}, status=status.HTTP_400_BAD_REQUEST)
+         return Response({"error": "Payment verification failed"}, status=status.HTTP_400_BAD_REQUEST)
+
+      # Check product availability before processing
+      for cart_item in cart.items.all():
+         if cart_item.product.quantity < cart_item.quantity:
+            return Response({
+               "error": f"Insufficient stock for {cart_item.product.name}. Available: {cart_item.product.quantity}, Requested: {cart_item.quantity}"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
       order_data = {
          'buyer': user.id,
@@ -562,35 +570,33 @@ class CheckOutCart(viewsets.ViewSet):
 
       if order_serializer.is_valid():
          order = order_serializer.save()
-         total_profit = 0
 
          for cart_item in cart.items.all():
-            # print(cart_item)
-               order_item_data = {
-                  'userorder': order.id,
-                  'product': cart_item.product.id,
-                  'product_variant': cart_item.product_variant.id,
-                  'quantity': cart_item.quantity
-               }
+            # Create order item
+            order_item_data = {
+               'userorder': order.id,
+               'product': cart_item.product.id,
+               'product_variant': cart_item.product_variant.id,
+               'quantity': cart_item.quantity
+            }
 
-               order_item_serializer = OrderItemsSerializer(data=order_item_data)
+            order_item_serializer = OrderItemsSerializer(data=order_item_data)
 
-               if order_item_serializer.is_valid():
-                  order_item_serializer.save()
-                  # Calculate profit
-                  # retail_price = self.get_store_pricing(cart_item.product.id, verified_store)
-                  # wholesale_price = cart_item.product_variant.wholesale_price
-                  # profit_per_item = retail_price - wholesale_price
-                  # total_profit += profit_per_item * cart_item.quantity
-               else:
-                  # Handle the case where an order item cannot be created
-                  logger.error("Order Item ERROR")
-                  return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if order_item_serializer.is_valid():
+               order_item_serializer.save()
+               
+               # Update product quantity
+               cart_item.product.quantity -= cart_item.quantity
+               cart_item.product.save(update_fields=['quantity'])
+               
+               # Update product sales count
+               cart_item.product.sales_count += cart_item.quantity
+               cart_item.product.save(update_fields=['sales_count'])
+            else:
+               logger.error("Order Item ERROR")
+               return Response(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
          
-         # Update store's wallet
-         # verified_store.balance += total_profit
-         # verified_store.save()
-         # CClear the user's cart after a successful checkout
+         # Clear the user's cart after successful checkout
          cart.items.all().delete()
 
          return Response(order_serializer.data, status=status.HTTP_201_CREATED)

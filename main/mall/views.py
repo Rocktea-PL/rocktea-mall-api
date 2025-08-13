@@ -218,11 +218,11 @@ class CreateStoreOwner(viewsets.ModelViewSet):
       return Response(response_data, status=status.HTTP_200_OK)
    
 class CreateLogisticsAccount(viewsets.ModelViewSet):
-   queryset = CustomUser.objects.filter(is_logistics=True)
+   queryset = CustomUser.objects.filter(is_logistics=True).order_by('-date_joined')
    serializer_class = LogisticSerializer
 
 class CreateOperationsAccount(viewsets.ModelViewSet):
-   queryset = CustomUser.objects.filter(is_operations=True)
+   queryset = CustomUser.objects.filter(is_operations=True).order_by('-date_joined')
    serializer_class = OperationsSerializer
 
 class CreateStore(viewsets.ModelViewSet):
