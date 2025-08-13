@@ -1186,7 +1186,7 @@ class WalletView(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Ensure users can only see their own wallets
-      return Wallet.objects.filter(store__owner_id=self.request.user.id)
+      return Wallet.objects.filter(store__owner_id=self.request.user.id).order_by('-id')
 
    # def perform_create(self, serializer):
    #    # Set the store to the authenticated user's store
