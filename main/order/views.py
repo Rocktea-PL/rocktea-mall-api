@@ -13,6 +13,7 @@ from .models import (
 
 from mall.models import (
    Notification,
+   ProductVariant,
    CustomUser, 
    StoreProductPricing,
    Wallet
@@ -452,9 +453,7 @@ class CartViewSet(viewsets.ViewSet):
 
    def create(self, request):
       user = request.user
-      logger.info(f"store domain request {request}")
       store_domain = handler.process_request(store_domain=get_store_domain(request))
-      logger.info(f"store domain {store_domain}")
       verified_store = get_object_or_404(Store, id=store_domain)
       products = request.data.get('products', [])
 
