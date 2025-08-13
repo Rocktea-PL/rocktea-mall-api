@@ -17,6 +17,7 @@ class DomainNameHandler:
 
 
    def get_store_id_by_domain_name(self, domain_name):
+      logger.info(f"store domain {domain_name}")
       try:
          store = Store.objects.get(domain_name=domain_name)
          # print(store)
