@@ -6,7 +6,7 @@ from mall.cloudinary_utils import CloudinaryOptimizer
 
 logger = logging.getLogger(__name__)
 
-@shared_task(bind=True, max_retries=3, retry_backoff=60)
+@shared_task(bind=True, max_retries=3, retry_backoff=60, name='tenants.tasks.upload_profile_image')
 def upload_profile_image(self, user_id, file_content, file_name):
     """Background task to upload and optimize profile image"""
     try:
