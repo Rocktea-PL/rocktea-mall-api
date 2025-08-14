@@ -102,7 +102,7 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
                 result = CloudinaryOptimizer.upload_optimized(
                     profile_image.read(),
                     folder="profiles",
-                    transformation_type='thumbnail'
+                    transformation_type='medium'
                 )
                 # Store the cloudinary URL
                 user.profile_image = result.get('secure_url')
@@ -236,7 +236,7 @@ class UserLogin(TokenObtainPairSerializer):
                             public_id_part = '/'.join(url_parts[upload_index + 2:])  # Skip 'upload' and version
                             # Remove file extension
                             public_id = public_id_part.rsplit('.', 1)[0]
-                            return CloudinaryOptimizer.get_optimized_url(public_id, 'thumbnail')
+                            return CloudinaryOptimizer.get_optimized_url(public_id, 'medium')
                     except ValueError:
                         pass
             
