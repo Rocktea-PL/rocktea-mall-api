@@ -130,6 +130,7 @@ INSTALLED_APPS = [
     "dashboards",
     "products",
     "admin_orders",
+    "tenants",
 ]
 
 # Conditionally add Cloudinary only in non-CI environments

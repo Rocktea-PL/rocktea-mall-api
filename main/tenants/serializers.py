@@ -94,24 +94,27 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
         if password:
             user.set_password(password)
         
-        # Handle profile image upload with Cloudinary optimization
+        # Handle profile image upload in background
         if profile_image:
-            try:
-                from mall.cloudinary_utils import CloudinaryOptimizer
-                # Upload to cloudinary with optimization
-                result = CloudinaryOptimizer.upload_optimized(
-                    profile_image.read(),
-                    folder="profiles",
-                    transformation_type='medium'
-                )
-                # Store the cloudinary URL
-                user.profile_image = result.get('secure_url')
-            except Exception as e:
-                logger.error(f"Failed to upload profile image: {e}")
-                # Fallback to direct upload
-                user.profile_image = profile_image
+            import base64
+            from .tasks import upload_profile_image
+            
+            # Validate file size and type
+            if profile_image.size > 5 * 1024 * 1024:  # 5MB limit
+                raise serializers.ValidationError("Image size must be less than 5MB")
+            
+            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+            if profile_image.content_type not in allowed_types:
+                raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed")
+            
+            # Process image in background
+            file_content = base64.b64encode(profile_image.read()).decode('utf-8')
         
         user.save()
+        
+        # Start background image upload after user is saved
+        if profile_image:
+            upload_profile_image.delay(str(user.id), file_content, profile_image.name)
 
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)

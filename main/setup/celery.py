@@ -38,12 +38,19 @@ app.conf.update(
          'schedule': timedelta(hours=2),
          'options': {'queue': 'periodic', 'expires': 3600}
       },
+      'update-shipment-status': {
+         'task': 'order.tasks.update_shipment_status',
+         'schedule': timedelta(minutes=15),
+         'options': {'queue': 'periodic', 'expires': 900}
+      },
    },
    timezone='UTC',
    task_routes={
       'mall.tasks.upload_image': {'queue': 'media'},
       'mall.tasks.check_shipping_status': {'queue': 'periodic'},
       'mall.tasks.cancel_unpaid_shipments': {'queue': 'periodic'},
+      'order.tasks.update_shipment_status': {'queue': 'periodic'},
+      'tenants.tasks.upload_profile_image': {'queue': 'media'},
    }
 )
 

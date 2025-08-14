@@ -794,9 +794,19 @@ class ShipbubbleViewSet(viewsets.ViewSet):
    @action(detail=False, methods=['get'], url_path='track-shipment-label')
    def track_shipment_label(self, request):
       shipbubble_service = ShipbubbleService()
-      order_ids = "SB-775B0DFAAADA"
+      order_ids = request.query_params.get('tracking_id')
+      
+      if not order_ids:
+         return JsonResponse({'status': 'error', 'message': 'tracking_id parameter is required'}, status=400)
 
       response = shipbubble_service.track_shipping_status(order_ids)
+      return JsonResponse(response)
+
+   @action(detail=False, methods=['get'], url_path='wallet-balance')
+   def track_wallet_balance(self, request):
+      shipbubble_service = ShipbubbleService()
+
+      response = shipbubble_service.get_shipping_balance()
       return JsonResponse(response)
 
 class Paystack(viewsets.ViewSet):
