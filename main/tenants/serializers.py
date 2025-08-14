@@ -203,19 +203,29 @@ class UserLogin(TokenObtainPairSerializer):
             return None
         
         try:
-            # Check if it's a cloudinary URL
+            # Extract public_id from cloudinary URL
             if hasattr(self.user.profile_image, 'url') and 'cloudinary.com' in str(self.user.profile_image.url):
                 from mall.cloudinary_utils import CloudinaryOptimizer
-                # Extract public_id from cloudinary URL
+                # Parse cloudinary URL to extract public_id
+                # URL format: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.ext
                 url_parts = str(self.user.profile_image.url).split('/')
-                if len(url_parts) > 1:
-                    public_id = url_parts[-1].split('.')[0]
-                    return CloudinaryOptimizer.get_optimized_url(public_id, 'thumbnail')
+                if len(url_parts) >= 7:  # Ensure we have enough parts
+                    # Find the upload part and get everything after it
+                    try:
+                        upload_index = url_parts.index('upload')
+                        if upload_index + 2 < len(url_parts):  # Skip version if present
+                            public_id_part = '/'.join(url_parts[upload_index + 2:])  # Skip 'upload' and version
+                            # Remove file extension
+                            public_id = public_id_part.rsplit('.', 1)[0]
+                            return CloudinaryOptimizer.get_optimized_url(public_id, 'thumbnail')
+                    except ValueError:
+                        pass
             
-            # Fallback to direct URL
-            return self.user.profile_image.url if hasattr(self.user.profile_image, 'url') else None
+            # Fallback to original URL
+            return self.user.profile_image.url
         except Exception:
-            return None
+            # Fallback to original URL on any error
+            return self.user.profile_image.url if hasattr(self.user.profile_image, 'url') else None
 
 def sendStoreWelcomeEmail(token, email, firstName, store, request):
     # Get verification URL (keep for backend processing but don't show in email)
