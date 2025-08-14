@@ -197,7 +197,7 @@ class UserLogin(TokenObtainPairSerializer):
 
         return data
    
-   def _get_profile_image_url(self):
+    def _get_profile_image_url(self):
         """Get optimized profile image URL using cloudinary"""
         if not self.user.profile_image:
             return None
