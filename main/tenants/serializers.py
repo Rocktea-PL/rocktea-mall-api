@@ -42,6 +42,7 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)
+        profile_image = validated_data.pop("profile_image", None)
         store_instance = None
         
         # Method 1: Check for store_id in request data or query params
@@ -92,7 +93,25 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
         if password:
             user.set_password(password)
-            user.save()
+        
+        # Handle profile image upload with Cloudinary optimization
+        if profile_image:
+            try:
+                from mall.cloudinary_utils import CloudinaryOptimizer
+                # Upload to cloudinary with optimization
+                result = CloudinaryOptimizer.upload_optimized(
+                    profile_image.read(),
+                    folder="profiles",
+                    transformation_type='thumbnail'
+                )
+                # Store the cloudinary URL
+                user.profile_image = result.get('secure_url')
+            except Exception as e:
+                logger.error(f"Failed to upload profile image: {e}")
+                # Fallback to direct upload
+                user.profile_image = profile_image
+        
+        user.save()
 
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)
