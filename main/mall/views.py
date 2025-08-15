@@ -953,14 +953,7 @@ class BestSellingProductView(ListAPIView):
    serializer_class = OptimizedProductSerializer
 
    def get_queryset(self):
-      store_id = self.request.query_params.get('store_id')
-      if not store_id:
-         return Product.objects.none()
-      
-      return Product.objects.available()\
-         .filter(store__id=store_id)\
-         .select_related('category', 'subcategory', 'brand', 'producttype')\
-         .order_by('-sales_count')[:3]
+      return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype').order_by('-sales_count')[:3]
 
 class SalesCountView(APIView):
    def get_object(self, product_id):
