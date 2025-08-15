@@ -224,7 +224,11 @@ class PaymentHistorySerializers(serializers.ModelSerializer):
    def to_representation(self, instance):
       representation = super(PaymentHistorySerializers, self).to_representation(instance)
       
-      representation['order'] = {"status": instance.order.status, "buyer": f"{instance.order.buyer.first_name} {instance.order.buyer.last_name}"}
+      representation['order'] = {
+         "status": instance.order.status, 
+         "buyer": f"{instance.order.buyer.first_name} {instance.order.buyer.last_name}",
+         "reference": instance.order.id
+      }
       
       representation['payment_date'] = instance.payment_date.strftime("%Y-%m-%d")
       return representation
