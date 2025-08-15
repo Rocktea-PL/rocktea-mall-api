@@ -202,6 +202,22 @@ def otp_transfer_paystack(transfer_data):
     response = requests.post(url, headers=headers, json=data)
     return response.json()
 
+def verify_transfer_paystack(transfer_code):
+    """Verify transfer status from Paystack"""
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/transfer/verify/{transfer_code}'
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Error verifying transfer {transfer_code}: {e}")
+        return {'status': False, 'message': str(e)}
+
 def generate_tx_ref():
     """Generate a unique transaction reference using timestamp and UUID"""
     timestamp = str(int(datetime.datetime.now().timestamp()))

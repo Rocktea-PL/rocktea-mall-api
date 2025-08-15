@@ -456,10 +456,7 @@ class InitiatePayment(viewsets.ViewSet):
          error_message = payment_response.get("message", "Payment initialization failed")
          return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
 
-class OrderPagination(PageNumberPagination):
-   page_size = 5
-   page_size_query_param = 'page_size'
-   max_page_size = 1000
+
 
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
@@ -698,7 +695,7 @@ class AllOrders(viewsets.ModelViewSet):
 class OrderDeliverView(viewsets.ModelViewSet):
    queryset = OrderDeliveryConfirmation.objects.all()
    serializer_class = OrderDeliverySerializer
-   pagination_class = OrderPagination
+   pagination_class = OptimizedPageNumberPagination
 
 class AssignedOrders(generics.ListAPIView):
    serializer_class = AssignedOrderSerializer
@@ -909,6 +906,35 @@ class Paystack(viewsets.ViewSet):
 
       return JsonResponse(otp_transfer)
    
+   @action(detail=False, methods=['get'], url_path='withdrawal-history')
+   def withdrawal_history(self, request):
+      from .models import WithdrawalRecord
+      from django.db.models import Sum
+      
+      try:
+         store = Store.objects.get(owner=request.user)
+         withdrawals = WithdrawalRecord.objects.filter(store=store).order_by('-created_at')
+         
+         # Get total withdrawn amount
+         total_withdrawn = withdrawals.aggregate(total=Sum('amount'))['total'] or 0
+         
+         withdrawal_data = [{
+            'id': w.id,
+            'amount': w.amount,
+            'status': w.status,
+            'created_at': w.created_at,
+            'processed_at': w.processed_at,
+            'transfer_code': w.transfer_code
+         } for w in withdrawals]
+         
+         return JsonResponse({
+            'total_withdrawn': total_withdrawn,
+            'withdrawal_count': withdrawals.count(),
+            'withdrawals': withdrawal_data
+         })
+      except Store.DoesNotExist:
+         return JsonResponse({'error': 'Store not found'}, status=404)
+   
    @action(detail=False, methods=['post'], url_path='process-withdrawal')
    @transaction.atomic  # Ensures atomicity
    def process_withdrawal(self, request):
@@ -963,7 +989,20 @@ class Paystack(viewsets.ViewSet):
             status=400
          )
 
-      # Step 3: Deduct amount from wallet
+      # Step 3: Create withdrawal record
+      from .models import WithdrawalRecord
+      
+      withdrawal_record = WithdrawalRecord.objects.create(
+         store=get_object_or_404(Store, id=wallet.store.id),
+         wallet=wallet,
+         amount=amount,
+         recipient_code=recipient_code,
+         transfer_code=transfer_response.get('data', {}).get('transfer_code'),
+         paystack_response=transfer_response,
+         status='pending'  # Will be updated by background task
+      )
+      
+      # Step 4: Deduct amount from wallet
       wallet.balance = str(float(wallet.balance) - amount)
       wallet.save()
 
@@ -978,6 +1017,6 @@ class Paystack(viewsets.ViewSet):
       )
 
       return JsonResponse(
-         {"message": "Withdrawal successful.", "transaction": transfer_response},
+         {"message": "Withdrawal successful.", "transaction": transfer_response, "withdrawal_id": withdrawal_record.id},
          status=200
       )

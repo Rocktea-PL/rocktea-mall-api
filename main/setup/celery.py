@@ -43,6 +43,11 @@ app.conf.update(
          'schedule': timedelta(minutes=15),
          'options': {'queue': 'periodic', 'expires': 900}
       },
+      'check-withdrawal-status': {
+         'task': 'order.tasks.check_withdrawal_status',
+         'schedule': timedelta(minutes=10),
+         'options': {'queue': 'periodic', 'expires': 600}
+      },
    },
    timezone='UTC',
    task_routes={
@@ -50,6 +55,7 @@ app.conf.update(
       'mall.tasks.check_shipping_status': {'queue': 'periodic'},
       'mall.tasks.cancel_unpaid_shipments': {'queue': 'periodic'},
       'order.tasks.update_shipment_status': {'queue': 'periodic'},
+      'order.tasks.check_withdrawal_status': {'queue': 'periodic'},
       'tenants.tasks.upload_profile_image': {'queue': 'media'},
    }
 )
