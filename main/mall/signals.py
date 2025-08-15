@@ -71,7 +71,8 @@ def create_marketplace(sender, instance, created, **kwargs):
     MarketPlace.objects.get_or_create(store=instance.store, product=instance.product)
     Notification.objects.create(
         store=instance.store, 
-        message=f"{instance.store.name} you just added a new product to your Marketplace."
+        message=f"{instance.store.name} you just added a new product to your Marketplace.",
+        notification_type='product_added'
     )
 
 @receiver(pre_delete, sender=CustomUser)

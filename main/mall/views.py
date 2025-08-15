@@ -641,21 +641,6 @@ class CreateAndGetStoreProductPricing(APIView):
       elif self.request.method == "DELETE":
          return [IsStoreOwnerOrAdminDelete()]
       return super().get_permissions()
-   
-   def _sync_existing_products_to_marketplace(self, store):
-      """Optimized bulk sync of existing store products to marketplace"""
-      try:
-         # Get products that don't exist in marketplace yet
-         existing_product_ids = StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True)
-         marketplace_product_ids = MarketPlace.objects.filter(store=store).values_list('product_id', flat=True)
-         missing_product_ids = set(existing_product_ids) - set(marketplace_product_ids)
-         
-         # Bulk create missing marketplace entries
-         if missing_product_ids:
-            marketplace_entries = [MarketPlace(product_id=pid, store=store, list_product=True) for pid in missing_product_ids]
-            MarketPlace.objects.bulk_create(marketplace_entries, ignore_conflicts=True)
-      except Exception as e:
-         logger.error(f"Error syncing existing products to marketplace: {e}")
 
    @transaction.atomic
    def post(self, request):
@@ -674,25 +659,12 @@ class CreateAndGetStoreProductPricing(APIView):
          if StoreProductPricing.objects.filter(store=store, product_id=product_id).exists():
             return Response({"error": "Pricing for this product in this store already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Create both StoreProductPricing and MarketPlace in single transaction
+         # Create StoreProductPricing (MarketPlace will be created automatically by signal)
          store_product_price = StoreProductPricing.objects.create(
             store=store,
             product_id=product_id,
             retail_price=retail_price
          )
-
-         MarketPlace.objects.get_or_create(
-            product_id=product_id,
-            store=store,
-            defaults={'list_product': True}
-         )
-
-         # Sync existing products only once per store (optimize with cache check)
-         from django.core.cache import cache
-         cache_key = f"marketplace_synced_{store.id}"
-         if not cache.get(cache_key):
-            self._sync_existing_products_to_marketplace(store)
-            cache.set(cache_key, True, timeout=3600)  # Cache for 1 hour
 
          serializer = StoreProductPricingSerializer(store_product_price)
          return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
@@ -1213,30 +1185,39 @@ class ServicesBusinessInformationView(viewsets.ModelViewSet):
 
 class NotificationView(viewsets.ModelViewSet):
    serializer_class = NotificationSerializer
+   permission_classes = [IsAuthenticated]
 
    def get_queryset(self):
-      queryset = Notification.objects.select_related('recipient', 'store')
+      queryset = Notification.objects.select_related('recipient', 'store').order_by('-created_at')
 
       store_id = self.request.query_params.get('mall')
-      recipient_id = self.request.query_params.get('mall_cli')
+      notification_type = self.request.query_params.get('type')
 
-      if store_id:
-         queryset = queryset.filter(store_id=store_id)
-      elif recipient_id:
-         queryset = queryset.filter(recipient_id=recipient_id)
-
-      try:
-         if queryset.exists():
-               return queryset
+      # Check if user is store owner or store user
+      if self.request.user.is_store_owner:
+         # Store owner sees store-related notifications (no recipient)
+         if store_id:
+            queryset = queryset.filter(store_id=store_id, recipient__isnull=True)
          else:
-               return None
-      except Exception as e:
-         return None
+            try:
+               user_store = Store.objects.get(owner=self.request.user)
+               queryset = queryset.filter(store=user_store, recipient__isnull=True)
+            except Store.DoesNotExist:
+               return Notification.objects.none()
+      else:
+         # Store users see their personal notifications
+         queryset = queryset.filter(recipient=self.request.user)
+
+      # Filter by notification type
+      if notification_type:
+         queryset = queryset.filter(notification_type=notification_type)
+
+      return queryset
 
    def list(self, request, *args, **kwargs):
       queryset = self.get_queryset()
-      if queryset is None:
-         return Response(status=status.HTTP_204_NO_CONTENT)
+      if not queryset.exists():
+         return Response([], status=status.HTTP_200_OK)
       serializer = self.get_serializer(queryset, many=True)
       return Response(serializer.data)
 

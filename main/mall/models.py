@@ -576,10 +576,19 @@ class ReportUser(models.Model):
         return super().save(*args, **kwargs)
 
 class Notification(models.Model):
+    NOTIFICATION_TYPES = (
+        ('payment', 'Payment Credited'),
+        ('withdrawal', 'Withdrawal'),
+        ('product_added', 'Product Added'),
+        ('order', 'New Order'),
+        ('general', 'General')
+    )
+    
     recipient = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, null=True)
     store = models.ForeignKey(Store, on_delete=models.CASCADE, null=True)
     message = models.TextField()
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='general')
     created_at = models.DateTimeField(auto_now_add=True)
     read = models.BooleanField(default=False)
 

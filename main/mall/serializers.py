@@ -931,7 +931,7 @@ class ReportUserSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
    class Meta:
       model = Notification
-      fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']
+      fields = ['id', 'recipient', 'store', 'message', 'notification_type', 'created_at', 'read']
       
 class PromoPlanSerializer(serializers.ModelSerializer):
    class Meta:

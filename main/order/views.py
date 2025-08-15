@@ -33,7 +33,7 @@ from django.http import JsonResponse
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework.viewsets import ModelViewSet, ViewSet
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.renderers import JSONRenderer
 from rest_framework import serializers, status
@@ -58,7 +58,6 @@ from .shipbubble_service import ShipbubbleService
 from rest_framework.decorators import action
 from django.core.cache import cache
 from urllib.parse import urlparse
-from .pagination import CustomPagination
 from mall.pagination import OptimizedPageNumberPagination
 from mall.tasks import log_webhook_attempt
 
@@ -247,17 +246,17 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
          product.save(update_fields=['quantity', 'sales_count'])
 
          order_item_data = {
-               'userorder': order.id,
-               'product': cart_item.product.id,
-               'product_variant': cart_item.product_variant.id,
-               'quantity': cart_item.quantity
+            'userorder': order.id,
+            'product': cart_item.product.id,
+            'product_variant': cart_item.product_variant.id,
+            'quantity': cart_item.quantity
          }
          
          order_item_serializer = OrderItemsSerializer(data=order_item_data)
          if not order_item_serializer.is_valid():
-               CacheHelper.clear_user_cache(user_id)
-               logger.error(f"Order item validation failed: {order_item_serializer.errors}")
-               return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            CacheHelper.clear_user_cache(user_id)
+            logger.error(f"Order item validation failed: {order_item_serializer.errors}")
+            return JsonResponse(order_item_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
          order_item_serializer.save()
 
       cart.items.all().delete()
@@ -268,6 +267,15 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
       paystack_webhook.status = 'Success'
       paystack_webhook.order = order
       paystack_webhook.save()
+
+      # Create notification for user (store customer)
+      user_notification_message = f"Your order #{order.order_sn} has been confirmed and is being processed."
+      Notification.objects.create(
+         recipient=user,
+         store=verified_store,
+         message=user_notification_message, 
+         notification_type='order'
+      )
 
       # Process shipment if available
       process_shipment_details(user_id, order)
@@ -324,6 +332,14 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          paystack_webhook.store = store
          paystack_webhook.save(update_fields=['data', 'status', 'store'])
          logger.info(f"Webhook updated - status: {paystack_webhook.status}, store_id: {paystack_webhook.store.id if paystack_webhook.store else 'None'}")
+         
+         # Create notification for store owner
+         notification_message = f"Your dropshipping payment has been successfully processed. Your store is now active!"
+         Notification.objects.create(
+            store=store,
+            message=notification_message, 
+            notification_type='payment'
+         )
          
          # Create domain and DNS after payment confirmation
          from mall.signals import create_store_domain_after_payment
@@ -829,8 +845,8 @@ class Paystack(viewsets.ViewSet):
       # Validation
       if not account_number or not bank_code:
          return JsonResponse(
-               {"error": "Both 'account_number' and 'bank_code' are required."}, 
-               status=400
+            {"error": "Both 'account_number' and 'bank_code' are required."}, 
+            status=400
          )
 
       bank_details   = get_account_name_paystack(account_number, bank_code)
@@ -849,8 +865,8 @@ class Paystack(viewsets.ViewSet):
       # Validation
       if missing_fields:
          return JsonResponse(
-               {"error": f"Missing required fields: {', '.join(missing_fields)}."},
-               status=400
+            {"error": f"Missing required fields: {', '.join(missing_fields)}."},
+            status=400
          )
 
       transfer_recipient   = get_receipient_code_transfer_paystack(data)
@@ -867,8 +883,8 @@ class Paystack(viewsets.ViewSet):
       # Validation
       if missing_fields:
          return JsonResponse(
-               {"error": f"Missing required fields: {', '.join(missing_fields)}."},
-               status=400
+            {"error": f"Missing required fields: {', '.join(missing_fields)}."},
+            status=400
          )
 
       initialize_transfer   = initiate_transfer_paystack(data)
@@ -885,8 +901,8 @@ class Paystack(viewsets.ViewSet):
       # Validation
       if missing_fields:
          return JsonResponse(
-               {"error": f"Missing required fields: {', '.join(missing_fields)}."},
-               status=400
+            {"error": f"Missing required fields: {', '.join(missing_fields)}."},
+            status=400
          )
 
       otp_transfer   = otp_transfer_paystack(data)
@@ -930,8 +946,8 @@ class Paystack(viewsets.ViewSet):
       recipient_response = get_receipient_code_transfer_paystack(recipient_data)
       if recipient_response.get("status") != True:
          return JsonResponse(
-               {"error": "Failed to create transfer recipient.", "details": recipient_response},
-               status=400
+            {"error": "Failed to create transfer recipient.", "details": recipient_response},
+            status=400
          )
       recipient_code = recipient_response.get("data", {}).get("recipient_code")
 
@@ -943,19 +959,23 @@ class Paystack(viewsets.ViewSet):
       transfer_response = initiate_transfer_paystack(transfer_data)
       if transfer_response.get("status") != True:
          return JsonResponse(
-               {"error": "Failed to initiate transfer.", "details": transfer_response},
-               status=400
+            {"error": "Failed to initiate transfer.", "details": transfer_response},
+            status=400
          )
 
       # Step 3: Deduct amount from wallet
       wallet.balance = str(float(wallet.balance) - amount)
       wallet.save()
 
-      # Create Notification
+      # Create Notification for store owner
       notification_message = f"Your withdrawal of {amount} has been successfully processed."
       store = get_object_or_404(Store, id=wallet.store.id)
       
-      Notification.objects.create(store=store, message=notification_message)
+      Notification.objects.create(
+         store=store,
+         message=notification_message, 
+         notification_type='withdrawal'
+      )
 
       return JsonResponse(
          {"message": "Withdrawal successful.", "transaction": transfer_response},
