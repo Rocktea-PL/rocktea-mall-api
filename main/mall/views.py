@@ -504,10 +504,11 @@ class ProductViewSet(viewsets.ModelViewSet):
          ).count()
          # Calculate total products sold using database aggregation
          from django.db.models import Sum
-         total_products_sold = StoreOrder.objects.filter(
-            store=store
+         from order.models import OrderItems
+         total_products_sold = OrderItems.objects.filter(
+            userorder__store=store
          ).aggregate(
-            total_sold=Sum('items__quantity')
+            total_sold=Sum('quantity')
          )['total_sold'] or 0
 
          summary = {
