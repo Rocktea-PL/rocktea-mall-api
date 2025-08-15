@@ -15,7 +15,7 @@ from order.models import StoreOrder
 from mall.models import StoreProductPricing
 
 from django.utils import timezone
-from order.pagination import CustomPagination
+from mall.pagination import OptimizedPageNumberPagination as CustomPagination
 
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters

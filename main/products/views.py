@@ -17,7 +17,7 @@ from .serializers import (
 )
 from order.models import OrderItems
 import logging
-from order.pagination import CustomPagination
+from mall.pagination import OptimizedPageNumberPagination as CustomPagination
 from .filters import ProductFilter
 from django_filters.rest_framework import DjangoFilterBackend
 

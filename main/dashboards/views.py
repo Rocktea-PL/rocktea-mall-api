@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework import status as drf_status
 from django.db.models import Count, Sum, Q
 from django.db.models.functions import Coalesce
-from order.pagination import CustomPagination
+from mall.pagination import OptimizedPageNumberPagination as CustomPagination
 from order.models import StoreOrder, PaystackWebhook
 from mall.models import CustomUser, Product
 from admin_orders.serializers import AdminTransactionSerializer
@@ -126,6 +126,7 @@ class DropshipperAnalyticsView(APIView):
                     
                     # Determine status
                     
+                    from django.utils import timezone
                     thirty_days_ago = timezone.now() - timezone.timedelta(days=30)
                     status = 'Active' if user.last_login and user.last_login >= thirty_days_ago else 'Inactive'
                     

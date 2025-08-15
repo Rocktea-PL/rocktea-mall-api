@@ -2,7 +2,7 @@ from django.http import Http404
 from rest_framework import viewsets, status, filters
 from order.models import StoreOrder, OrderItems, PaystackWebhook
 from .serializers import AdminOrderSerializer, AdminTransactionSerializer
-from order.pagination import CustomPagination
+from mall.pagination import OptimizedPageNumberPagination as CustomPagination
 from django.db.models import Prefetch, Count, Q
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response

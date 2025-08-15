@@ -83,7 +83,7 @@ from django.dispatch import receiver
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
-from order.pagination import CustomPagination
+from .pagination import OptimizedPageNumberPagination as CustomPagination
 from setup.utils import get_store_domain
 from django.utils import timezone
 from .cache_utils import CacheManager
