@@ -1196,17 +1196,21 @@ class NotificationView(viewsets.ModelViewSet):
       # Check if user is store owner or store user
       if self.request.user.is_store_owner:
          # Store owner sees store-related notifications (no recipient)
+         queryset = queryset.filter(recipient__isnull=True)
          if store_id:
-            queryset = queryset.filter(store_id=store_id, recipient__isnull=True)
+            queryset = queryset.filter(store_id=store_id)
          else:
             try:
                user_store = Store.objects.get(owner=self.request.user)
-               queryset = queryset.filter(store=user_store, recipient__isnull=True)
+               queryset = queryset.filter(store=user_store)
             except Store.DoesNotExist:
                return Notification.objects.none()
       else:
          # Store users see their personal notifications
          queryset = queryset.filter(recipient=self.request.user)
+         # If store_id is provided, also filter by store
+         if store_id:
+            queryset = queryset.filter(store_id=store_id)
 
       # Filter by notification type
       if notification_type:
