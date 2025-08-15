@@ -33,6 +33,7 @@ from mall.change_password import ChangePasswordView
 from mall.health_views import health_check
 
 from mall.custom_view.reportuser import ReportUserView
+from mall.wishlist import WishlistViewSet
 from order.views import (
     OrderItemsViewSet, 
     CartViewSet, 
@@ -142,6 +143,9 @@ router.register('shipbubble', ShipbubbleViewSet, basename='shipbubble')
 
 # Paystack
 router.register('paystack', Paystack, basename='paystack')
+
+# Wishlist
+router.register('wishlist', WishlistViewSet, basename='wishlist')
 
 
 

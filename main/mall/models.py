@@ -523,6 +523,24 @@ class Wishlist(models.Model):
                              "is_consumer": True}, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
 
+class SavedProduct(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='saved_products')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='saved_by_users')
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='saved_products')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'product', 'store')
+        indexes = [
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['store', 'created_at']),
+            models.Index(fields=['product']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name}"
+
 class MarketPlace(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE, db_index=True)
     product = models.ForeignKey(
