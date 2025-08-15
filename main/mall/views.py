@@ -1230,7 +1230,7 @@ class NotificationView(viewsets.ModelViewSet):
       serializer = self.get_serializer(queryset, many=True)
       return Response(serializer.data)
 
-   @action(detail=True, methods=['patch'], url_path='read')
+   @action(detail=True, methods=['patch', 'get'], url_path='read')
    def mark_as_read(self, request, pk=None):
       notification = self.get_object()
       notification.read = True
