@@ -1,7 +1,6 @@
 from django.dispatch import receiver
 from django.db.models.signals import post_save, post_delete, pre_save, pre_delete
 import logging
-import re
 
 from .models import Store, Wallet, StoreProductPricing, MarketPlace, Notification, CustomUser, Product, ProductImage
 
@@ -33,12 +32,6 @@ def generate_store_slug_only(sender, instance, **kwargs):
     """
     if not instance.slug and instance.name:
         instance.slug = generate_store_slug(instance.name)
-
-@receiver(post_save, sender=Store)
-def create_wallet(sender, instance, created, **kwargs):
-    """Create Wallet for every Store"""
-    if created:
-        Wallet.objects.get_or_create(store=instance)
 
 @receiver(post_save, sender=Store)
 def create_wallet(sender, instance, created, **kwargs):
