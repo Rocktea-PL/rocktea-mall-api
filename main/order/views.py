@@ -906,6 +906,12 @@ class Paystack(viewsets.ViewSet):
 
       return JsonResponse(otp_transfer)
    
+   @action(detail=False, methods=['post'], url_path='check-withdrawal-status')
+   def manual_check_withdrawal_status(self, request):
+      from .tasks import check_withdrawal_status
+      result = check_withdrawal_status.delay()
+      return JsonResponse({'message': 'Withdrawal status check initiated', 'task_id': result.id})
+   
    @action(detail=False, methods=['get'], url_path='withdrawal-history')
    def withdrawal_history(self, request):
       from .models import WithdrawalRecord

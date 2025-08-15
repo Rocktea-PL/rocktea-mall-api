@@ -45,8 +45,8 @@ app.conf.update(
       },
       'check-withdrawal-status': {
          'task': 'order.tasks.check_withdrawal_status',
-         'schedule': timedelta(minutes=10),
-         'options': {'queue': 'periodic', 'expires': 600}
+         'schedule': timedelta(minutes=15),  # Reduced frequency
+         'options': {'queue': 'periodic', 'expires': 900, 'retry': False}
       },
    },
    timezone='UTC',
