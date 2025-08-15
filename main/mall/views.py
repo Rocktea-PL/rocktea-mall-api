@@ -1186,6 +1186,21 @@ class ServicesBusinessInformationView(viewsets.ModelViewSet):
 class NotificationView(viewsets.ModelViewSet):
    serializer_class = NotificationSerializer
    permission_classes = [IsAuthenticated]
+   http_method_names = ['get', 'patch', 'head', 'options']
+   
+   def get_object(self):
+      """Override to ensure user can only access their own notifications"""
+      obj = super().get_object()
+      # Check if user owns this notification
+      if self.request.user.is_store_owner:
+         if obj.recipient is not None or (obj.store and obj.store.owner != self.request.user):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to access this notification")
+      else:
+         if obj.recipient != self.request.user:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to access this notification")
+      return obj
 
    def get_queryset(self):
       queryset = Notification.objects.select_related('recipient', 'store').order_by('-created_at')
