@@ -240,8 +240,11 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
       # Process cart items
       for cart_item in cart.items.all():
          product = cart_item.product
+         
+         # Reduce product quantity
+         product.quantity -= cart_item.quantity
          product.sales_count += cart_item.quantity
-         product.save()
+         product.save(update_fields=['quantity', 'sales_count'])
 
          order_item_data = {
                'userorder': order.id,
