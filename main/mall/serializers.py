@@ -694,7 +694,22 @@ class SimpleProductSerializer(serializers.ModelSerializer):
       fields = ['id', 'name', 'unit_sold', 'sku', 'price', 'date']
 
    def get_unit_sold(self, obj):
-      return getattr(obj.sales_count, 'sales_count', 0)
+      store = self.context.get('store')
+      if not store:
+         return 0
+      
+      from django.db.models import Sum
+      from order.models import OrderItems
+      
+      # Calculate units sold for this specific product in this specific store
+      units_sold = OrderItems.objects.filter(
+         product=obj,
+         userorder__store=store
+      ).aggregate(
+         total_sold=Sum('quantity')
+      )['total_sold'] or 0
+      
+      return units_sold
 
    def get_price(self, obj):
       store = self.context.get('store')

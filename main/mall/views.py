@@ -526,9 +526,9 @@ class ProductViewSet(viewsets.ModelViewSet):
 
          # Serialize the paginated data with context
          serializer = SimpleProductSerializer(
-               [pricing.product for pricing in paginated_data],
-               many=True,
-               context={'store': store}
+            [pricing.product for pricing in paginated_data],
+            many=True,
+            context={'store': store}
          )
 
          # Combine the summary and paginated data in the response
