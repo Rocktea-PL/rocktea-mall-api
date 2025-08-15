@@ -953,7 +953,23 @@ class BestSellingProductView(ListAPIView):
    serializer_class = OptimizedProductSerializer
 
    def get_queryset(self):
-      return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype').order_by('-sales_count')[:3]
+      store_id = self.request.query_params.get('store_id')
+      if store_id:
+         # Get products sold by specific store through MarketPlace
+         marketplace_products = MarketPlace.objects.filter(
+            store_id=store_id, 
+            list_product=True
+         ).values_list('product_id', flat=True)
+         
+         return Product.objects.available()\
+            .filter(id__in=marketplace_products)\
+            .select_related('category', 'subcategory', 'brand', 'producttype')\
+            .order_by('-sales_count')[:3]
+      
+      # Default: return global best selling products
+      return Product.objects.available()\
+         .select_related('category', 'subcategory', 'brand', 'producttype')\
+         .order_by('-sales_count')[:3]
 
 class SalesCountView(APIView):
    def get_object(self, product_id):
