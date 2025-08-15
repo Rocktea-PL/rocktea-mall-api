@@ -1192,6 +1192,7 @@ class NotificationView(viewsets.ModelViewSet):
 
       store_id = self.request.query_params.get('mall')
       notification_type = self.request.query_params.get('type')
+      unread_only = self.request.query_params.get('unread')
 
       # Check if user is store owner or store user
       if self.request.user.is_store_owner:
@@ -1216,6 +1217,10 @@ class NotificationView(viewsets.ModelViewSet):
       if notification_type:
          queryset = queryset.filter(notification_type=notification_type)
 
+      # Filter by unread status
+      if unread_only:
+         queryset = queryset.filter(read=False)
+
       return queryset
 
    def list(self, request, *args, **kwargs):
@@ -1224,6 +1229,13 @@ class NotificationView(viewsets.ModelViewSet):
          return Response([], status=status.HTTP_200_OK)
       serializer = self.get_serializer(queryset, many=True)
       return Response(serializer.data)
+
+   @action(detail=True, methods=['patch'], url_path='read')
+   def mark_as_read(self, request, pk=None):
+      notification = self.get_object()
+      notification.read = True
+      notification.save(update_fields=['read'])
+      return Response({'message': 'Notification marked as read'}, status=status.HTTP_200_OK)
 
 class PromoPlansView(viewsets.ModelViewSet):
    queryset = PromoPlans.objects.select_related('store', 'category')
