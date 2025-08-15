@@ -48,18 +48,16 @@ def create_payment_history(sender, instance, created, **kwargs):
       order_id = order.id
       total_profit = Decimal('0.00')
 
-      for item in order.items.all():  # Iterate over all items in the order
-         # Fetch the retail and wholesale prices from StoreProductPricing model
-         product = item.product
-         try:
-            pricing = StoreProductPricing.objects.get(
-                  product=product, store=store_id)
-            retail_price = Decimal(str(pricing.retail_price))
-            wholesale_price = Decimal(str(item.product_variant.wholesale_price))
-            profit_per_item = retail_price - wholesale_price
-            total_profit += profit_per_item * item.quantity
-         except StoreProductPricing.DoesNotExist:
-            continue
+      # Calculate profit only for the current order item
+      try:
+         pricing = StoreProductPricing.objects.get(
+               product=instance.product, store=store_id)
+         retail_price = Decimal(str(pricing.retail_price))
+         wholesale_price = Decimal(str(instance.product_variant.wholesale_price))
+         profit_per_item = retail_price - wholesale_price
+         total_profit = profit_per_item * instance.quantity
+      except StoreProductPricing.DoesNotExist:
+         total_profit = Decimal('0.00')
 
       # Update store's wallet balance
       wallet, created = Wallet.objects.get_or_create(store_id=store_id)
