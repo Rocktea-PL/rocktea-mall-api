@@ -62,23 +62,54 @@ class WishlistViewSet(viewsets.ViewSet):
          .prefetch_related('images').distinct().order_by('-created_at')
     
     def list(self, request):
-        queryset = self.get_queryset()
-        context = {'request': request}
-        
-        # Add store context for pricing if mall parameter is provided
-        store_id = request.query_params.get('mall')
-        if store_id:
-            try:
-                store = Store.objects.get(id=store_id)
-                context['store'] = store
-            except Store.DoesNotExist:
-                pass
-        
-        # Use pagination like ProductViewSet
-        paginator = OptimizedPageNumberPagination()
-        page = paginator.paginate_queryset(queryset, request)
-        
-        from .optimized_serializers import OptimizedProductSerializer
-        serializer = OptimizedProductSerializer(page, many=True, context=context)
-        
-        return paginator.get_paginated_response(serializer.data)
+        try:
+            # Get summary data for saved products
+            total_saved_products = SavedProduct.objects.filter(user=request.user).count()
+            total_available_saved = SavedProduct.objects.filter(
+                user=request.user,
+                product__is_available=True,
+                product__upload_status='Approved'
+            ).count()
+            
+            summary = {
+                "total_saved_products": total_saved_products,
+                "total_available_saved": total_available_saved,
+            }
+            
+            # Get saved products with store context
+            saved_products = SavedProduct.objects.filter(user=request.user)\
+                .select_related('product', 'store')\
+                .order_by('-created_at')
+            
+            # Apply pagination
+            paginator = OptimizedPageNumberPagination()
+            paginated_data = paginator.paginate_queryset(saved_products, request)
+            
+            # Get store context for pricing if mall parameter is provided
+            store_context = None
+            store_id = request.query_params.get('mall')
+            if store_id:
+                try:
+                    store_context = Store.objects.get(id=store_id)
+                except Store.DoesNotExist:
+                    pass
+            
+            # Serialize products with store context
+            from .serializers import SimpleProductSerializer
+            serializer = SimpleProductSerializer(
+                [sp.product for sp in paginated_data],
+                many=True,
+                context={'store': store_context} if store_context else {}
+            )
+            
+            # Return paginated response with summary like my_products_list
+            return paginator.get_paginated_response({
+                "summary": summary,
+                "products": serializer.data
+            })
+            
+        except Exception as e:
+            return Response(
+                {"error": "An error occurred while retrieving saved products."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
