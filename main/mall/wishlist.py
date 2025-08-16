@@ -53,12 +53,11 @@ class WishlistViewSet(viewsets.ViewSet):
         paginator = OptimizedPageNumberPagination()
         page = paginator.paginate_queryset(saved_products, request)
         
-        data = [{
-            'id': str(sp.id),
-            'product': ProductSerializer(sp.product).data,
-            'store_name': sp.store.name,
-            'store_id': str(sp.store.id),
-            'saved_at': sp.created_at
-        } for sp in page]
+        # Get products and serialize them like ProductViewSet
+        products = [sp.product for sp in page]
+        context = {'request': request}
         
-        return paginator.get_paginated_response(data)
+        from .optimized_serializers import OptimizedProductSerializer
+        serializer = OptimizedProductSerializer(products, many=True, context=context)
+        
+        return paginator.get_paginated_response(serializer.data)
