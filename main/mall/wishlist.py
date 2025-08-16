@@ -46,11 +46,14 @@ class WishlistViewSet(viewsets.ViewSet):
         return Response({'unsaved': bool(deleted)})
     
     def get_queryset(self):
-        # Get saved products for the user
+        # Always filter by authenticated user only
         saved_product_ids = SavedProduct.objects.filter(user=self.request.user)\
             .values_list('product_id', flat=True)
         
-        # Return products like ProductViewSet with pricing context
+        if not saved_product_ids:
+            return Product.objects.none()
+        
+        # Return user's saved products with pricing context
         return Product.objects.filter(
             id__in=saved_product_ids,
             is_available=True,
