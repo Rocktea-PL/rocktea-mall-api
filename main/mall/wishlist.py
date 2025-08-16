@@ -94,12 +94,16 @@ class WishlistViewSet(viewsets.ViewSet):
                 except Store.DoesNotExist:
                     pass
             
-            # Serialize products with store context
-            from .serializers import SimpleProductSerializer
-            serializer = SimpleProductSerializer(
+            # Serialize products with full details like ProductViewSet
+            from .optimized_serializers import OptimizedProductSerializer
+            context = {'request': request}
+            if store_context:
+                context['store'] = store_context
+                
+            serializer = OptimizedProductSerializer(
                 [sp.product for sp in paginated_data],
                 many=True,
-                context={'store': store_context} if store_context else {}
+                context=context
             )
             
             # Return paginated response with summary like my_products_list
