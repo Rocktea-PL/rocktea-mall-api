@@ -45,19 +45,37 @@ class WishlistViewSet(viewsets.ViewSet):
         
         return Response({'unsaved': bool(deleted)})
     
+    def get_queryset(self):
+        # Get saved products for the user
+        saved_product_ids = SavedProduct.objects.filter(user=self.request.user)\
+            .values_list('product_id', flat=True)
+        
+        # Return products like ProductViewSet with pricing context
+        return Product.objects.filter(
+            id__in=saved_product_ids,
+            is_available=True,
+            upload_status='Approved'
+        ).select_related('category', 'subcategory', 'brand', 'producttype')\
+         .prefetch_related('images').distinct().order_by('-created_at')
+    
     def list(self, request):
-        saved_products = SavedProduct.objects.filter(user=request.user)\
-            .select_related('product', 'store')\
-            .order_by('-created_at')
-        
-        paginator = OptimizedPageNumberPagination()
-        page = paginator.paginate_queryset(saved_products, request)
-        
-        # Get products and serialize them like ProductViewSet
-        products = [sp.product for sp in page]
+        queryset = self.get_queryset()
         context = {'request': request}
         
+        # Add store context for pricing if mall parameter is provided
+        store_id = request.query_params.get('mall')
+        if store_id:
+            try:
+                store = Store.objects.get(id=store_id)
+                context['store'] = store
+            except Store.DoesNotExist:
+                pass
+        
+        # Use pagination like ProductViewSet
+        paginator = OptimizedPageNumberPagination()
+        page = paginator.paginate_queryset(queryset, request)
+        
         from .optimized_serializers import OptimizedProductSerializer
-        serializer = OptimizedProductSerializer(products, many=True, context=context)
+        serializer = OptimizedProductSerializer(page, many=True, context=context)
         
         return paginator.get_paginated_response(serializer.data)
