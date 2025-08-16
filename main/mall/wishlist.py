@@ -85,14 +85,18 @@ class WishlistViewSet(viewsets.ViewSet):
             paginator = OptimizedPageNumberPagination()
             paginated_data = paginator.paginate_queryset(saved_products, request)
             
-            # Get store context for pricing if mall parameter is provided
+            # Get store context for pricing - use saved product's store if no mall param
             store_context = None
             store_id = request.query_params.get('mall')
+            
             if store_id:
                 try:
                     store_context = Store.objects.get(id=store_id)
                 except Store.DoesNotExist:
                     pass
+            elif paginated_data:
+                # Use the store from the first saved product if no mall param
+                store_context = paginated_data[0].store
             
             # Serialize products with full details like ProductViewSet
             from .optimized_serializers import OptimizedProductSerializer
