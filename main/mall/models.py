@@ -68,7 +68,8 @@ class CustomUserManager(BaseUserManager):
     def create_superuser(self, email, password=None, **extra_fields):
         # Create a superuser
         extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', False)
+        # extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault('is_superuser', True)
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')
@@ -218,6 +219,7 @@ class Store(models.Model):
     has_made_payment = models.BooleanField(default=False)
 
     class Meta:
+        ordering = ['-created_at']
         indexes = [
             models.Index(fields=['id'], name='store_id_idx'),
             models.Index(fields=['owner'], name='store_owner_ownerx'),

@@ -180,9 +180,16 @@ def send_order_completion_email_task(self, order_id):
                 item_price = float(store_pricing.retail_price) * item.quantity
                 subtotal += item_price
                 
+                variant_name = None
+                if item.product_variant:
+                    if item.product_variant.colors:
+                        variant_name = ', '.join(item.product_variant.colors)
+                    elif item.product_variant.size:
+                        variant_name = item.product_variant.size
+                
                 order_items.append({
                     'product_name': item.product.name,
-                    'variant_name': item.product_variant.name if item.product_variant else None,
+                    'variant_name': variant_name,
                     'quantity': item.quantity,
                     'price': f"{item_price:.2f}"
                 })
@@ -191,9 +198,16 @@ def send_order_completion_email_task(self, order_id):
                 item_price = float(item.product_variant.wholesale_price) * item.quantity if item.product_variant else 0
                 subtotal += item_price
                 
+                variant_name = None
+                if item.product_variant:
+                    if item.product_variant.colors:
+                        variant_name = ', '.join(item.product_variant.colors)
+                    elif item.product_variant.size:
+                        variant_name = item.product_variant.size
+                
                 order_items.append({
                     'product_name': item.product.name,
-                    'variant_name': item.product_variant.name if item.product_variant else None,
+                    'variant_name': variant_name,
                     'quantity': item.quantity,
                     'price': f"{item_price:.2f}"
                 })
