@@ -2,13 +2,9 @@
 Centralized email service for RockTea Mall
 Handles all email operations with consistent templates and error handling
 """
-from django.conf import settings
 from django.utils import timezone
-from django.template.loader import render_to_string
-from django.utils.html import strip_tags
 import logging
-import requests
-from typing import Dict, List, Optional
+from typing import Dict, List
 from .tasks import send_email_task
 
 logger = logging.getLogger(__name__)

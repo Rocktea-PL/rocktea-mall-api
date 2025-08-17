@@ -1012,7 +1012,7 @@ class StoreOrdersViewSet(ListAPIView):
       return orders
 
 class BrandView(viewsets.ModelViewSet):
-   queryset = Brand.objects.prefetch_related('producttype')
+   queryset = Brand.objects.prefetch_related('producttype').order_by('name')
    serializer_class = BrandSerializer
    permission_classes = [IsAdminOrReadOnly]
 
@@ -1063,9 +1063,27 @@ class BrandView(viewsets.ModelViewSet):
          {'message': f'Brand "{brand_name}" deleted successfully'},
          status=status.HTTP_204_NO_CONTENT
       )
+   
+   @action(detail=False, methods=['get'], url_path='by-producttype')
+   def by_producttype(self, request):
+      producttype_id = request.query_params.get('producttype_id')
+      if not producttype_id:
+         return Response({'error': 'producttype_id parameter required'}, status=400)
+      
+      brands = Brand.objects.filter(producttype__id=producttype_id).order_by('name')
+      # Disable pagination for this action
+      serializer = self.get_serializer(brands, many=True)
+      return Response(serializer.data)
+   
+   @property
+   def paginator(self):
+      # Disable pagination for by_producttype action
+      if self.action == 'by_producttype':
+         return None
+      return super().paginator
 
 class SubCategoryView(viewsets.ModelViewSet):
-   queryset =  SubCategories.objects.select_related('category')
+   queryset =  SubCategories.objects.select_related('category').order_by('name')
    serializer_class = SubCategorySerializer
    permission_classes = [IsAdminOrReadOnly]
 
@@ -1109,9 +1127,19 @@ class SubCategoryView(viewsets.ModelViewSet):
          {'message': f'Subcategory "{subcategory_name}" deleted successfully'},
          status=status.HTTP_204_NO_CONTENT
       )
+   
+   @action(detail=False, methods=['get'], url_path='by-category')
+   def by_category(self, request):
+      category_id = request.query_params.get('category_id')
+      if not category_id:
+         return Response({'error': 'category_id parameter required'}, status=400)
+      
+      subcategories = SubCategories.objects.filter(category_id=category_id).order_by('name')
+      serializer = self.get_serializer(subcategories, many=True)
+      return Response(serializer.data)
 
 class ProductTypeView(viewsets.ModelViewSet):
-   queryset = ProductTypes.objects.select_related('subcategory')
+   queryset = ProductTypes.objects.select_related('subcategory').order_by('name')
    serializer_class = ProductTypesSerializer
    permission_classes = [IsAdminOrReadOnly]
 
@@ -1162,6 +1190,16 @@ class ProductTypeView(viewsets.ModelViewSet):
          {'message': f'Product type "{producttype_name}" deleted successfully'},
          status=status.HTTP_204_NO_CONTENT
       )
+   
+   @action(detail=False, methods=['get'], url_path='by-subcategory')
+   def by_subcategory(self, request):
+      subcategory_id = request.query_params.get('subcategory_id')
+      if not subcategory_id:
+         return Response({'error': 'subcategory_id parameter required'}, status=400)
+      
+      product_types = ProductTypes.objects.filter(subcategory_id=subcategory_id).order_by('name')
+      serializer = self.get_serializer(product_types, many=True)
+      return Response(serializer.data)
 
 class ProductDetails(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
