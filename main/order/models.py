@@ -173,3 +173,30 @@ class PaystackWebhook(models.Model):
 
    def __str__(self):
       return self.reference
+
+class WithdrawalRecord(models.Model):
+   STATUS_CHOICES = (
+      ('pending', 'Pending'),
+      ('success', 'Success'),
+      ('failed', 'Failed')
+   )
+   
+   store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name='withdrawals')
+   wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE, related_name='withdrawal_records')
+   amount = models.DecimalField(max_digits=12, decimal_places=2)
+   recipient_code = models.CharField(max_length=100)
+   transfer_code = models.CharField(max_length=100, null=True, blank=True)
+   paystack_response = models.JSONField(null=True, blank=True)
+   status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+   created_at = models.DateTimeField(auto_now_add=True)
+   processed_at = models.DateTimeField(null=True, blank=True)
+   
+   class Meta:
+      indexes = [
+         models.Index(fields=['store', 'status']),
+         models.Index(fields=['created_at']),
+         models.Index(fields=['amount']),
+      ]
+   
+   def __str__(self):
+      return f"{self.store.name} - {self.amount} - {self.status}"

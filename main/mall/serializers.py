@@ -103,10 +103,20 @@ class StoreOwnerSerializer(ModelSerializer):
          if not re.match(r'^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*\W).+$', password):
             raise ValidationError({"error":"Passwords must include at least one special symbol, one number, one lowercase letter, and one uppercase letter."})
 
+      # Optimize profile image if provided
+      profile_image = validated_data.get('profile_image')
+      if profile_image:
+         optimized_image_url = self._optimize_profile_image(profile_image)
+         if optimized_image_url:
+            validated_data['profile_image'] = optimized_image_url
+
       user = CustomUser.objects.create(**validated_data)
       # Confirm the user as a store owner
       user.is_store_owner = True
-      user.is_active = False
+      # Set active based on context - admin created users are active, self-registered need verification
+      user.is_active = self.context.get('admin_created', False)
+      user.is_verified = self.context.get('admin_created', False)
+      # completed_steps will be set when they create store
 
       if password:
          # Set and save the user's password only if a valid password is provided
@@ -169,9 +179,8 @@ class StoreOwnerSerializer(ModelSerializer):
          # Check if there was an old image to delete
          if instance.profile_image:
             try:
-               # Calling .delete() on the FieldFile instance should trigger Cloudinary deletion
-               # because cloudinary-storage hooks into this.
-               instance.profile_image.delete()
+               # Safe deletion - works for both old and new images
+               instance.profile_image.delete(save=False)
             except Exception as e:
                # Log or handle the error gracefully, but don't prevent the update from proceeding
                print(f"Cloudinary deletion error during profile image update: {e}")
@@ -189,6 +198,21 @@ class StoreOwnerSerializer(ModelSerializer):
       
       instance.save()
       return instance
+   
+   def _optimize_profile_image(self, image_file):
+      """Optimize profile image for better performance"""
+      try:
+         from .cloudinary_utils import CloudinaryOptimizer
+         # Upload optimized profile image
+         result = CloudinaryOptimizer.upload_optimized(
+            image_file.read(),
+            folder="profiles",
+            transformation_type='store_logo'
+         )
+         return result.get('secure_url')
+      except Exception as e:
+         logger.error(f"Error optimizing profile image: {e}")
+         return None
 
    def to_representation(self, instance):
       representation = super().to_representation(instance)
@@ -204,25 +228,31 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
       return token
 
    def validate(self, attrs):
-      data = super().validate(attrs)
-      user = self.user  # Already authenticated user from parent class
-
-      # 2. Reject non-verified or inactive accounts
-      if not user.is_active:
-         raise ValidationError("User account is inactive. Please contact support.")
-      if not user.is_verified:
-         raise ValidationError("User account not verified. Please check your email for verification instructions.")
+      email = attrs.get('email')
+      password = attrs.get('password')
       
+      # Check if user exists and password is correct
+      try:
+         user = CustomUser.objects.get(email=email)
+         if not user.check_password(password):
+            raise ValidationError("Invalid credentials. Please check your email and password.")
+      except CustomUser.DoesNotExist:
+         raise ValidationError("Invalid credentials. Please check your email and password.")
+      
+      # Check verification and activation status
+      if not user.is_verified:
+         raise ValidationError("Your account is not verified. Please check your email for verification instructions.")
+      
+      if not user.is_active:
+         raise ValidationError("Your account is inactive. Please contact support.")
+      
+      # Check if user is store owner
       if not user.is_store_owner:
          raise ValidationError("Access denied. Only store owners can log in here.")
-
-      # Get user with permissions (allow all valid users)
-      try:
-         user = CustomUser.objects.get(id=user.id)
-      except CustomUser.DoesNotExist:
-         raise ValidationError("User Does Not Exist")
-      except CustomUser.MultipleObjectsReturned:
-         raise ValidationError("Multiple users found - database inconsistency")
+      
+      # Call parent validate to get tokens
+      data = super().validate(attrs)
+      user = self.user
 
       # Initialize store-related variables
       has_store = False
@@ -265,6 +295,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          "email": user.email,
          "username": user.username,
          "contact": f"{user.contact}",
+         "profile_image": user.profile_image.url if user.profile_image else None,
          "is_storeowner": user.is_store_owner,
          "has_store": has_store,
          "is_services": user.is_services,
@@ -272,11 +303,13 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
          "is_operations": user.is_operations,
          "has_service": has_service,
          "store_id": store_id,
+         "store_logo": store.logo.url if has_store and store.logo else None,
          "theme": theme,
          "category": category,
          "domain_name": domain_name,
          "completed": completed,
-         "hasMadePayment": has_made_payment
+         "hasMadePayment": has_made_payment,
+         "completed_step": user.completed_steps
       }
 
       if user.is_services:
@@ -319,8 +352,12 @@ class CreateStoreSerializer(serializers.ModelSerializer):
    def validate_logo(self, value):
       if value:
          file_extension = value.name.split('.')[-1].lower()
-         if file_extension not in ['png', 'jpg', 'jpeg']:
-               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG are allowed.")
+         if file_extension not in ['png', 'jpg', 'jpeg', 'webp']:
+               raise ValidationError("Invalid Image format. Only PNG, JPG, JPEG, WEBP are allowed.")
+         
+         # Check file size (max 5MB for logos)
+         if value.size > 5 * 1024 * 1024:
+            raise ValidationError("Logo file size must be less than 5MB.")
       return value
    
    def validate_name(self, value):
@@ -346,23 +383,28 @@ class CreateStoreSerializer(serializers.ModelSerializer):
          raise ValidationError("You already have a store. Only one store per user is allowed.")
 
       try:
+         # Optimize logo if provided
+         logo = validated_data.get('logo')
+         if logo:
+            optimized_logo_url = self._optimize_store_logo(logo)
+            if optimized_logo_url:
+               validated_data['logo'] = optimized_logo_url
+         
          # Create store with owner
          validated_data['owner'] = user
          
-         # Generate slug and domain
+         # Only generate slug, not domain name
          slug = generate_store_slug(validated_data['name'])
-         env_config = determine_environment_config(self.context.get('request'))
-         
-         # Generate domain name
-         full_domain = generate_store_domain(slug, env_config['environment'])
-         validated_data['domain_name'] = f"https://{full_domain}?mallcli={{store_id}}"
          validated_data['slug'] = slug
+         
+         # Remove domain_name from validated_data to prevent setting it
+         validated_data.pop('domain_name', None)
          
          store = Store.objects.create(**validated_data)
          
-         # Update domain name with actual store ID
-         store.domain_name = f"https://{full_domain}?mallcli={store.id}"
-         store.save(update_fields=['domain_name'])
+         # Update user completed_steps to 1 (store created)
+         user.completed_steps = 1
+         user.save(update_fields=['completed_steps'])
          
          return store
          
@@ -371,11 +413,34 @@ class CreateStoreSerializer(serializers.ModelSerializer):
                raise ValidationError("You already have a store. Only one store per user is allowed.")
          else:
                raise ValidationError("An error occurred while creating the store. Please try again later.")
+   
+   def _optimize_store_logo(self, logo_file):
+      """Optimize store logo for better performance"""
+      try:
+         from .cloudinary_utils import CloudinaryOptimizer
+         # Upload optimized store logo
+         result = CloudinaryOptimizer.upload_optimized(
+            logo_file.read(),
+            folder="store_logos",
+            transformation_type='store_logo'
+         )
+         return result.get('secure_url')
+      except Exception as e:
+         logger.error(f"Error optimizing store logo: {e}")
+         return None
 
    def update(self, instance, validated_data):
       # Remove read-only fields
       validated_data.pop('domain_name', None)
       validated_data.pop('slug', None)
+      
+      # Handle logo deletion if new logo provided
+      if 'logo' in validated_data and validated_data['logo'] != instance.logo:
+         if instance.logo:
+            try:
+               instance.logo.delete(save=False)
+            except Exception as e:
+               print(f"Cloudinary deletion error during logo update: {e}")
       
       # Update allowed fields
       allowed_fields = [
@@ -487,14 +552,38 @@ class ProductTypesSerializer(serializers.ModelSerializer):
    #    return representation
 
 class ProductImageSerializer(serializers.ModelSerializer):
+   optimized_url = serializers.SerializerMethodField()
+   responsive_urls = serializers.SerializerMethodField()
+   
    class Meta:
       model = ProductImage
-      fields = ['id', 'images']
+      fields = ['id', 'images', 'public_id', 'optimized_url', 'responsive_urls']
+      read_only_fields = ['public_id', 'optimized_url', 'responsive_urls']
 
-   def get_url(self, obj):
-      if obj.images:
+   def get_optimized_url(self, obj):
+      """Get optimized URL for product card display"""
+      if hasattr(obj, 'public_id') and obj.public_id:
+         from .cloudinary_utils import CloudinaryOptimizer
+         return CloudinaryOptimizer.get_optimized_url(obj.public_id, 'product_card')
+      elif obj.images:
+         # For backward compatibility, return original URL
          return obj.images.url
       return None
+   
+   def get_responsive_urls(self, obj):
+      """Get responsive URLs for different screen sizes"""
+      if hasattr(obj, 'public_id') and obj.public_id:
+         from .cloudinary_utils import CloudinaryOptimizer
+         return CloudinaryOptimizer.get_responsive_urls(obj.public_id)
+      # For backward compatibility, return original URL in all sizes
+      elif obj.images:
+         original_url = obj.images.url
+         return {
+            'thumbnail': original_url,
+            'medium': original_url,
+            'large': original_url
+         }
+      return {}
 
 class ProductVariantSerializer(serializers.ModelSerializer):
    wholesale_price = serializers.DecimalField(max_digits=11, decimal_places=2)
@@ -577,7 +666,20 @@ class ProductSerializer(serializers.ModelSerializer):
       
       representation['producttype'] = instance.producttype.name
 
-      representation['images'] = [{"url": prod.images.url} for prod in instance.images.all()]
+      # Use optimized images with fallback to original
+      images_data = []
+      for prod in instance.images.all():
+         if hasattr(prod, 'public_id') and prod.public_id:
+            from .cloudinary_utils import CloudinaryOptimizer
+            optimized_url = CloudinaryOptimizer.get_optimized_url(prod.public_id, 'product_card')
+            images_data.append({
+               "url": optimized_url,
+               "original_url": prod.images.url if prod.images else None,
+               "responsive_urls": CloudinaryOptimizer.get_responsive_urls(prod.public_id)
+            })
+         else:
+            images_data.append({"url": prod.images.url if prod.images else None})
+      representation['images'] = images_data
 
       cache.set(cache_key, representation, timeout=60 * 5)  # Cache product data for 5 mins
       return representation
@@ -592,7 +694,22 @@ class SimpleProductSerializer(serializers.ModelSerializer):
       fields = ['id', 'name', 'unit_sold', 'sku', 'price', 'date']
 
    def get_unit_sold(self, obj):
-      return getattr(obj.sales_count, 'sales_count', 0)
+      store = self.context.get('store')
+      if not store:
+         return 0
+      
+      from django.db.models import Sum
+      from order.models import OrderItems
+      
+      # Calculate units sold for this specific product in this specific store
+      units_sold = OrderItems.objects.filter(
+         product=obj,
+         userorder__store=store
+      ).aggregate(
+         total_sold=Sum('quantity')
+      )['total_sold'] or 0
+      
+      return units_sold
 
    def get_price(self, obj):
       store = self.context.get('store')
@@ -701,7 +818,20 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
       return representation
 
    def serialize_product_images(self, images):
-      return [{"id": image.id, "url": image.images.url if image.images else None} for image in images]
+      """Serialize product images with optimization"""
+      optimized_images = []
+      for img in images:
+         if img.images:
+            try:
+               if hasattr(img, 'public_id') and img.public_id:
+                  from .cloudinary_utils import CloudinaryOptimizer
+                  optimized_url = CloudinaryOptimizer.get_optimized_url(img.public_id, 'product_card')
+                  optimized_images.append(optimized_url)
+               else:
+                  optimized_images.append(img.images.url)
+            except Exception:
+               optimized_images.append(img.images.url)
+      return optimized_images
    
    # Add this method to serialize product variants
    def serialize_product_variants(self, variants):
@@ -710,8 +840,29 @@ class MarketPlaceSerializer(serializers.ModelSerializer):
 class ProductDetailSerializer(serializers.ModelSerializer):
    class Meta:
       model = Product
-      fields = '__all__'
+      fields = ['id', 'sku', 'name', 'description', 'quantity', 'created_at', 'on_promo', 
+                'is_available', 'upload_status', 'sales_count', 'category', 'subcategory', 
+                'producttype', 'brand', 'store']
       read_only_fields = ('id', 'sku')
+   
+   def _get_optimized_images(self, images):
+      """Get optimized image URLs with fallback"""
+      optimized_images = []
+      for img in images:
+         if img.images:
+            try:
+               # Use stored public_id if available for Cloudinary optimization
+               if hasattr(img, 'public_id') and img.public_id:
+                  from .cloudinary_utils import CloudinaryOptimizer
+                  optimized_url = CloudinaryOptimizer.get_optimized_url(img.public_id, 'product_card')
+                  optimized_images.append(optimized_url)
+               else:
+                  # Fallback to original URL
+                  optimized_images.append(img.images.url)
+            except Exception:
+               # Fallback to original URL on any error
+               optimized_images.append(img.images.url)
+      return optimized_images
 
    def to_representation(self, instance):
       cache_key = f"product_data_{instance.name}"
@@ -726,24 +877,24 @@ class ProductDetailSerializer(serializers.ModelSerializer):
       if representation['description'] is None:
          del representation['description']
 
-      if representation['images'] is None:
-         del representation['images']
-
       representation['brand'] = {"id": instance.brand.id, "name": instance.brand.name}
       representation['category'] = {"id": instance.category.id, "name": instance.category.name}
       representation['subcategory'] = {"id": instance.subcategory.id, "name": instance.subcategory.name}
-      # representation['producttype'] = {"id": instance.producttype.id, "name": instance.producttype.name}
+      representation['producttype'] = {"id": instance.producttype.id, "name": instance.producttype.name}
 
       representation['product'] = {
             "id": instance.id,
             "name": instance.name,
-            "images": [{"url": prod.images.url} for prod in instance.images.all()],
+            "images": self._get_optimized_images(instance.images.all()),
             "product_variant": self.serialize_product_variants(instance.product_variants.all()),
             "category": instance.category.name,
             "subcategory": instance.subcategory.name,
-            # "producttype": getattr(instance.producttypes, 'name', None),
+            "producttype": instance.producttype.name,
             "upload_status": instance.upload_status
          }
+      
+      # Clear cache to ensure fresh data
+      cache.delete(cache_key)
       cache.set(cache_key, representation, timeout=60 * 5)
       return representation
 
@@ -780,7 +931,7 @@ class ReportUserSerializer(serializers.ModelSerializer):
 class NotificationSerializer(serializers.ModelSerializer):
    class Meta:
       model = Notification
-      fields = ['id', 'recipient', 'store', 'message', 'created_at', 'read']
+      fields = ['id', 'recipient', 'store', 'message', 'notification_type', 'created_at', 'read']
       
 class PromoPlanSerializer(serializers.ModelSerializer):
    class Meta:
@@ -857,9 +1008,7 @@ class ResendVerificationSerializer(serializers.Serializer):
       if user.verification_token_created_at:
          time_since_last_request = timezone.now() - user.verification_token_created_at
          if time_since_last_request.total_seconds() < 1200:  # 20 minutes
-               raise ValidationError({
-                  "error": "Please wait at least 20 minutes before requesting another verification email."
-               })
+               raise ValidationError("Please wait at least 20 minutes before requesting another verification email.")
       
       # Generate new token
       token_generator = PasswordResetTokenGenerator()
@@ -904,9 +1053,7 @@ class ResendVerificationSerializer(serializers.Serializer):
          
       except Exception as e:
          logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
-         raise ValidationError({
-               "error": "Failed to send verification email. Please try again later."
-         })
+         raise ValidationError("Failed to send verification email. Please try again later.")
    
    def _build_verification_url(self, token, request):
       """Build verification URL with proper domain handling"""

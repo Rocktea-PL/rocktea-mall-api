@@ -28,10 +28,11 @@ handler = DomainNameHandler()
 
 class StoreUserSignUpSerializer(serializers.ModelSerializer):
     profile_image = serializers.ImageField(required=False)
+    store_id = serializers.UUIDField(required=False, write_only=True, help_text="Store ID for user registration")
 
     class Meta:
         model = CustomUser
-        fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_consumer", "associated_domain", "password")
+        fields = ("id", "first_name", "last_name", "username", "email", "contact", "profile_image", "is_consumer", "associated_domain", "password", "store_id")
         read_only_fields = ("username", "is_consumer", "associated_domain", "is_verified")
 
     def validate_password(self, value):
@@ -41,11 +42,46 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)
+        profile_image = validated_data.pop("profile_image", None)
         store_instance = None
         
-        if 'store_domain' in validated_data:
-            domain_host = handler.process_request(store_domain=get_store_domain(self.context['request']))
-            store_instance = get_object_or_404(Store, id=domain_host)
+        # Method 1: Check for store_id in request data or query params
+        request = self.context['request']
+        store_id = request.data.get('store_id') or request.query_params.get('mallcli')
+        
+        if store_id:
+            try:
+                store_instance = Store.objects.get(id=store_id)
+            except Store.DoesNotExist:
+                pass
+        
+        # Method 2: Extract from referer URL if store_id not provided
+        if not store_instance:
+            referer = request.META.get('HTTP_REFERER', '')
+            if referer:
+                # Extract mallcli parameter from referer
+                import re
+                mallcli_match = re.search(r'mallcli=([^&]+)', referer)
+                if mallcli_match:
+                    try:
+                        store_instance = Store.objects.get(id=mallcli_match.group(1))
+                    except Store.DoesNotExist:
+                        pass
+                
+                # Extract from subdomain if mallcli not found
+                if not store_instance:
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(referer)
+                    hostname = parsed_url.hostname
+                    if hostname and hostname != 'localhost':
+                        # Extract subdomain (e.g., tulbadex-stores from tulbadex-stores.user-dev.yourockteamall.com)
+                        parts = hostname.split('.')
+                        if len(parts) > 2:  # Has subdomain
+                            subdomain = parts[0]
+                            try:
+                                store_instance = Store.objects.get(slug=subdomain)
+                            except Store.DoesNotExist:
+                                pass
 
         user = CustomUser.objects.create(
             associated_domain=store_instance,
@@ -57,7 +93,28 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
         if password:
             user.set_password(password)
-            user.save()
+        
+        # Handle profile image upload in background
+        if profile_image:
+            import base64
+            from .tasks import upload_profile_image
+            
+            # Validate file size and type
+            if profile_image.size > 5 * 1024 * 1024:  # 5MB limit
+                raise serializers.ValidationError("Image size must be less than 5MB")
+            
+            allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+            if profile_image.content_type not in allowed_types:
+                raise serializers.ValidationError("Only JPEG, PNG, and WebP images are allowed")
+            
+            # Process image in background
+            file_content = base64.b64encode(profile_image.read()).decode('utf-8')
+        
+        user.save()
+        
+        # Start background image upload after user is saved
+        if profile_image:
+            upload_profile_image.delay(str(user.id), file_content, profile_image.name)
 
         token_generator = PasswordResetTokenGenerator()
         token = token_generator.make_token(user)
@@ -67,14 +124,15 @@ class StoreUserSignUpSerializer(serializers.ModelSerializer):
 
         def send_verification_email():
             try:
-                sendValidateTokenEmail(
+                sendStoreWelcomeEmail(
                     token=token,
                     email=user.email,
                     firstName=firstName,
+                    store=store_instance,
                     request=self.context['request']
                 )
             except Exception as e:
-                logger.error(f"Failed to send verification email: {str(e)}")
+                logger.error(f"Failed to send welcome email: {str(e)}")
 
         # Start email sending in background thread
         email_thread = Thread(target=send_verification_email)
@@ -107,16 +165,30 @@ class UserLogin(TokenObtainPairSerializer):
             return None
 
     def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+        
+        # Check if user exists and password is correct
+        try:
+            user = CustomUser.objects.get(email=email)
+            if not user.check_password(password):
+                from workshop.exceptions import ValidationError
+                raise ValidationError("Invalid credentials. Please check your email and password.")
+        except CustomUser.DoesNotExist:
+            from workshop.exceptions import ValidationError
+            raise ValidationError("Invalid credentials. Please check your email and password.")
+        
+        # Call parent validate to get tokens
         data = super().validate(attrs)
-
+        
         # Check if user is verified
         if not self.user.is_verified:
-            raise serializers.ValidationError({
-                'error': 'Email not verified. Please check your email for verification link.'
-            })
+            from workshop.exceptions import ValidationError
+            raise ValidationError("Email not verified. Please check your email for verification link.")
       
         if not self.user.is_consumer:
-            raise serializers.ValidationError({'error': 'User is not a consumer'})
+            from workshop.exceptions import ValidationError
+            raise ValidationError("User is not a consumer")
 
         store = self.get_store(self.user)
         
@@ -129,6 +201,8 @@ class UserLogin(TokenObtainPairSerializer):
                 "contact": str(self.user.contact),
                 "is_store_owner": self.user.is_store_owner,
                 "is_verified": self.user.is_verified,
+                "associated_domain": self.user.associated_domain.id if self.user.associated_domain else None,
+                "profile_image": self._get_profile_image_url(),
             }
 
         if store:
@@ -145,36 +219,69 @@ class UserLogin(TokenObtainPairSerializer):
 
         return data
    
+    def _get_profile_image_url(self):
+        """Get optimized profile image URL using cloudinary"""
+        if not self.user.profile_image:
+            return None
+        
+        try:
+            # Extract public_id from cloudinary URL
+            if hasattr(self.user.profile_image, 'url') and 'cloudinary.com' in str(self.user.profile_image.url):
+                from mall.cloudinary_utils import CloudinaryOptimizer
+                # Parse cloudinary URL to extract public_id
+                # URL format: https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.ext
+                url_parts = str(self.user.profile_image.url).split('/')
+                if len(url_parts) >= 7:  # Ensure we have enough parts
+                    # Find the upload part and get everything after it
+                    try:
+                        upload_index = url_parts.index('upload')
+                        if upload_index + 2 < len(url_parts):  # Skip version if present
+                            public_id_part = '/'.join(url_parts[upload_index + 2:])  # Skip 'upload' and version
+                            # Remove file extension
+                            public_id = public_id_part.rsplit('.', 1)[0]
+                            return CloudinaryOptimizer.get_optimized_url(public_id, 'medium')
+                    except ValueError:
+                        pass
+            
+            # Fallback to original URL
+            return self.user.profile_image.url
+        except Exception:
+            # Fallback to original URL on any error
+            return self.user.profile_image.url if hasattr(self.user.profile_image, 'url') else None
 
-def sendValidateTokenEmail(token, email, firstName, request):
-    current_site = get_current_site(request).domain
-    relativeLink = reverse('verify-email')
-    absurl = 'http://'+ current_site+relativeLink+"?token="+str(token)
-    # Build the verification URL for router-registered endpoint
-    # absurl = f"http://{current_site}/verify-email/?token={token}"
-    
-    # Check if we have a referer (frontend URL)
+def sendStoreWelcomeEmail(token, email, firstName, store, request):
+    # Get verification URL (keep for backend processing but don't show in email)
     referer = request.META.get('HTTP_REFERER')
-    if referer and 'swagger' not in referer.lower():  # Skip referer if it's from Swagger
-        # Use the frontend URL if available
+    if referer and 'swagger' not in referer.lower():
         parsed_referer = urlparse(referer)
-        base_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}/verify-email/?token={token}"
+        verification_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}/verify-email/?token={token}"
+        store_url = f"{parsed_referer.scheme}://{parsed_referer.netloc}"
     else:
-        # Fall back to backend URL
-        base_url = absurl
+        current_site = get_current_site(request).domain
+        relativeLink = reverse('verify-email')
+        verification_url = 'http://'+ current_site+relativeLink+"?token="+str(token)
+        store_url = f"http://{current_site}"
+    
     try:
-        subject = "Verify Your Email and Unlock Your Account - Rockteamall!"
+        subject = f"Welcome to {store.name if store else 'RockTeaMall'} - Your Account is Ready!"
         context = {
             'full_name': firstName,
-            'confirmation_url': base_url,
+            'store_name': store.name if store else 'RockTeaMall',
+            'store_url': store_url,
+            'store_domain': store.domain_name if store else store_url,
+            'verification_url': verification_url,  # Keep for backend but hidden in template
             'current_year': timezone.now().year,
+            'support_email': 'support@yourockteamall.com',
          }
+        
+        from setup.utils import sendEmail
         sendEmail(
             recipientEmail=email,
-            template_name='emails/user_welcome.html',
+            template_name='emails/store_user_welcome.html',
             context=context,
             subject=subject,
-            tags=["user-registration", "user-onboarding"]
+            tags=["user-registration", "store-welcome", "user-onboarding"]
         )
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to send welcome email: {str(e)}")
         return None

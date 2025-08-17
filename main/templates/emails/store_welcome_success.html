@@ -1,164 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🎉 Your Store is Live – RockTeaMall</title>
-  <style>
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      max-width: 600px;
-      margin: 0 auto;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 0;
-      color: #333;
-    }
-    .container {
-      background: #ffffff;
-      margin: 20px;
-      border-radius: 15px;
-      overflow: hidden;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-    }
-    .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 40px 30px;
-      text-align: center;
-    }
-    .header h1 {
-      margin: 0;
-      font-size: 28px;
-      font-weight: bold;
-    }
-    .content {
-      padding: 40px 30px;
-    }
-    .success-badge {
-      background: #10b981;
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 14px;
-      font-weight: bold;
-      display: inline-block;
-      margin-bottom: 20px;
-    }
-    .store-info {
-      background: #f8fafc;
-      padding: 25px;
-      border-radius: 10px;
-      border-left: 5px solid #667eea;
-      margin: 25px 0;
-    }
-    .button {
-      display: inline-block;
-      padding: 15px 30px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      text-decoration: none;
-      border-radius: 8px;
-      margin: 20px 0;
-      font-weight: bold;
-      font-size: 16px;
-      transition: transform 0.2s;
-    }
-    .button:hover {
-      transform: translateY(-2px);
-    }
-    .url-box {
-      background: #e2e8f0;
-      padding: 15px;
-      border-radius: 8px;
-      font-family: monospace;
-      word-break: break-all;
-      margin: 15px 0;
-      border: 1px dashed #cbd5e0;
-    }
-    .next-steps {
-      background: #fffbeb;
-      padding: 20px;
-      border-radius: 10px;
-      border-left: 5px solid #f59e0b;
-      margin: 25px 0;
-    }
-    .next-steps h3 {
-      color: #92400e;
-      margin-top: 0;
-    }
-    .next-steps ul {
-      color: #78350f;
-    }
-    .footer {
-      background: #f1f5f9;
-      padding: 30px;
-      text-align: center;
-      color: #64748b;
-      font-size: 14px;
-    }
-    .logo {
-      max-width: 180px;
-      margin-bottom: 20px;
-    }
-    .environment-badge {
-      background: #3b82f6;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎉 Your Store is Live!</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            background: #f8f9fa;
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .header { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 40px 30px; 
+            text-align: center; 
+        }
+        .header h1 { 
+            font-size: 28px; 
+            margin-bottom: 10px; 
+            font-weight: 700;
+        }
+        .header p { 
+            font-size: 16px; 
+            opacity: 0.9; 
+        }
+        .content { 
+            padding: 40px 30px; 
+        }
+        .welcome-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .welcome-section h2 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        .welcome-section p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .store-info {
+            background: linear-gradient(135deg, #e8f2ff 0%, #f0f8ff 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 5px solid #667eea;
+        }
+        .store-info h3 {
+            color: #2c3e50;
+            font-size: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+        }
+        .info-item:last-child {
+            border-bottom: none;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #555;
+        }
+        .info-value {
+            color: #667eea;
+            font-weight: 500;
+        }
+        .cta-section {
+            text-align: center;
+            margin: 35px 0;
+        }
+        .btn {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 35px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        .features {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        .features h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .feature-icon {
+            font-size: 18px;
+        }
+        .next-steps {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .next-steps h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+        .next-steps ul {
+            list-style: none;
+            padding: 0;
+        }
+        .next-steps li {
+            padding: 8px 0;
+            color: #856404;
+            position: relative;
+            padding-left: 25px;
+        }
+        .next-steps li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #28a745;
+            font-weight: bold;
+        }
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .footer p {
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        .footer .support {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .environment-badge {
+            display: inline-block;
+            background: {% if is_local %}#ffc107{% else %}#28a745{% endif %};
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        @media (max-width: 600px) {
+            .container { margin: 10px; }
+            .content { padding: 20px; }
+            .feature-grid { grid-template-columns: 1fr; }
+            .info-item { flex-direction: column; align-items: flex-start; gap: 5px; }
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <img src="https://yourockteamall.com/logo.png" alt="RockTeaMall" class="logo">
-      <h1>🎉 Congratulations, {{ full_name }}!</h1>
-      <p>Your dropshipper store is now live and ready for business!</p>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Congratulations!</h1>
+            <p>Your dropshipping store is now live and ready for business</p>
+        </div>
+        
+        <div class="content">
+            <div class="welcome-section">
+                <h2>Welcome to RockTeaMall, {{ full_name }}!</h2>
+                <p>Your store <strong>"{{ store_name }}"</strong> has been successfully created.</p>
+                <p>You're now part of our thriving dropshipping community!</p>
+            </div>
+
+            <div class="store-info">
+                <h3>🏪 Your Store Details</h3>
+                <div class="info-item">
+                    <span class="info-label">Store Name:</span>
+                    <span class="info-value">{{ store_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Store ID:</span>
+                    <span class="info-value">#{{ store_id }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Environment:</span>
+                    <span class="info-value">
+                        {{ environment }}
+                        <span class="environment-badge">{% if is_local %}LOCAL{% else %}LIVE{% endif %}</span>
+                    </span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Store URL:</span>
+                    <span class="info-value">
+                        <a href="{{ store_domain }}" style="color: #667eea; text-decoration: none;">
+                            {{ store_domain }}
+                        </a>
+                    </span>
+                </div>
+            </div>
+
+            <div class="cta-section">
+                <a href="{{ store_domain }}" class="btn">
+                    🚀 Visit Your Store Now
+                </a>
+            </div>
+
+            <div class="features">
+                <h3>✨ What You Get With Your Store</h3>
+                <div class="feature-grid">
+                    <div class="feature-item">
+                        <span class="feature-icon">🌐</span>
+                        <span>Custom Domain</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">📱</span>
+                        <span>Mobile Responsive</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">💳</span>
+                        <span>Secure Payments</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">📊</span>
+                        <span>Analytics Dashboard</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">🚚</span>
+                        <span>Shipping Integration</span>
+                    </div>
+                    <div class="feature-item">
+                        <span class="feature-icon">📧</span>
+                        <span>Email Notifications</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="next-steps">
+                <h3>🎯 Next Steps to Success</h3>
+                <ul>
+                    <li>Add products to your store catalog</li>
+                    <li>Customize your store theme and branding</li>
+                    <li>Set up your payment and shipping methods</li>
+                    <li>Share your store link with customers</li>
+                    <li>Monitor your sales through the dashboard</li>
+                </ul>
+            </div>
+
+            {% if note %}
+            <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2196f3;">
+                <p style="margin: 0; color: #1565c0;">
+                    <strong>📝 Note:</strong> {{ note }}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="footer">
+            <p><strong>🎊 Welcome to the RockTeaMall Family!</strong></p>
+            <p>Start building your dropshipping empire today.</p>
+            
+            <div class="support">
+                <p>Need help getting started?</p>
+                <p>Contact our support team at <a href="mailto:{{ support_email }}">{{ support_email }}</a></p>
+                <p style="font-size: 12px; margin-top: 15px; opacity: 0.7;">
+                    &copy; {{ current_year }} RockTeaMall. All rights reserved.
+                </p>
+            </div>
+        </div>
     </div>
-
-    <div class="content">
-      <div class="success-badge">✅ Store Successfully Created</div>
-      
-      <p>Great news! Your store <strong>{{ store_name }}</strong> has been successfully created and is now accessible through your custom domain.</p>
-
-      <div class="store-info">
-        <h3>🏪 Your Store Details</h3>
-        <p><strong>Store Name:</strong> {{ store_name }}</p>
-        <p><strong>Store ID:</strong> {{ store_id }}</p>
-        <p><strong>Environment:</strong> <span class="environment-badge">{{ environment }}</span></p>
-        <p><strong>Owner:</strong> {{ owner_email }}</p>
-      </div>
-
-      <h3>🌐 Access Your Store</h3>
-      <p>Your branded storefront is now live at:</p>
-      
-      <a href="{{ store_domain }}" class="button">🚀 Open My Store</a>
-
-      <div class="next-steps">
-        <h3>🎯 What's Next?</h3>
-        <ul>
-          <li><strong>Customize Your Store:</strong> Add your logo, colors, and branding</li>
-          <li><strong>Add Products:</strong> Start adding products to your inventory</li>
-          <li><strong>Set Up Payments:</strong> Configure your payment methods</li>
-          <li><strong>Go Live:</strong> Share your store link and start selling!</li>
-        </ul>
-      </div>
-
-      <p><strong>🔗 Direct Store Link:</strong> <a href="{{ store_domain }}">{{ store_domain }}</a></p>
-
-      <p>Need help getting started? Our support team is here to assist you every step of the way.</p>
-
-      <p>Welcome to the RockTeaMall family!</p>
-    </div>
-
-    <div class="footer">
-      <p><strong>RockTeaMall Support Team</strong></p>
-      <p>Questions? Reply to this email – we're here to help!</p>
-      <p>&copy; {{ current_year }} RockTeaMall. All rights reserved.</p>
-    </div>
-  </div>
 </body>
 </html>

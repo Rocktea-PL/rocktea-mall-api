@@ -63,12 +63,30 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
 
     url = 'https://api.paystack.co/transaction/initialize'
     
-    response = requests.post(url, headers=headers, json=data)
-    response_data = response.json()
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        response.raise_for_status()
+        
+        if response.text.strip():
+            response_data = response.json()
+        else:
+            logger.error(f"Empty response from Paystack API")
+            return {"status": False, "message": "Empty response from payment gateway"}
+            
+    except requests.exceptions.Timeout:
+        logger.error(f"Paystack API timeout")
+        return {"status": False, "message": "Payment gateway timeout"}
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Paystack API request error: {e}")
+        return {"status": False, "message": "Payment gateway error"}
+    except ValueError as e:
+        logger.error(f"Invalid JSON response from Paystack: {e}")
+        logger.error(f"Response text: {response.text[:200]}")
+        return {"status": False, "message": "Invalid response from payment gateway"}
 
     # Save the initializer data in PaystackWebhook
     if response_data.get('status'):
-        PaystackWebhook.objects.create(
+        webhook_record = PaystackWebhook.objects.create(
             user_id=user_id,
             reference=response_data['data']['reference'],
             data=response_data,
@@ -76,6 +94,7 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
             status='Pending',
             purpose=purpose
         )
+        logger.info(f"Created webhook record: ID={webhook_record.id}, Reference={webhook_record.reference}, Purpose={webhook_record.purpose}")
         logger.info(f"response_data from payment initialization: {response_data}")
 
     return response_data
@@ -182,6 +201,22 @@ def otp_transfer_paystack(transfer_data):
     
     response = requests.post(url, headers=headers, json=data)
     return response.json()
+
+def verify_transfer_paystack(transfer_code):
+    """Verify transfer status from Paystack"""
+    headers = { 
+        'content-type': 'application/json',
+        'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}'
+    }
+    url = f'https://api.paystack.co/transfer/verify/{transfer_code}'
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        logger.error(f"Error verifying transfer {transfer_code}: {e}")
+        return {'status': False, 'message': str(e)}
 
 def generate_tx_ref():
     """Generate a unique transaction reference using timestamp and UUID"""

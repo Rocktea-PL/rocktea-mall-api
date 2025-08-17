@@ -3,6 +3,10 @@ from django.conf import settings
 from datetime import datetime, timedelta
 from django.core.cache import cache
 import json
+import logging
+
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
 
 class ShipbubbleService:
 
@@ -15,12 +19,13 @@ class ShipbubbleService:
         }
     
     def validate_address(self, shipment_data): 
-        required_fields = ['phone', 'email', 'name', 'address'] 
+        required_fields = ['phone', 'email', 'name', 'address']
         missing_fields = [field for field in required_fields if field not in shipment_data] 
         if missing_fields: 
             return { 'success': False, 'message': f'Missing required fields: {", ".join(missing_fields)}' } 
         url = f'{self.api_url}/shipping/address/validate' 
         response = requests.post(url, json=shipment_data, headers=self.headers) 
+        logger.info(f"response from shibubble: {response}")
         return response.json()
 
     def get_rates(self, rate_data):
@@ -39,17 +44,27 @@ class ShipbubbleService:
         return response.json()
 
     def process_shipping(self, shipment_data, package_items):
-        # Step 1: Validate Address
+        # Step 1: Check wallet balance
+        balance_response = self.get_shipping_balance()
+        if balance_response.get('status') != 'success':
+            return {'status': 'error', 'message': 'Unable to check wallet balance'}
+        
+        wallet_balance = balance_response.get('data', {}).get('balance', 0)
+        if wallet_balance <= 0:
+            return {'status': 'error', 'message': 'Insufficient wallet balance for shipping'}
+        
+        # Step 2: Validate Address
         validation_response = self.validate_address(shipment_data)
+        logger.info(f"validation_response from shibubble: {validation_response}")
         if validation_response.get('status') != 'success':
             return {'status': 'error', 'message': 'shipping details is missing'}
         
-        # Step 2: Get Rates
+        # Step 3: Get Rates
         sender_address_code = 64258701
         receiver_address_code = validation_response['data']['address_code']
         category_id = 77179563
 
-        # Step 2: Get Rates
+        # Step 3: Get Rates
         rate_data = { 
             'sender_address_code': sender_address_code, 
             'reciever_address_code': receiver_address_code, 
@@ -93,4 +108,9 @@ class ShipbubbleService:
     def cancelled_shipping_label(self, order_ids):
         url = f'{self.api_url}/shipping/labels/cancel/{order_ids}'
         response = requests.post(url, headers=self.headers)
+        return response.json()
+
+    def get_shipping_balance(self):
+        url = f'{self.api_url}/shipping/wallet/balance'
+        response = requests.get(url, headers=self.headers)
         return response.json()

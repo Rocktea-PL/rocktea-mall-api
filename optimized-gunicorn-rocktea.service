@@ -1,0 +1,33 @@
+[Unit]
+Description=Gunicorn service for Rocktea Mall Django project (Optimized)
+After=network.target postgresql.service redis.service
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/django-app/dev/main
+Environment="PYTHONPATH=/home/ubuntu/django-app/dev/main"
+Environment="PRODUCTION=true"
+Environment="DEBUG=false"
+EnvironmentFile=/home/ubuntu/django-app/dev/main/setup/.env
+
+ExecStart=/home/ubuntu/django-app/dev/venv/bin/gunicorn \
+          --bind 127.0.0.1:8000 \
+          --workers 4 \
+          --timeout 120 \
+          --max-requests 1000 \
+          --max-requests-jitter 100 \
+          --access-logfile - \
+          --error-logfile - \
+          --log-level info \
+          setup.wsgi:application
+
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

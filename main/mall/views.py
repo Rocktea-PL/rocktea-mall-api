@@ -68,7 +68,7 @@ from django.db import transaction
 from .tasks import upload_image
 import logging
 from workshop.processor import DomainNameHandler
-from .cloudinary_utils import optimize_product_image
+from .cloudinary_utils import optimize_product_image, CloudinaryOptimizer
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .permissions import IsAdminOrReadOnly, IsAuthenticatedOrReadOnly, IsStoreOwnerOrAdminDelete, IsStoreOwnerOrAdminViewAdd
@@ -83,13 +83,11 @@ from django.dispatch import receiver
 from django.contrib.sites.shortcuts import get_current_site
 from urllib.parse import urlparse
 
-from order.pagination import CustomPagination
+from .pagination import OptimizedPageNumberPagination as CustomPagination
 from setup.utils import get_store_domain
 from django.utils import timezone
-from .cache_utils import CacheManager, cache_result
+from .cache_utils import CacheManager
 from .pagination import OptimizedPageNumberPagination, LargeDatasetPagination
-from .cloudinary_utils import CloudinaryOptimizer, optimize_product_image
-from .query_optimizers import QueryOptimizer
 from .optimized_serializers import OptimizedProductSerializer, OptimizedStoreSerializer
 
 from django.utils.decorators import method_decorator
@@ -105,7 +103,6 @@ handler = DomainNameHandler()
 logger = logging.getLogger(__name__)
 
 # Create your views here.
-# TODO DONE
 class CreateStoreOwner(viewsets.ModelViewSet):
    """
    Sign Up Store Owners Feature
@@ -113,44 +110,311 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
+   http_method_names = ['get', 'post', 'patch', 'delete']
+   
+   def get_permissions(self):
+      if self.action == 'create':
+         return [permissions.AllowAny()]
+      return [IsAuthenticated()]
    
    def get_queryset(self):
       user_id =  self.request.query_params.get("mallcli")
 
       # If user_id is present in cookies, filter the queryset by it
       if user_id:
-            queryset = CustomUser.objects.filter(id=user_id)
+            queryset = CustomUser.objects.filter(id=user_id).order_by('-date_joined')
       else:
          # If user_id is not present, return an empty queryset or handle it as per your requirement
          queryset = CustomUser.objects.none()
       return queryset
 
+   @action(detail=False, methods=['patch'])
+   def update_user_store(self, request):
+      """Handle PATCH requests on list endpoint via custom action"""
+      user_id = request.query_params.get('mallcli')
+      store_id = request.query_params.get('mall')
+      
+      if not user_id:
+         return Response(
+            {'error': 'mallcli parameter is required'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      try:
+         user = CustomUser.objects.get(id=user_id)
+      except CustomUser.DoesNotExist:
+         return Response(
+            {'error': 'User not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
+      
+      # Check if user can update (owns the account or is admin)
+      if user != request.user and not request.user.is_superuser:
+         return Response(
+            {'error': 'You can only update your own account'},
+            status=status.HTTP_403_FORBIDDEN
+         )
+      
+      # Handle user details update
+      user_fields = ['completed_steps', 'first_name', 'last_name', 'contact', 'shipping_address']
+      user_updated = False
+      
+      for field in user_fields:
+         if field in request.data:
+            setattr(user, field, request.data[field])
+            user_updated = True
+      
+      if user_updated:
+         user.save()
+      
+      # Handle store details update if store_id provided and not 'null'
+      store_updated = False
+      store_data = {}
+      
+      if store_id and store_id != 'null' and store_id.strip():
+         try:
+            store = Store.objects.get(id=store_id, owner=user)
+            store_fields = ['name', 'category', 'theme', 'background_color', 'button_color']
+            
+            for field in store_fields:
+               if field in request.data:
+                  if field == 'category':
+                     try:
+                        category = Category.objects.get(id=request.data[field])
+                        store.category = category
+                        store_data['category'] = {'id': category.id, 'name': category.name}
+                        store_updated = True
+                     except Category.DoesNotExist:
+                        return Response(
+                           {'error': 'Category not found'},
+                           status=status.HTTP_404_NOT_FOUND
+                        )
+                  else:
+                     setattr(store, field, request.data[field])
+                     store_data[field] = request.data[field]
+                     store_updated = True
+            
+            if store_updated:
+               store.save()
+               
+         except Store.DoesNotExist:
+            return Response(
+               {'error': 'Store not found'},
+               status=status.HTTP_404_NOT_FOUND
+            )
+      
+      if not user_updated and not store_updated:
+         return Response(
+            {'error': 'No valid fields to update'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      response_data = {'message': 'Updated successfully'}
+      if user_updated:
+         response_data['user'] = {'completed_steps': user.completed_steps}
+      if store_updated:
+         response_data['store'] = store_data
+      
+      return Response(response_data, status=status.HTTP_200_OK)
+   
 class CreateLogisticsAccount(viewsets.ModelViewSet):
-   queryset = CustomUser.objects.filter(is_logistics=True)
+   queryset = CustomUser.objects.filter(is_logistics=True).order_by('-date_joined')
    serializer_class = LogisticSerializer
 
 class CreateOperationsAccount(viewsets.ModelViewSet):
-   queryset = CustomUser.objects.filter(is_operations=True)
+   queryset = CustomUser.objects.filter(is_operations=True).order_by('-date_joined')
    serializer_class = OperationsSerializer
 
 class CreateStore(viewsets.ModelViewSet):
     serializer_class = CreateStoreSerializer
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        store = get_store_from_request(self.request)
-        if store:
-            return Store.objects.filter(id=store.id)
-        else:
-            return Store.objects.none()
+        # Only show stores owned by the authenticated user
+        return Store.objects.filter(owner=self.request.user)
    
     def get_serializer_context(self):
         return {'request': self.request}
-
+    
 class GetStoreDropshippers(viewsets.ModelViewSet):
    serializer_class = OptimizedStoreSerializer
+   permission_classes = [IsAuthenticated]
    
    def get_queryset(self):
-      return QueryOptimizer.get_optimized_stores()
+      return Store.objects.completed()
+   
+   def retrieve(self, request, pk=None):
+      """Get comprehensive store details"""
+      if pk == 'null' or not pk:
+         return Response(
+            {'error': 'Invalid store ID'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      try:
+         store = Store.objects.select_related('owner', 'category').get(id=pk)
+         
+         # Get comprehensive store data
+         store_data = {
+            'id': store.id,
+            'name': store.name,
+            'domain_name': store.domain_name,
+            'logo': store.logo.url if store.logo else None,
+            'cover_image': store.cover_image.url if store.cover_image else None,
+            'TIN_number': store.TIN_number,
+            'year_of_establishment': store.year_of_establishment,
+            'facebook': store.facebook,
+            'whatsapp': store.whatsapp,
+            'instagram': store.instagram,
+            'twitter': store.twitter,
+            'background_color': store.background_color,
+            'button_color': store.button_color,
+            'card_elevation': store.card_elevation,
+            'card_view': store.card_view,
+            'color_gradient': store.color_gradient,
+            'patterns': store.patterns,
+            'card_color': store.card_color,
+            'completed': store.completed,
+            'has_made_payment': store.has_made_payment,
+            'created_at': store.created_at,
+            'category': {
+               'id': store.category.id,
+               'name': store.category.name
+            } if store.category else None,
+            'owner': {
+               'id': store.owner.id,
+               'first_name': store.owner.first_name,
+               'last_name': store.owner.last_name,
+               'email': store.owner.email,
+               'contact': str(store.owner.contact) if store.owner.contact else None
+            }
+         }
+         
+         return Response(store_data)
+      except Store.DoesNotExist:
+         return Response(
+            {'error': 'Store not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
+   
+   def partial_update(self, request, pk=None):
+      """Update store details via PATCH request"""
+      if pk == 'null' or not pk:
+         return Response(
+            {'error': 'Invalid store ID'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      try:
+         store = Store.objects.get(id=pk)
+      except Store.DoesNotExist:
+         return Response(
+            {'error': 'Store not found'},
+            status=status.HTTP_404_NOT_FOUND
+         )
+      
+      # Check if user owns the store
+      if store.owner != request.user:
+         return Response(
+            {'error': 'You can only update your own store'},
+            status=status.HTTP_403_FORBIDDEN
+         )
+      
+      # Validate TIN_number uniqueness (smart check)
+      tin_number = request.data.get('TIN_number')
+      if tin_number and Store.objects.filter(TIN_number=tin_number).exclude(id=store.id).exists():
+         return Response(
+            {'error': 'A store with this TIN number already exists'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+      
+      updated_fields = []
+      response_data = {'message': 'Store updated successfully'}
+      
+      # Handle category update
+      category_id = request.data.get('category')
+      if category_id is not None:
+         try:
+            category = Category.objects.get(pk=category_id)
+            store.category = category
+            updated_fields.append('category')
+            response_data['category'] = {'id': category.id, 'name': category.name}
+            
+            # Update user completed_steps to 2 (category selected)
+            request.user.completed_steps = 2
+            request.user.save(update_fields=['completed_steps'])
+         except Category.DoesNotExist:
+            return Response(
+               {'error': 'Category not found'},
+               status=status.HTTP_404_NOT_FOUND
+            )
+      
+      # Handle regular store fields
+      store_fields = ['name', 'TIN_number', 'year_of_establishment', 'facebook', 'whatsapp', 
+                     'instagram', 'twitter', 'background_color', 'button_color', 'card_elevation', 
+                     'card_view', 'color_gradient', 'patterns', 'card_color']
+      for field in store_fields:
+         if field in request.data:
+            setattr(store, field, request.data[field])
+            updated_fields.append(field)
+            response_data[field] = request.data[field]
+      
+      # Handle logo update with Cloudinary optimization
+      if 'logo' in request.FILES:
+         if store.logo:
+            try:
+               store.logo.delete(save=False)
+            except Exception as e:
+               logger.warning(f"Logo deletion error: {e}")
+         
+         logo_file = request.FILES['logo']
+         optimized_logo_url = self._optimize_store_image(logo_file, 'store_logos', 'store_logo')
+         if optimized_logo_url:
+            store.logo = optimized_logo_url
+         else:
+            store.logo = logo_file
+         updated_fields.append('logo')
+         response_data['logo'] = store.logo.url if hasattr(store.logo, 'url') else store.logo
+      
+      # Handle cover_image update with Cloudinary optimization
+      if 'cover_image' in request.FILES:
+         if store.cover_image:
+            try:
+               store.cover_image.delete(save=False)
+            except Exception as e:
+               logger.warning(f"Cover image deletion error: {e}")
+         
+         cover_file = request.FILES['cover_image']
+         optimized_cover_url = self._optimize_store_image(cover_file, 'store_covers', 'store_cover')
+         if optimized_cover_url:
+            store.cover_image = optimized_cover_url
+         else:
+            store.cover_image = cover_file
+         updated_fields.append('cover_image')
+         response_data['cover_image'] = store.cover_image.url if hasattr(store.cover_image, 'url') else store.cover_image
+      
+      if updated_fields:
+         store.save(update_fields=updated_fields)
+         return Response(response_data, status=status.HTTP_200_OK)
+      else:
+         return Response(
+            {'error': 'No valid fields to update'},
+            status=status.HTTP_400_BAD_REQUEST
+         )
+   
+   def _optimize_store_image(self, image_file, folder, transformation_type):
+      """Optimize store images using Cloudinary"""
+      try:
+         from .cloudinary_utils import CloudinaryOptimizer
+         result = CloudinaryOptimizer.upload_optimized(
+            image_file.read(),
+            folder=folder,
+            transformation_type=transformation_type
+         )
+         return result.get('secure_url')
+      except Exception as e:
+         logger.error(f"Error optimizing store image: {e}")
+         return None
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
@@ -163,16 +427,26 @@ class ProductViewSet(viewsets.ModelViewSet):
    pagination_class = LargeDatasetPagination
    
    def get_queryset(self):
+      # Handle store-specific products
+      store_id = self.request.query_params.get('mall')
+      if store_id:
+         try:
+            store = Store.objects.get(id=store_id)
+            # Get products that are in this store's marketplace and available
+            return Product.objects.filter(
+               id__in=StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True),
+               is_available=True,
+               upload_status='Approved'
+            ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images').distinct().order_by('-created_at')
+         except Store.DoesNotExist:
+            return Product.objects.none()
+      
+      # Handle category filtering
       category_id = self.request.query_params.get('category')
-      return QueryOptimizer.get_optimized_products(category_id=category_id)
-
-   def get_queryset(self):
-      category_id = self.request.query_params.get('category')
-      if category_id is not None:
-         category = get_object_or_404(Category, id=category_id)
-         return Product.objects.filter(category=category).select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
-      else:
-         return Product.objects.select_related("category", "subcategory", "producttype", "brand").prefetch_related("images", "store", 'product_variants')
+      if category_id:
+         return Product.objects.by_category(category_id).select_related('category', 'subcategory', 'brand', 'producttype')
+      
+      return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype')
 
    @transaction.atomic
    def perform_create(self, serializer):
@@ -182,9 +456,33 @@ class ProductViewSet(viewsets.ModelViewSet):
       return Response({"error": "Error occurs while creating product"}, status=status.HTTP_400_BAD_REQUEST)
 
    def list(self, request, *args, **kwargs):
-      """Override the list method to disable pagination for the main GET request."""
+      """Enhanced list method with store-specific context and optimized serialization."""
       queryset = self.get_queryset()
-      serializer = self.get_serializer(queryset, many=True)
+      
+      # Add store context for pricing if mall parameter is provided
+      store_id = request.query_params.get('mall')
+      context = {'request': request}
+      
+      if store_id:
+         try:
+            store = Store.objects.get(id=store_id)
+            context['store'] = store
+            
+            # Use pagination for store-specific requests
+            page = self.paginate_queryset(queryset)
+            if page is not None:
+               serializer = self.get_serializer(page, many=True, context=context)
+               return self.get_paginated_response(serializer.data)
+            
+            # If no pagination, return all products with store context
+            serializer = self.get_serializer(queryset, many=True, context=context)
+            return Response(serializer.data)
+            
+         except Store.DoesNotExist:
+            return Response({'error': 'Store not found'}, status=status.HTTP_404_NOT_FOUND)
+      
+      # For general product listing, disable pagination
+      serializer = self.get_serializer(queryset, many=True, context=context)
       return Response(serializer.data)
 
    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated], url_path='by-shop')
@@ -206,10 +504,11 @@ class ProductViewSet(viewsets.ModelViewSet):
          ).count()
          # Calculate total products sold using database aggregation
          from django.db.models import Sum
-         total_products_sold = StoreOrder.objects.filter(
-            store=store
+         from order.models import OrderItems
+         total_products_sold = OrderItems.objects.filter(
+            userorder__store=store
          ).aggregate(
-            total_sold=Sum('items__quantity')
+            total_sold=Sum('quantity')
          )['total_sold'] or 0
 
          summary = {
@@ -227,9 +526,9 @@ class ProductViewSet(viewsets.ModelViewSet):
 
          # Serialize the paginated data with context
          serializer = SimpleProductSerializer(
-               [pricing.product for pricing in paginated_data],
-               many=True,
-               context={'store': store}
+            [pricing.product for pricing in paginated_data],
+            many=True,
+            context={'store': store}
          )
 
          # Combine the summary and paginated data in the response
@@ -270,7 +569,7 @@ class ProductViewSet(viewsets.ModelViewSet):
          )
       
       # Check if user owns the store
-      if not request.user.is_superuser and not store.owners.filter(id=request.user.id).exists():
+      if not request.user.is_superuser and store.owner != request.user:
          return Response(
                {"error": "You are not an owner of this store."},
                status=status.HTTP_403_FORBIDDEN
@@ -343,53 +642,37 @@ class CreateAndGetStoreProductPricing(APIView):
          return [IsStoreOwnerOrAdminDelete()]
       return super().get_permissions()
 
+   @transaction.atomic
    def post(self, request):
       try:
-         collect = request.data
          store = getattr(request.user, 'owners', None)
          if not store:
-            return Response(
-                  {"error": "You are not associated with a store."},
-                  status=status.HTTP_400_BAD_REQUEST
-            )
-         store_id = store.id
-         # store_id = handler.process_request(store_domain=get_store_domain(request))
-         product_id = collect.get("product")
-         retail_price = collect.get("retail_price")
+            return Response({"error": "You are not associated with a store."}, status=status.HTTP_400_BAD_REQUEST)
+         
+         product_id = request.data.get("product")
+         retail_price = request.data.get("retail_price")
+         
+         if not product_id or not retail_price:
+            return Response({"error": "Product and retail_price are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Log the incoming data
-         logger.info(f"Creating StoreProductPricing for store: {store_id}, product: {product_id}")
+         # Check if pricing already exists
+         if StoreProductPricing.objects.filter(store=store, product_id=product_id).exists():
+            return Response({"error": "Pricing for this product in this store already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Fetch the store and product objects
-         store = get_object_or_404(Store, id=store_id)
-         product = get_object_or_404(Product, id=product_id)
-
-         # Check if the product pricing is valid before proceeding
-         self.validate_product_pricing(store, product)
-
-         # Create the StoreProductPricing instance
+         # Create StoreProductPricing (MarketPlace will be created automatically by signal)
          store_product_price = StoreProductPricing.objects.create(
-               store=store,
-               product=product,
-               retail_price=retail_price
+            store=store,
+            product_id=product_id,
+            retail_price=retail_price
          )
 
          serializer = StoreProductPricingSerializer(store_product_price)
          return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
       except Exception as e:
-         # Log the exception
          logger.error(f"Error creating StoreProductPricing: {e}", exc_info=True)
          return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-   def validate_product_pricing(self, store, product):
-      try:
-         existing_pricing = StoreProductPricing.objects.filter(store=store, product=product).exclude(id=None).first()
-         if existing_pricing:
-               raise serializers.ValidationError("Pricing for this product in this store already exists.")
-      except serializers.ValidationError as e:
-         # Log the validation error
-         logger.warning(f"Validation error in product pricing: {e}")
-         raise
+
 
    def get(self, request):
       # store_product_prices = StoreProductPricing.objects.all()
@@ -603,36 +886,40 @@ class UploadProductImage(ListCreateAPIView):
       images = serializer.save()
 
       if image:
-         # Start optimized Celery task
+         # Validate image format and size
+         if not self._validate_image(image):
+            return Response({'error': 'Invalid image format or size'}, status=status.HTTP_400_BAD_REQUEST)
+         
+         # Start optimized Celery task with image optimization
          result = upload_image.delay(images.id, image.read(), image.name, image.content_type)
          return Response({'message': 'Image upload started.'}, status=status.HTTP_202_ACCEPTED)
       return Response({'message': 'Image created successfully.'}, status=status.HTTP_201_CREATED)
-
-class MarketPlacePagination(PageNumberPagination):
-   page_size = 5
+   
+   def _validate_image(self, image):
+      """Validate image format and size for optimization"""
+      # Check file extension
+      allowed_formats = ['jpg', 'jpeg', 'png', 'webp']
+      file_extension = image.name.split('.')[-1].lower()
+      if file_extension not in allowed_formats:
+         return False
+      
+      # Check file size (max 10MB)
+      if image.size > 10 * 1024 * 1024:
+         return False
+      
+      return True
 
 class MarketPlaceView(viewsets.ModelViewSet):
    serializer_class = MarketPlaceSerializer
    pagination_class = OptimizedPageNumberPagination
 
    def get_queryset(self):
-      store_host = self.request.query_params.get("mall")
+      store_id = self.request.query_params.get("mall")
+      if not store_id:
+         return MarketPlace.objects.none()
       try:
-         store = Store.objects.get(id=store_host)
-         queryset = MarketPlace.objects.filter(
-            store=store, list_product=True
-         ).select_related(
-            'product__category', 
-            'product__subcategory', 
-            'product__producttype',
-            'store'
-         ).prefetch_related(
-            'product__images',
-            'product__product_variants'
-         ).order_by("-id")
-         return queryset
-      except Store.DoesNotExist:
-         logging.error("Store with ID %s does not exist.", store_host)
+         return MarketPlace.objects.listed().filter(store_id=store_id).order_by("-id")
+      except Exception:
          return MarketPlace.objects.none()
 
 # Get Dropshipper Store Counts
@@ -663,10 +950,26 @@ class DropshipperDashboardCounts(APIView):
 
 # Best Selling Product Data
 class BestSellingProductView(ListAPIView):
-   serializer_class = ProductSerializer
+   serializer_class = OptimizedProductSerializer
 
    def get_queryset(self):
-      return Product.objects.all().order_by('-sales_count')[:3]
+      store_id = self.request.query_params.get('store_id')
+      if store_id:
+         # Get products sold by specific store through MarketPlace
+         marketplace_products = MarketPlace.objects.filter(
+            store_id=store_id, 
+            list_product=True
+         ).values_list('product_id', flat=True)
+         
+         return Product.objects.available()\
+            .filter(id__in=marketplace_products)\
+            .select_related('category', 'subcategory', 'brand', 'producttype')\
+            .order_by('-sales_count')[:3]
+      
+      # Default: return global best selling products
+      return Product.objects.available()\
+         .select_related('category', 'subcategory', 'brand', 'producttype')\
+         .order_by('-sales_count')[:3]
 
 class SalesCountView(APIView):
    def get_object(self, product_id):
@@ -709,7 +1012,7 @@ class StoreOrdersViewSet(ListAPIView):
       return orders
 
 class BrandView(viewsets.ModelViewSet):
-   queryset = Brand.objects.prefetch_related('producttype')
+   queryset = Brand.objects.prefetch_related('producttype').order_by('name')
    serializer_class = BrandSerializer
    permission_classes = [IsAdminOrReadOnly]
 
@@ -760,9 +1063,27 @@ class BrandView(viewsets.ModelViewSet):
          {'message': f'Brand "{brand_name}" deleted successfully'},
          status=status.HTTP_204_NO_CONTENT
       )
+   
+   @action(detail=False, methods=['get'], url_path='by-producttype')
+   def by_producttype(self, request):
+      producttype_id = request.query_params.get('producttype_id')
+      if not producttype_id:
+         return Response({'error': 'producttype_id parameter required'}, status=400)
+      
+      brands = Brand.objects.filter(producttype__id=producttype_id).order_by('name')
+      # Disable pagination for this action
+      serializer = self.get_serializer(brands, many=True)
+      return Response(serializer.data)
+   
+   @property
+   def paginator(self):
+      # Disable pagination for by_producttype action
+      if self.action == 'by_producttype':
+         return None
+      return super().paginator
 
 class SubCategoryView(viewsets.ModelViewSet):
-   queryset =  SubCategories.objects.select_related('category')
+   queryset =  SubCategories.objects.select_related('category').order_by('name')
    serializer_class = SubCategorySerializer
    permission_classes = [IsAdminOrReadOnly]
 
@@ -806,9 +1127,19 @@ class SubCategoryView(viewsets.ModelViewSet):
          {'message': f'Subcategory "{subcategory_name}" deleted successfully'},
          status=status.HTTP_204_NO_CONTENT
       )
+   
+   @action(detail=False, methods=['get'], url_path='by-category')
+   def by_category(self, request):
+      category_id = request.query_params.get('category_id')
+      if not category_id:
+         return Response({'error': 'category_id parameter required'}, status=400)
+      
+      subcategories = SubCategories.objects.filter(category_id=category_id).order_by('name')
+      serializer = self.get_serializer(subcategories, many=True)
+      return Response(serializer.data)
 
 class ProductTypeView(viewsets.ModelViewSet):
-   queryset = ProductTypes.objects.select_related('subcategory')
+   queryset = ProductTypes.objects.select_related('subcategory').order_by('name')
    serializer_class = ProductTypesSerializer
    permission_classes = [IsAdminOrReadOnly]
 
@@ -859,6 +1190,16 @@ class ProductTypeView(viewsets.ModelViewSet):
          {'message': f'Product type "{producttype_name}" deleted successfully'},
          status=status.HTTP_204_NO_CONTENT
       )
+   
+   @action(detail=False, methods=['get'], url_path='by-subcategory')
+   def by_subcategory(self, request):
+      subcategory_id = request.query_params.get('subcategory_id')
+      if not subcategory_id:
+         return Response({'error': 'subcategory_id parameter required'}, status=400)
+      
+      product_types = ProductTypes.objects.filter(subcategory_id=subcategory_id).order_by('name')
+      serializer = self.get_serializer(product_types, many=True)
+      return Response(serializer.data)
 
 class ProductDetails(viewsets.ModelViewSet):
    queryset = Product.objects.select_related('category', 'subcategory', 'producttype', 'brand').prefetch_related('store', 'images', 'product_variants')
@@ -872,7 +1213,7 @@ class WalletView(viewsets.ModelViewSet):
 
    def get_queryset(self):
       # Ensure users can only see their own wallets
-      return Wallet.objects.filter(store__owner_id=self.request.user.id)
+      return Wallet.objects.filter(store__owner_id=self.request.user.id).order_by('-id')
 
    # def perform_create(self, serializer):
    #    # Set the store to the authenticated user's store
@@ -898,32 +1239,72 @@ class ServicesBusinessInformationView(viewsets.ModelViewSet):
 
 class NotificationView(viewsets.ModelViewSet):
    serializer_class = NotificationSerializer
+   permission_classes = [IsAuthenticated]
+   http_method_names = ['get', 'patch', 'head', 'options']
+   
+   def get_object(self):
+      """Override to ensure user can only access their own notifications"""
+      obj = super().get_object()
+      # Check if user owns this notification
+      if self.request.user.is_store_owner:
+         if obj.recipient is not None or (obj.store and obj.store.owner != self.request.user):
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to access this notification")
+      else:
+         if obj.recipient != self.request.user:
+            from django.core.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to access this notification")
+      return obj
 
    def get_queryset(self):
-      queryset = Notification.objects.select_related('recipient', 'store')
+      queryset = Notification.objects.select_related('recipient', 'store').order_by('-created_at')
 
       store_id = self.request.query_params.get('mall')
-      recipient_id = self.request.query_params.get('mall_cli')
+      notification_type = self.request.query_params.get('type')
+      unread_only = self.request.query_params.get('unread')
 
-      if store_id:
-         queryset = queryset.filter(store_id=store_id)
-      elif recipient_id:
-         queryset = queryset.filter(recipient_id=recipient_id)
-
-      try:
-         if queryset.exists():
-               return queryset
+      # Check if user is store owner or store user
+      if self.request.user.is_store_owner:
+         # Store owner sees store-related notifications (no recipient)
+         queryset = queryset.filter(recipient__isnull=True)
+         if store_id:
+            queryset = queryset.filter(store_id=store_id)
          else:
-               return None
-      except Exception as e:
-         return None
+            try:
+               user_store = Store.objects.get(owner=self.request.user)
+               queryset = queryset.filter(store=user_store)
+            except Store.DoesNotExist:
+               return Notification.objects.none()
+      else:
+         # Store users see their personal notifications
+         queryset = queryset.filter(recipient=self.request.user)
+         # If store_id is provided, also filter by store
+         if store_id:
+            queryset = queryset.filter(store_id=store_id)
+
+      # Filter by notification type
+      if notification_type:
+         queryset = queryset.filter(notification_type=notification_type)
+
+      # Filter by unread status
+      if unread_only:
+         queryset = queryset.filter(read=False)
+
+      return queryset
 
    def list(self, request, *args, **kwargs):
       queryset = self.get_queryset()
-      if queryset is None:
-         return Response(status=status.HTTP_204_NO_CONTENT)
+      if not queryset.exists():
+         return Response([], status=status.HTTP_200_OK)
       serializer = self.get_serializer(queryset, many=True)
       return Response(serializer.data)
+
+   @action(detail=True, methods=['patch', 'get'], url_path='read')
+   def mark_as_read(self, request, pk=None):
+      notification = self.get_object()
+      notification.read = True
+      notification.save(update_fields=['read'])
+      return Response({'message': 'Notification marked as read'}, status=status.HTTP_200_OK)
 
 class PromoPlansView(viewsets.ModelViewSet):
    queryset = PromoPlans.objects.select_related('store', 'category')
@@ -998,6 +1379,44 @@ class CustomResetPasswordConfirm(generics.GenericAPIView):
       except ResetPasswordToken.DoesNotExist:
          return Response({"detail": "Invalid token."}, status=status.HTTP_400_BAD_REQUEST)
 
+class OptimizedImageView(APIView):
+   """
+   Get optimized image URLs for different screen sizes
+   """
+   permission_classes = [permissions.AllowAny]
+   
+   def get(self, request, image_id):
+      try:
+         image = ProductImage.objects.get(id=image_id)
+         
+         if not image.public_id:
+            return Response(
+               {'error': 'Image not optimized yet'}, 
+               status=status.HTTP_404_NOT_FOUND
+            )
+         
+         # Get responsive URLs
+         responsive_urls = CloudinaryOptimizer.get_responsive_urls(image.public_id)
+         
+         return Response({
+            'image_id': image.id,
+            'public_id': image.public_id,
+            'original_url': image.images.url if image.images else None,
+            'optimized_urls': responsive_urls
+         })
+         
+      except ProductImage.DoesNotExist:
+         return Response(
+            {'error': 'Image not found'}, 
+            status=status.HTTP_404_NOT_FOUND
+         )
+      except Exception as e:
+         logger.error(f"Error getting optimized image URLs: {e}")
+         return Response(
+            {'error': 'Internal server error'}, 
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+         )
+
 class EmailVerificationViewSet(viewsets.ViewSet):
    """
    Handle email verification token operations
@@ -1040,4 +1459,3 @@ class EmailVerificationViewSet(viewsets.ViewSet):
          'success': False,
          'errors': serializer.errors
       }, status=status.HTTP_400_BAD_REQUEST)
-

@@ -28,15 +28,35 @@ class StoreSerializer(serializers.ModelSerializer):
         }
 
 class DropshipperDetailSerializer(serializers.ModelSerializer):
-    """Detailed serializer for dropshipper admin view"""
-    company_name = serializers.SerializerMethodField()
-    total_products = serializers.SerializerMethodField()
-    total_products_available = serializers.SerializerMethodField()
-    total_products_sold = serializers.SerializerMethodField()
-    total_revenue = serializers.SerializerMethodField()
-    last_active = serializers.SerializerMethodField()
-    is_active_user = serializers.SerializerMethodField()
-    store = serializers.SerializerMethodField()
+    """Optimized detailed serializer using annotated fields"""
+    company_name = serializers.CharField(source='owners.name', read_only=True)
+    
+    # Use annotated fields from queryset instead of SerializerMethodField
+    total_products = serializers.IntegerField(read_only=True)
+    total_products_available = serializers.IntegerField(read_only=True)
+    total_products_sold = serializers.IntegerField(read_only=True)
+    total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    is_active_user = serializers.BooleanField(read_only=True)
+    
+    last_active = serializers.DateTimeField(source='last_login', read_only=True)
+    store = StoreSerializer(source='owners', read_only=True)
+    
+    def update(self, instance, validated_data):
+        # Handle profile image deletion safely
+        new_profile_image = validated_data.get('profile_image')
+        if 'profile_image' in validated_data and new_profile_image != instance.profile_image:
+            if instance.profile_image:
+                try:
+                    instance.profile_image.delete(save=False)
+                except Exception as e:
+                    logger.warning(f"Profile image deletion error: {e}")
+        
+        # Update fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
     
     class Meta:
         model = CustomUser
@@ -57,95 +77,28 @@ class DropshipperDetailSerializer(serializers.ModelSerializer):
             'email': {'allow_null': True}
         }
     
-    def get_company_name(self, obj):
-        if hasattr(obj, 'owners') and obj.owners:
-            return obj.owners.name
-        return None
-    
-    def get_total_products(self, obj):
-        if hasattr(obj, 'owners') and obj.owners:
-            return obj.owners.pricings.count()
-        return 0
-    
-    def get_total_products_available(self, obj):
-        if hasattr(obj, 'owners') and obj.owners:
-            return obj.owners.pricings.filter(
-                product__is_available=True
-            ).count()
-        return 0
-    
-    def get_total_products_sold(self, obj):
-        if hasattr(obj, 'owners') and obj.owners:
-            return obj.owners.store_orders.filter(
-                status='Completed'
-            ).aggregate(
-                total=Sum('items__quantity')
-            )['total'] or 0
-        return 0
-    
-    def get_total_revenue(self, obj):
-        if hasattr(obj, 'owners') and obj.owners:
-            return obj.owners.store_orders.filter(
-                status='Completed'
-            ).aggregate(
-                total=Sum('total_price')
-            )['total'] or 0.0
-        return 0.0
-    
-    def get_last_active(self, obj):
-        return obj.last_login.isoformat() if obj.last_login else None
-    
-    def get_is_active_user(self, obj):
-        if obj.last_login:
-            thirty_days_ago = now() - timezone.timedelta(days=30)
-            return obj.last_login >= thirty_days_ago
-        return False
-    
-    def get_store(self, obj):
-        if hasattr(obj, 'owners') and obj.owners:
-            return {
-                'id': obj.owners.id,
-                'name': obj.owners.name,
-                'email': obj.owners.owner.email,
-                'domain_name': obj.owners.domain_name,
-                'logo': obj.owners.logo.url if obj.owners.logo else None,
-                'cover_image': obj.owners.cover_image.url if obj.owners.cover_image else None
-            }
-        return None
-    
-class DropshipperListSerializer(StoreOwnerSerializer):
-    """Optimized serializer for list view with analytics"""
-    total_products = serializers.IntegerField(read_only=True, allow_null=True)
-    total_products_available = serializers.IntegerField(read_only=True, allow_null=True)
-    total_products_sold = serializers.IntegerField(read_only=True, allow_null=True)
-    total_revenue = serializers.DecimalField(
-        max_digits=12, 
-        decimal_places=2, 
-        read_only=True,
-        allow_null=True
-    )
-    last_active = serializers.DateTimeField(source='last_login', read_only=True, allow_null=True)
-    is_active = serializers.BooleanField(allow_null=True)
-    is_verified = serializers.BooleanField(allow_null=True)
-    store = StoreSerializer(source='owners', read_only=True, allow_null=True)
-    is_active_user = serializers.BooleanField(read_only=True, allow_null=True)
-    profile_image = serializers.ImageField(allow_null=True)  # Add this
 
-    class Meta(StoreOwnerSerializer.Meta):
-        fields = StoreOwnerSerializer.Meta.fields + (
-            'is_active', 'is_verified', 'date_joined', 'last_active',
-            'total_products', 'total_products_available', 
+    
+class DropshipperListSerializer(serializers.ModelSerializer):
+    """Optimized list serializer using annotated fields"""
+    # Use annotated fields from queryset
+    total_products = serializers.IntegerField(read_only=True)
+    total_products_available = serializers.IntegerField(read_only=True)
+    total_products_sold = serializers.IntegerField(read_only=True)
+    total_revenue = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    is_active_user = serializers.BooleanField(read_only=True)
+    
+    last_active = serializers.DateTimeField(source='last_login', read_only=True)
+    store = StoreSerializer(source='owners', read_only=True)
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            'id', 'first_name', 'last_name', 'email', 'contact',
+            'profile_image', 'is_active', 'is_verified', 'date_joined',
+            'last_active', 'total_products', 'total_products_available', 
             'total_products_sold', 'total_revenue', 'store', 'is_active_user'
-        )
-        read_only_fields = ('completed_steps', 'date_joined')
-        extra_kwargs = {
-            'contact': {'allow_null': True},
-            'username': {'allow_null': True},
-            'first_name': {'allow_null': True},
-            'last_name': {'allow_null': True},
-            'email': {'allow_null': True},
-            'profile_image': {'allow_null': True}
-        }
+        ]
 
 class DropshipperAdminSerializer(StoreOwnerSerializer):
     company_name = serializers.CharField(write_only=True, required=False, allow_null=True)
@@ -155,6 +108,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
     is_payment = serializers.BooleanField(write_only=True, default=False)
     contact = serializers.CharField(write_only=True, required=False, allow_null=True)
     username = serializers.CharField(write_only=True, required=False, allow_null=True)
+    category = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     last_active = serializers.DateTimeField(source='last_login', read_only=True, allow_null=True)
     store = StoreSerializer(source='owners', read_only=True, allow_null=True)
@@ -175,7 +129,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             'company_name', 'date_joined', 'logo', 'contact', 'username',
             'last_active', 'store', 'total_products', 'total_products_available',
             'total_products_sold', 'total_revenue', 'is_active_user',
-            'TIN_number', 'year_of_establishment', 'is_payment'
+            'TIN_number', 'year_of_establishment', 'is_payment', 'category'
         )
         read_only_fields = ('completed_steps', 'date_joined')
         extra_kwargs = {
@@ -186,79 +140,299 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
             'profile_image': {'allow_null': True}
         }
 
-    def create(self, validated_data):
-        company_name = validated_data.pop('company_name', None)
-        password     = validated_data.pop('password', None)
-        tin_number   = validated_data.pop('TIN_number', None)
-        logo         = validated_data.pop('logo', None)
-        year         = validated_data.pop('year_of_establishment', None)
-        is_payment   = validated_data.pop('is_payment', False)
-        contact      = validated_data.pop('contact', None)
-        username     = validated_data.pop('username', None)
-
-        user = None
-        store = None
+    def validate(self, data):
+        # Skip validation during updates - handled in update method
+        if self.instance:
+            return data
+            
+        # Validate user fields for creation
+        email = data.get('email')
+        contact = data.get('contact')
+        username = data.get('username')
         
+        if email and CustomUser.objects.filter(email=email).exists():
+            raise serializers.ValidationError({
+                'email': 'A user with this email already exists.'
+            })
+        
+        if contact and CustomUser.objects.filter(contact=contact).exists():
+            raise serializers.ValidationError({
+                'contact': 'A user with this contact number already exists.'
+            })
+            
+        if username and CustomUser.objects.filter(username=username).exists():
+            raise serializers.ValidationError({
+                'username': 'A user with this username already exists.'
+            })
+            
+        # Validate store fields for creation
+        company_name = data.get('company_name')
+        tin_number = data.get('TIN_number')
+        
+        if company_name and Store.objects.filter(name=company_name).exists():
+            raise serializers.ValidationError({
+                'company_name': 'A store with this name already exists.'
+            })
+        
+        if tin_number and Store.objects.filter(TIN_number=tin_number).exists():
+            raise serializers.ValidationError({
+                'TIN_number': 'A store with this TIN number already exists.'
+            })
+        
+        return data
+
+    def create(self, validated_data):
+        # Extract store-related fields safely
+        store_fields = {
+            'company_name': validated_data.pop('company_name', None),
+            'tin_number': validated_data.pop('TIN_number', None),
+            'logo': validated_data.pop('logo', None),
+            'year': validated_data.pop('year_of_establishment', None),
+            'is_payment': validated_data.pop('is_payment', False),
+            'category': validated_data.pop('category', None)
+        }
+        
+        # Extract user fields
+        password = validated_data.pop('password', None)
+        contact = validated_data.pop('contact', None)
+        username = validated_data.pop('username', None)
+
         try:
             with transaction.atomic():
-                # build the user **without** calling super().create
-                user = CustomUser(**validated_data)
-                user.is_store_owner = True
-                user.is_active = True
-                user.is_verified = True
-                if username:
-                    user.username = username
-                if contact:
-                    user.contact = contact
+                # Generate unique username if not provided
+                if not username:
+                    base_username = validated_data.get('email', '').split('@')[0]
+                    username = base_username
+                    counter = 1
+                    while CustomUser.objects.filter(username=username).exists():
+                        username = f"{base_username}{counter}"
+                        counter += 1
+                
+                # Create user with basic fields including profile_image
+                user = CustomUser.objects.create(
+                    first_name=validated_data.get('first_name', ''),
+                    last_name=validated_data.get('last_name', ''),
+                    email=validated_data.get('email'),
+                    username=username,
+                    contact=contact,
+                    profile_image=validated_data.get('profile_image'),
+                    is_store_owner=True,
+                    is_active=True,
+                    is_verified=True,
+                    completed_steps=3
+                )
+                
                 if password:
                     user.set_password(password)
-                user.save()
+                    user.save()
 
-                # Only create store if company_name is provided
-                if company_name:
+                # Create store if company name provided
+                store = None
+                if store_fields['company_name']:
                     store = Store.objects.create(
                         owner=user,
-                        name=company_name,
-                        TIN_number=tin_number,
-                        logo=logo,
-                        year_of_establishment=year,
-                        has_made_payment=is_payment
+                        name=store_fields['company_name'],
+                        TIN_number=store_fields['tin_number'],
+                        logo=store_fields['logo'],
+                        year_of_establishment=store_fields['year'],
+                        has_made_payment=store_fields['is_payment'],
+                        category_id=store_fields['category']
                     )
-                    
-                # Only send email if both user and store creation were successful
-                # Schedule email after transaction commits to ensure data consistency
-                if store:
-                    transaction.on_commit(lambda: self.send_admin_created_email(user))
+                
+                # Send welcome email
+                transaction.on_commit(lambda: self._send_welcome_email(user))
                     
         except IntegrityError as e:
-            if 'duplicate key value violates unique constraint "mall_store_name_key"' in str(e):
-                raise serializers.ValidationError({'company_name': 'A store with this name already exists.'})
-            raise
+            error_msg = str(e).lower()
+            if 'email' in error_msg:
+                raise serializers.ValidationError({
+                    'email': 'A user with this email already exists.'
+                })
+            elif 'contact' in error_msg:
+                raise serializers.ValidationError({
+                    'contact': 'A user with this contact number already exists.'
+                })
+            elif 'username' in error_msg:
+                raise serializers.ValidationError({
+                    'username': 'A user with this username already exists.'
+                })
+            elif 'name' in error_msg:
+                raise serializers.ValidationError({
+                    'company_name': 'A store with this name already exists.'
+                })
+            elif 'tin_number' in error_msg:
+                raise serializers.ValidationError({
+                    'TIN_number': 'A store with this TIN number already exists.'
+                })
+            else:
+                raise serializers.ValidationError({
+                    'non_field_errors': ['This data already exists in the system.']
+                })
         except Exception as e:
-            raise serializers.ValidationError({'non_field_errors': [str(e)]})
+            raise serializers.ValidationError({
+                'non_field_errors': [str(e)]
+            })
 
         return user
 
-    def send_admin_created_email(self, user):
+    def update(self, instance, validated_data):
+        # Validate store fields for update
+        company_name = validated_data.get('company_name')
+        tin_number = validated_data.get('TIN_number')
+        
+        if company_name:
+            # Check if user already has a store with this name (allow same user to keep their name)
+            if hasattr(instance, 'owners') and instance.owners:
+                existing_store = Store.objects.filter(name=company_name).exclude(
+                    id=instance.owners.id
+                ).first()
+            else:
+                existing_store = Store.objects.filter(name=company_name).exclude(
+                    owner=instance
+                ).first()
+            if existing_store:
+                from workshop.exceptions import ValidationError
+                raise ValidationError('A store with this name already exists.')
+        
+        if tin_number:
+            # Check if user already has a store with this TIN (allow same user to keep their TIN)
+            if hasattr(instance, 'owners') and instance.owners:
+                existing_store = Store.objects.filter(TIN_number=tin_number).exclude(
+                    id=instance.owners.id
+                ).first()
+            else:
+                existing_store = Store.objects.filter(TIN_number=tin_number).exclude(
+                    owner=instance
+                ).first()
+            if existing_store:
+                from workshop.exceptions import ValidationError
+                raise ValidationError('A store with this TIN number already exists.')
+        
+        # Extract store-related fields safely
+        store_fields = {
+            'company_name': validated_data.pop('company_name', None),
+            'tin_number': validated_data.pop('TIN_number', None),
+            'logo': validated_data.pop('logo', None),
+            'year': validated_data.pop('year_of_establishment', None),
+            'is_payment': validated_data.pop('is_payment', None),
+            'category': validated_data.pop('category', None)
+        }
+        
+        # Extract user fields
+        password = validated_data.pop('password', None)
+        contact = validated_data.pop('contact', None)
+        username = validated_data.pop('username', None)
 
         try:
-            subject = "Welcome to Rocktea Mall - Your Account is Ready!"
-            context = {
-                'full_name': user.get_full_name() or user.first_name or user.email,
-                'store_domain': 'Pending setup',
-                'support_email': 'support@yourockteamall.com',
-                'current_year': timezone.now().year,
-                'owner_email': user.email,
-                'is_local': False,
-            }
+            with transaction.atomic():
+                # Handle email uniqueness if provided
+                if 'email' in validated_data and validated_data['email'] != instance.email:
+                    if CustomUser.objects.filter(email=validated_data['email']).exclude(id=instance.id).exists():
+                        from workshop.exceptions import ValidationError
+                        raise ValidationError('A user with this email already exists.')
+                
+                # Handle contact uniqueness if provided
+                if contact and contact != str(instance.contact):
+                    if CustomUser.objects.filter(contact=contact).exclude(id=instance.id).exists():
+                        from workshop.exceptions import ValidationError
+                        raise ValidationError('A user with this contact number already exists.')
+                
+                # Handle username uniqueness if provided
+                if username and username != instance.username:
+                    if CustomUser.objects.filter(username=username).exclude(id=instance.id).exists():
+                        from workshop.exceptions import ValidationError
+                        raise ValidationError('A user with this username already exists.')
+                    instance.username = username
+                
+                # Update user fields
+                for attr, value in validated_data.items():
+                    setattr(instance, attr, value)
+                
+                if contact:
+                    instance.contact = contact
+                if password:
+                    instance.set_password(password)
+                
+                instance.save()
+
+                # Update or create store if company name provided
+                if store_fields['company_name']:
+                    if hasattr(instance, 'owners') and instance.owners:
+                        # Update existing store
+                        store = instance.owners
+                        store.name = store_fields['company_name']
+                        if store_fields['tin_number'] is not None:
+                            store.TIN_number = store_fields['tin_number']
+                        if store_fields['logo'] is not None:
+                            store.logo = store_fields['logo']
+                        if store_fields['year'] is not None:
+                            store.year_of_establishment = store_fields['year']
+                        if store_fields['is_payment'] is not None:
+                            store.has_made_payment = store_fields['is_payment']
+                        if store_fields['category'] is not None:
+                            store.category_id = store_fields['category']
+                        store.save()
+                    else:
+                        # Create new store
+                        Store.objects.create(
+                            owner=instance,
+                            name=store_fields['company_name'],
+                            TIN_number=store_fields['tin_number'],
+                            logo=store_fields['logo'],
+                            year_of_establishment=store_fields['year'],
+                            has_made_payment=store_fields['is_payment'] or False,
+                            category_id=store_fields['category']
+                        )
+                    
+        except IntegrityError as e:
+            error_msg = str(e).lower()
+            if 'email' in error_msg:
+                raise serializers.ValidationError({
+                    'error': 'A user with this email already exists.'
+                })
+            elif 'contact' in error_msg:
+                raise serializers.ValidationError({
+                    'error': 'A user with this contact number already exists.'
+                })
+            elif 'username' in error_msg:
+                raise serializers.ValidationError({
+                    'error': 'A user with this username already exists.'
+                })
+            elif 'name' in error_msg:
+                raise serializers.ValidationError({
+                    'error': 'A store with this name already exists.'
+                })
+            elif 'tin_number' in error_msg:
+                raise serializers.ValidationError({
+                    'error': 'A store with this TIN number already exists.'
+                })
+            else:
+                raise serializers.ValidationError({
+                    'error': 'This data already exists in the system.'
+                })
+        except Exception as e:
+            raise serializers.ValidationError({
+                'error': str(e)
+            })
+
+        return instance
+
+    def _send_welcome_email(self, user):
+        """Send welcome email asynchronously"""
+        try:
             sendEmail(
                 recipientEmail=user.email,
                 template_name='emails/admin_created_account.html',
-                context=context,
-                subject=subject,
+                context={
+                    'full_name': user.get_full_name() or user.email,
+                    'store_domain': 'Pending setup',
+                    'support_email': 'support@yourockteamall.com',
+                    'current_year': timezone.now().year,
+                    'owner_email': user.email,
+                    'is_local': False,
+                },
+                subject="Welcome to Rocktea Mall - Your Account is Ready!",
                 tags=["admin-created-account", "account-setup"]
             )
         except Exception as e:
-            # Log but don't prevent user creation
-            print(f"Failed to send admin created email: {str(e)}")
-            logger.error(f"Failed to send admin created email to {user.email}: {str(e)}")
+            logger.error(f"Failed to send admin welcome email to {user.email}: {e}")

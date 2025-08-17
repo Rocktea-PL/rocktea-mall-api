@@ -1,0 +1,19 @@
+[Unit]
+Description=Flower - Celery monitoring tool for Development
+After=redis.service
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/django-app/dev/main
+EnvironmentFile=/home/ubuntu/django-app/dev/main/setup/.env
+
+ExecStart=/home/ubuntu/django-app/dev/venv/bin/celery -A setup flower --port=5555 --address=127.0.0.1
+
+Restart=on-failure
+RestartSec=5s
+StandardOutput=append:/var/log/celery/flower-dev.log
+StandardError=append:/var/log/celery/flower-dev.log
+
+[Install]
+WantedBy=multi-user.target

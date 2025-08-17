@@ -35,7 +35,7 @@ def create_store_dns_async(self, store_id):
         # Skip DNS provisioning when server is running locally
         if env_config['environment'] == 'local':
             logger.info("Server running locally - skipping DNS provisioning")
-            final_url = f"http://localhost:8000?mallcli={store.id}"
+            final_url = f"http://localhost:8000?mall={store.id}"
             store.domain_name = final_url
             store.save(update_fields=['domain_name'])
             
@@ -66,7 +66,7 @@ def create_store_dns_async(self, store_id):
             store.save(update_fields=['dns_record_created', 'domain_name'])
 
             # Build the clickable URL
-            final_url = f"https://{full_domain}?mallcli={store.id}"
+            final_url = f"https://{full_domain}?mall={store.id}"
 
             # Send success email
             from .signals import send_store_success_email
@@ -275,25 +275,51 @@ def upload_image(self, product_id, file_content, file_name, content_type):
             logger.info(f"Uploading optimized image {file_name}")
             productimage = ProductImage.objects.select_for_update().get(id=product_id)
             
-            # Use optimized upload
+            # Determine optimal transformation based on content type and size
+            transformation_type = 'product_card' if 'product' in file_name.lower() else 'large'
+            
+            # Upload with optimizations
             result = CloudinaryOptimizer.upload_optimized(
                 file_content,
-                folder="products",
-                transformation_type='large'
+                folder='products',
+                transformation_type=transformation_type,
+                eager=[
+                    CloudinaryOptimizer.TRANSFORMATIONS['thumbnail'],
+                    CloudinaryOptimizer.TRANSFORMATIONS['medium'],
+                    CloudinaryOptimizer.TRANSFORMATIONS['large']
+                ],
+                eager_async=True
             )
             
+            # Store the secure URL and public_id for future transformations
             productimage.image = result.get('secure_url')
+            
+            # Only set public_id if the field exists (after migration)
+            if hasattr(productimage, 'public_id'):
+                productimage.public_id = result.get('public_id')
+            
             productimage.save()
+            
+            # Generate responsive URLs for different screen sizes
+            responsive_urls = CloudinaryOptimizer.get_responsive_urls(result.get('public_id'))
+            
+            # Cache responsive URLs for quick access
+            cache.set(f'responsive_urls_{product_id}', responsive_urls, timeout=3600)
             
             # Invalidate related cache
             CacheManager.invalidate_store(productimage.product.store.first().id if productimage.product.store.exists() else None)
+            
+            logger.info(f"Successfully uploaded and optimized image {file_name} with public_id: {result.get('public_id')}")
             
     except ProductImage.DoesNotExist:
         logger.error(f"ProductImage {product_id} not found")
         return
     except Exception as e:
         logger.error(f"Error uploading image: {e}")
-        self.retry(exc=e)
+        if self.request.retries < self.max_retries:
+            self.retry(exc=e)
+        else:
+            logger.error(f"Failed to upload image after {self.max_retries} retries: {e}")
     finally:
         cache.delete(task_id)
 

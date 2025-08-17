@@ -7,7 +7,8 @@ from .models import (
    OrderDeliveryConfirmation, 
    StoreOrder, 
    AssignOrder,
-   PaymentHistory
+   PaymentHistory,
+   WithdrawalRecord
    )
 from mall.models import (
    CustomUser, 
@@ -224,7 +225,24 @@ class PaymentHistorySerializers(serializers.ModelSerializer):
    def to_representation(self, instance):
       representation = super(PaymentHistorySerializers, self).to_representation(instance)
       
-      representation['order'] = {"status": instance.order.status, "buyer": f"{instance.order.buyer.first_name} {instance.order.buyer.last_name}"}
+      representation['order'] = {
+         "status": instance.order.status, 
+         "buyer": f"{instance.order.buyer.first_name} {instance.order.buyer.last_name}",
+         "reference": instance.order.id
+      }
       
       representation['payment_date'] = instance.payment_date.strftime("%Y-%m-%d")
+      return representation
+
+class WithdrawalRecordSerializer(serializers.ModelSerializer):
+   class Meta:
+      model = WithdrawalRecord
+      fields = ['id', 'amount', 'status', 'created_at', 'processed_at', 'transfer_code']
+      read_only_fields = ['id', 'created_at', 'processed_at', 'transfer_code']
+   
+   def to_representation(self, instance):
+      representation = super().to_representation(instance)
+      representation['created_at'] = instance.created_at.strftime("%Y-%m-%d %H:%M:%S")
+      if instance.processed_at:
+         representation['processed_at'] = instance.processed_at.strftime("%Y-%m-%d %H:%M:%S")
       return representation

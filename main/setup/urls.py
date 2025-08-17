@@ -1,4 +1,4 @@
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.contrib import admin
 from rest_framework import routers
 
@@ -29,8 +29,11 @@ from mall.views import (
         ProductRatingViewSet,
         EmailVerificationViewSet
 )
+from mall.change_password import ChangePasswordView
+from mall.health_views import health_check
 
 from mall.custom_view.reportuser import ReportUserView
+from mall.wishlist import WishlistViewSet
 from order.views import (
     OrderItemsViewSet, 
     CartViewSet, 
@@ -74,7 +77,8 @@ schema_view = get_schema_view(
 router = routers.DefaultRouter()
 # Store Owner
 
-router.register('storeowner', CreateStoreOwner, basename="user")
+# router.register('storeowner', CreateStoreOwner, basename="user")
+# router.register(r'storeowner', CreateStoreOwner, basename='user')
 router.register('dropshippers/store', GetStoreDropshippers, basename="dropship")
 
 router.register('categories', GetCategories, basename='categories')
@@ -140,6 +144,9 @@ router.register('shipbubble', ShipbubbleViewSet, basename='shipbubble')
 # Paystack
 router.register('paystack', Paystack, basename='paystack')
 
+# Wishlist
+router.register('wishlist', WishlistViewSet, basename='wishlist')
+
 
 
 urlpatterns = [
@@ -162,6 +169,13 @@ urlpatterns = [
     path('resend-verification-email/', 
      EmailVerificationViewSet.as_view({'post': 'resend_verification'}), 
      name='resend-verification-email'),
+    path('api/auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
+    path('health/', health_check, name='health_check'),
+    re_path(r'^rocktea/storeowner/$', CreateStoreOwner.as_view({
+        'get': 'list',
+        'post': 'create',
+        'patch': 'update_user_store'  # This maps PATCH to your custom action
+    }), name='storeowner-list-patch'),
 ]
 
 urlpatterns += router.urls
