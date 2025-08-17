@@ -40,7 +40,6 @@ from rest_framework import serializers, status
 import logging
 from decimal import Decimal
 from rest_framework import viewsets, generics
-from rest_framework.pagination import PageNumberPagination
 from workshop.processor import DomainNameHandler
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from mall.payments.verify_payment import (
@@ -455,8 +454,6 @@ class InitiatePayment(viewsets.ViewSet):
       else:
          error_message = payment_response.get("message", "Payment initialization failed")
          return Response({"error": error_message}, status=status.HTTP_400_BAD_REQUEST)
-
-
 
 class OrderItemsViewSet(ModelViewSet):
    queryset = OrderItems.objects.all()
@@ -1026,3 +1023,22 @@ class Paystack(viewsets.ViewSet):
          {"message": "Withdrawal successful.", "transaction": transfer_response, "withdrawal_id": withdrawal_record.id},
          status=200
       )
+   
+   @action(detail=False, methods=['post'], url_path='send-order-email')
+   def send_order_completion_email(self, request):
+      """Manually trigger order completion email for testing"""
+      order_id = request.data.get('order_id')
+      
+      if not order_id:
+         return JsonResponse({"error": "order_id is required"}, status=400)
+      
+      try:
+         from setup.tasks import send_order_completion_email_task
+         task = send_order_completion_email_task.delay(order_id)
+         return JsonResponse({
+            "message": "Order completion email task initiated",
+            "task_id": task.id,
+            "order_id": order_id
+         })
+      except Exception as e:
+         return JsonResponse({"error": str(e)}, status=500)
