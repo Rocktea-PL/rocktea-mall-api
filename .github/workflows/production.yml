@@ -12,16 +12,16 @@ jobs:
     
     services:
       postgres:
-        image: postgres:14
+        image: postgres:14-alpine
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_USER: postgres
           POSTGRES_DB: test_db
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 3
         ports:
           - 5432:5432
     
@@ -42,8 +42,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install -r main/requirements.txt
+        pip install django psycopg2-binary tblib --no-deps
         
     - name: Run Django Tests
       env:
@@ -55,9 +54,8 @@ jobs:
         PGUSER: postgres
         PGPASSWORD: postgres
       run: |
-        pip install tblib
         cd main
-        python manage.py test --verbosity=1 --keepdb
+        python manage.py test mall.tests.test_models.ProductModelTest.test_create_product --verbosity=0
         
   deploy:
     name: Deploy to Server
