@@ -42,7 +42,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        pip install -r main/requirements.txt --no-cache-dir
+        pip install -r main/requirements.txt --no-cache-dir --disable-pip-version-check
         
     - name: Run Django Tests
       env:
