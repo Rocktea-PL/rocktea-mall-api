@@ -1,31 +1,71 @@
-name: Staging Deployment
+name: Staging Test & Deploy
 
 on:
   push:
     branches: [ test ]
-  workflow_run:
-    workflows: ["Code Quality Check (PR/Push Validation)"]
-    types:
-      - completed
-    branches: [ test ]
-
-env:
-  DJANGO_SETTINGS_MODULE: setup.settings
-  PYTHON_VERSION: '3.12'
-  CI: 'true'
-  SECRET_KEY: ${{ secrets.SECRET_KEY }}
 
 jobs:
-  deploy:
+  test:
+    name: Run Tests on GitHub
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    if: |
-      github.ref == 'refs/heads/test' && 
-      (github.event_name == 'push' || 
-       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
+    timeout-minutes: 2
+    
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     
     steps:
-    - name: Deploy to EC2
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        
+    - name: Create virtual environment
+      run: |
+        python -m venv venv
+        source venv/bin/activate
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+        echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+        
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install -r main/requirements.txt
+        
+    - name: Run Django Tests
+      env:
+        CI: 'true'
+        DJANGO_SETTINGS_MODULE: setup.test_settings
+        PGHOST: localhost
+        PGPORT: 5432
+        PGDATABASE: test_db
+        PGUSER: postgres
+        PGPASSWORD: postgres
+      run: |
+        cd main
+        python manage.py test --verbosity=0 --parallel 2
+        
+  deploy:
+    name: Deploy to Server
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    steps:
+    - name: Deploy to Staging Server
       uses: appleboy/ssh-action@v1
       with:
         host: ${{ secrets.EC2_HOST }}

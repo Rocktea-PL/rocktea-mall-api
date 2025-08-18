@@ -25,18 +25,23 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',
 ]
 
-# Use in-memory database for faster tests
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
-        'OPTIONS': {
-            'timeout': 20,
-        },
+# Use PostgreSQL for CI tests (compatible with production)
+if 'CI' in os.environ:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('PGDATABASE', 'test_db'),
+            'USER': os.environ.get('PGUSER', 'postgres'),
+            'PASSWORD': os.environ.get('PGPASSWORD', 'postgres'),
+            'HOST': os.environ.get('PGHOST', 'localhost'),
+            'PORT': os.environ.get('PGPORT', '5432'),
+        }
     }
-}
+else:
+    # Use existing settings for local testing
+    pass
 
-# Keep migrations enabled but optimize
+# Keep migrations enabled
 MIGRATION_MODULES = {}
 
 # Disable logging during tests
