@@ -31,7 +31,17 @@ class CustomUserModelTest(TestCase):
             password='admin123'
         )
         self.assertTrue(user.is_staff)
+        self.assertFalse(user.is_superuser)  # Default admin is staff, not superuser
+        self.assertTrue(user.is_admin)  # But has admin access
+    
+    def test_create_true_superuser(self):
+        user = CustomUser.objects.create_true_superuser(
+            email='superadmin@example.com',
+            password='super123'
+        )
+        self.assertTrue(user.is_staff)
         self.assertTrue(user.is_superuser)
+        self.assertTrue(user.is_admin)
 
     def test_user_str_method(self):
         user = CustomUser.objects.create_user(password='test123', **self.user_data)

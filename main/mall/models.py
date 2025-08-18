@@ -12,6 +12,10 @@ from cloudinary.models import CloudinaryField
 from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 from django.core.validators import MinLengthValidator
+from .permissions import AdminRole, PermissionType, ROLE_PERMISSIONS
+# Import admin role models to register them
+from .admin_roles import AdminUserRole, AdminCustomPermission
+from .admin_audit import AdminAuditLog
 # from .file_validation import validate_file_size, validate_image_file
 
 # Conditionally import Cloudinary storage
@@ -66,9 +70,20 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, email, password=None, **extra_fields):
-        # Create a superuser
+        # Create admin with full privileges (existing admins keep all access)
         extra_fields.setdefault('is_staff', True)
-        # extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault('is_active_admin', True)
+        extra_fields.setdefault('admin_role', AdminRole.SUPER_ADMIN)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Admin user must have is_staff=True.')
+
+        return self.create_user(email, password=password, **extra_fields)
+    
+    def create_true_superuser(self, email, password=None, **extra_fields):
+        # Create actual superuser - only for system administration
+        extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
         if extra_fields.get('is_staff') is not True:
@@ -111,11 +126,26 @@ class CustomUser(AbstractUser):
     is_verified = models.BooleanField(default=False, db_index=True)
     verification_token = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     verification_token_created_at = models.DateTimeField(null=True, blank=True)
+    
+    # Role-based permissions
+    admin_role = models.CharField(
+        max_length=20, 
+        choices=AdminRole.choices, 
+        null=True, 
+        blank=True,
+        db_index=True
+    )
+    is_active_admin = models.BooleanField(default=False, db_index=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
+    
+    @property
+    def is_admin(self):
+        """Check if user has admin privileges (staff or superuser)"""
+        return self.is_staff or self.is_superuser
 
     class Meta:
         indexes = [
@@ -124,6 +154,8 @@ class CustomUser(AbstractUser):
             models.Index(fields=['is_store_owner'], name='user_store_owner_idx'),
             models.Index(fields=['is_verified'], name='user_verified_idx'),
             models.Index(fields=['verification_token'], name='user_token_idx'),
+            models.Index(fields=['admin_role'], name='user_role_idx'),
+            models.Index(fields=['is_active_admin'], name='user_active_admin_idx'),
         ]
 
     def save(self, *args, **kwargs):
@@ -137,6 +169,74 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return self.first_name
+    
+    def has_admin_access(self):
+        """Check if user can access admin functions"""
+        return self.is_staff or self.is_superuser or self.is_active_admin
+    
+    def has_permission(self, permission):
+        """Check if user has specific permission - supports multiple roles"""
+        # Regular users (dropshippers, consumers) are not affected
+        if not self.is_admin_user():
+            return True
+        
+        if self.is_superuser:
+            return True  # Super admin has all permissions
+        
+        if not self.is_active_admin:
+            return False
+        
+        # Check permissions from all assigned roles
+        user_permissions = self.get_permissions()
+        return permission in user_permissions
+    
+    def is_admin_user(self):
+        """Check if user is an admin (not regular user/dropshipper)"""
+        return self.is_staff or self.is_superuser or self.is_active_admin
+    
+    def get_permissions(self):
+        """Get all permissions from multiple roles and custom permissions"""
+        if not self.is_admin_user():
+            return []
+        
+        if self.is_superuser:
+            return [p[0] for p in PermissionType.choices]
+        
+        if not self.is_active_admin:
+            return []
+        
+        permissions = set()
+        
+        # Get permissions from all assigned roles
+        for role_obj in self.admin_roles.all():
+            role_permissions = ROLE_PERMISSIONS.get(role_obj.role, [])
+            permissions.update(role_permissions)
+        
+        # Apply custom permissions (grants/revokes)
+        for custom_perm in self.custom_permissions.all():
+            if custom_perm.granted:
+                permissions.add(custom_perm.permission)
+            else:
+                permissions.discard(custom_perm.permission)
+        
+        return list(permissions)
+    
+    @property
+    def role_display(self):
+        """Get human-readable role names"""
+        if self.is_superuser:
+            return 'Super Admin'
+        
+        roles = self.admin_roles.values_list('role', flat=True)
+        if not roles:
+            return 'No Role'
+        
+        role_names = [dict(AdminRole.choices).get(role, role) for role in roles]
+        return ', '.join(role_names)
+    
+    def get_assigned_roles(self):
+        """Get list of assigned role keys"""
+        return list(self.admin_roles.values_list('role', flat=True))
 
 class ServicesBusinessInformation(models.Model):
     EXPERIENCE = (

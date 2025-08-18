@@ -1,0 +1,77 @@
+name: Test Suite (PR/Push Validation)
+
+on:
+  push:
+    branches: [ master, test ]
+  pull_request:
+    branches: [ master, test ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:6
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r main/requirements.txt
+        pip install pylint pylint-django
+        
+    - name: Set test environment variables
+      run: |
+        echo "CI=true" >> $GITHUB_ENV
+        echo "DJANGO_SETTINGS_MODULE=setup.test_settings" >> $GITHUB_ENV
+        echo "PGHOST=localhost" >> $GITHUB_ENV
+        echo "PGPORT=5432" >> $GITHUB_ENV
+        echo "PGDATABASE=test_db" >> $GITHUB_ENV
+        echo "PGUSER=test_user" >> $GITHUB_ENV
+        echo "PGPASSWORD=test_password" >> $GITHUB_ENV
+        echo "REDIS_URL=redis://localhost:6379/0" >> $GITHUB_ENV
+        
+    - name: Run pylint code quality check
+      run: |
+        cd main
+        pylint --load-plugins=pylint_django --django-settings-module=setup.test_settings mall order setup dropshippers accounts --exit-zero --output-format=text
+        
+    - name: Run tests
+      run: |
+        cd main
+        python manage.py test --verbosity=1

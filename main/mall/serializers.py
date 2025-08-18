@@ -467,9 +467,15 @@ class ProductRatingSerializer(serializers.ModelSerializer):
       return representation
 
 class BrandSerializer(serializers.ModelSerializer):
+   producttype_names = serializers.SerializerMethodField()
+   
    class Meta:
       model = Brand
       fields = '__all__'
+   
+   def get_producttype_names(self, obj):
+      """Get all product type names for this brand"""
+      return [pt.name for pt in obj.producttype.all()]
 
    def validate_name(self, value):
       # Check if brand name already exists (for updates)
@@ -482,6 +488,7 @@ class BrandSerializer(serializers.ModelSerializer):
 
 class SubCategorySerializer(serializers.ModelSerializer):
    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), read_only=False)
+   category_name = serializers.CharField(source='category.name', read_only=True)
 
    class Meta:
       model = SubCategories
@@ -503,11 +510,6 @@ class SubCategorySerializer(serializers.ModelSerializer):
             )
       
       return data
-      
-   # def to_representation(self, instance):
-   #    representation = super(SubCategorySerializer, self).to_representation(instance)
-   #    representation['category'] = {'id': instance.category.id, 'name': instance.category.name}
-   #    return representation
 
 class CategorySerializer(serializers.ModelSerializer):
    class Meta:
@@ -525,6 +527,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductTypesSerializer(serializers.ModelSerializer):
    subcategory = serializers.PrimaryKeyRelatedField(queryset=SubCategories.objects.all())
+   subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
+   
    class Meta:
       model = ProductTypes
       fields = '__all__'
@@ -545,11 +549,6 @@ class ProductTypesSerializer(serializers.ModelSerializer):
             )
       
       return data
-      
-   # def to_representation(self, instance):
-   #    representation = super(ProductTypesSerializer, self).to_representation(instance)
-   #    representation['subcategory'] = {'id': instance.subcategory.id, 'name': instance.subcategory.name}
-   #    return representation
 
 class ProductImageSerializer(serializers.ModelSerializer):
    optimized_url = serializers.SerializerMethodField()

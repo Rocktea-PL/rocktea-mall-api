@@ -1,0 +1,28 @@
+[MASTER]
+load-plugins=pylint_django
+django-settings-module=setup.settings
+
+[MESSAGES CONTROL]
+disable=
+    missing-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    line-too-long,
+    import-error,
+    no-member,
+    unused-import,
+    wildcard-import,
+    unused-wildcard-import
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-args=10
+max-locals=20
+max-returns=10
+max-branches=15
+max-statements=60
