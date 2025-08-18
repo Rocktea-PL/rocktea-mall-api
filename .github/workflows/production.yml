@@ -42,7 +42,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        pip install django psycopg2-binary tblib asgiref sqlparse django-environ
+        pip install -r main/requirements.txt --no-cache-dir
         
     - name: Run Django Tests
       env:
