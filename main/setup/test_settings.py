@@ -15,12 +15,19 @@ os.environ['CLOUDINARY_SECRET'] = 'dummy'
 
 from .settings import *
 
-# Use SQLite for CI tests (faster and no version issues)
+# Use PostgreSQL for CI tests (compatible with production)
 if 'CI' in os.environ:
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': ':memory:',
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'test_db',
+            'USER': 'postgres',
+            'PASSWORD': 'postgres',
+            'HOST': 'localhost',
+            'PORT': '5432',
+            'TEST': {
+                'NAME': 'test_rocktea_mall',
+            },
         }
     }
 else:
