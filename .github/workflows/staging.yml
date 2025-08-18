@@ -42,7 +42,7 @@ jobs:
         
     - name: Install dependencies
       run: |
-        pip install django psycopg2-binary tblib asgiref sqlparse
+        pip install django psycopg2-binary tblib asgiref sqlparse django-environ
         
     - name: Run Django Tests
       env:
