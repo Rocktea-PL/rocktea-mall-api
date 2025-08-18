@@ -2,6 +2,12 @@
 Fast test settings for CI/CD and local testing
 """
 import os
+
+# Set CI environment before importing settings
+os.environ['CI'] = 'true'
+os.environ['SECRET_KEY'] = 'test-secret-key-for-ci-environment-only'
+os.environ['REDIS_URL'] = 'redis://dummy:6379/0'
+
 from .settings import *
 
 # Use PostgreSQL for tests (GitHub Actions provides service)

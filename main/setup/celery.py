@@ -1,9 +1,11 @@
 from celery import Celery
 import os
 from datetime import timedelta
-from django.conf import settings
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'setup.settings')
+
+# Import settings after environment is set
+from django.conf import settings
 
 app = Celery('setup',
    broker=settings.REDIS_URL,
