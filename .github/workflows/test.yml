@@ -12,20 +12,6 @@ jobs:
     timeout-minutes: 5
     
     services:
-      postgres:
-        image: postgres:14
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_DB: test_db
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-          
       redis:
         image: redis:6
         options: >-
@@ -61,11 +47,6 @@ jobs:
         echo "CI=true" >> $GITHUB_ENV
         echo "DJANGO_SETTINGS_MODULE=setup.test_settings" >> $GITHUB_ENV
         echo "REDIS_URL=redis://localhost:6379/0" >> $GITHUB_ENV
-        echo "PGHOST=localhost" >> $GITHUB_ENV
-        echo "PGPORT=5432" >> $GITHUB_ENV
-        echo "PGDATABASE=test_db" >> $GITHUB_ENV
-        echo "PGUSER=postgres" >> $GITHUB_ENV
-        echo "PGPASSWORD=postgres" >> $GITHUB_ENV
         
     - name: Run pylint code quality check
       run: |
@@ -75,4 +56,4 @@ jobs:
     - name: Run tests
       run: |
         cd main
-        python manage.py test --verbosity=0 --parallel 4 --keepdb
+        python manage.py test --verbosity=0 --parallel 2

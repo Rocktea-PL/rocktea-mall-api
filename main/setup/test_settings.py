@@ -15,23 +15,9 @@ os.environ['CLOUDINARY_SECRET'] = 'dummy'
 
 from .settings import *
 
-# Use PostgreSQL for CI tests (compatible with production)
-if 'CI' in os.environ:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'test_db',
-            'USER': 'postgres',
-            'PASSWORD': 'postgres',
-            'HOST': 'localhost',
-            'PORT': '5432',
-            'TEST': {
-                'NAME': 'test_rocktea_mall',
-            },
-        }
-    }
-else:
-    # Use existing PostgreSQL settings from main settings
+# CI database is set above
+if not os.environ.get('CI'):
+    # Use existing PostgreSQL settings from main settings for local testing
     pass
 
 # Use faster password hasher for tests
@@ -39,18 +25,19 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',
 ]
 
-# Disable migrations for faster tests
-MIGRATION_MODULES = {
-    'mall': None,
-    'order': None,
-    'services': None,
-    'accounts': None,
-    'dropshippers': None,
-    'products': None,
-    'admin_orders': None,
-    'dashboards': None,
-    'tenants': None,
+# Use in-memory database for faster tests
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': ':memory:',
+        'OPTIONS': {
+            'timeout': 20,
+        },
+    }
 }
+
+# Keep migrations enabled but optimize
+MIGRATION_MODULES = {}
 
 # Disable logging during tests
 LOGGING_CONFIG = None
