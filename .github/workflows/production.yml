@@ -55,8 +55,9 @@ jobs:
         PGUSER: postgres
         PGPASSWORD: postgres
       run: |
+        pip install tblib
         cd main
-        python manage.py test --verbosity=0 --parallel 2
+        python manage.py test --verbosity=1 --keepdb
         
   deploy:
     name: Deploy to Server

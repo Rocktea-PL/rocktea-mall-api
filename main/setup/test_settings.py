@@ -51,10 +51,14 @@ LOGGING_CONFIG = None
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 
-# Use dummy cache for tests
+# Disable database connection pooling for tests
+DATABASES['default']['CONN_MAX_AGE'] = 0
+
+# Use locmem cache for tests (supports delete_pattern)
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'test-cache',
     }
 }
 
