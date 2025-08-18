@@ -7,6 +7,11 @@ import os
 os.environ['CI'] = 'true'
 os.environ['SECRET_KEY'] = 'test-secret-key-for-ci-environment-only'
 os.environ['REDIS_URL'] = 'redis://dummy:6379/0'
+# Mock Cloudinary settings for CI
+os.environ['CLOUDINARY_URL'] = 'cloudinary://dummy:dummy@dummy'
+os.environ['CLOUDINARY_NAME'] = 'dummy'
+os.environ['CLOUDINARY_API_KEY'] = 'dummy'
+os.environ['CLOUDINARY_SECRET'] = 'dummy'
 
 from .settings import *
 
@@ -68,6 +73,11 @@ STORAGES = {
 }
 
 # Disable external services
-CLOUDINARY_STORAGE = {}
+CLOUDINARY_STORAGE = {
+    'CLOUDINARY_URL': 'cloudinary://dummy:dummy@dummy',
+    'CLOUD_NAME': 'dummy',
+    'API_KEY': 'dummy', 
+    'API_SECRET': 'dummy'
+}
 BREVO_API_KEY = 'test_key'
 TEST_SECRET_KEY = 'test_secret'
