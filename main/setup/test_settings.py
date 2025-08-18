@@ -75,6 +75,20 @@ if 'CI' in os.environ:
 # Use dummy email backend
 EMAIL_BACKEND = 'django.core.mail.backends.dummy.EmailBackend'
 
+# Disable Brevo email in tests
+BREVO_API_KEY = 'disabled_in_tests'
+
+# Mock email task for tests
+if 'CI' in os.environ:
+    from unittest.mock import patch
+    import setup.tasks
+    
+    def mock_send_email_task(*args, **kwargs):
+        return None
+    
+    setup.tasks.send_email_task.delay = mock_send_email_task
+    setup.tasks.send_email_task.apply_async = mock_send_email_task
+
 # Disable file storage for tests
 STORAGES = {
     "staticfiles": {
