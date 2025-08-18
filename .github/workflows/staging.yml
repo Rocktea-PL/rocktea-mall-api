@@ -2,7 +2,7 @@ name: Staging Deployment
 
 on:
   workflow_run:
-    workflows: ["Test Suite (PR/Push Validation)"]
+    workflows: ["Code Quality Check (PR/Push Validation)"]
     types:
       - completed
     branches: [ test ]
