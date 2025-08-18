@@ -1,7 +1,12 @@
-name: Django Production Deployment
+name: Production Deployment
 
 on:
   push:
+    branches: [ master ]
+  workflow_run:
+    workflows: ["Test Suite (PR/Push Validation)"]
+    types:
+      - completed
     branches: [ master ]
 
 env:
@@ -13,7 +18,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    if: |
+      github.ref == 'refs/heads/master' && 
+      (github.event_name == 'push' || 
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     
     steps:
     - name: Deploy to Production

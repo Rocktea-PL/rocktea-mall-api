@@ -10,17 +10,12 @@ os.environ['REDIS_URL'] = 'redis://dummy:6379/0'
 
 from .settings import *
 
-# Use PostgreSQL for tests (GitHub Actions provides service)
+# Use SQLite for CI tests (faster and no version issues)
 if 'CI' in os.environ:
-    # GitHub Actions PostgreSQL service
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ.get('PGDATABASE', 'test_db'),
-            'USER': os.environ.get('PGUSER', 'test_user'),
-            'PASSWORD': os.environ.get('PGPASSWORD', 'test_password'),
-            'HOST': os.environ.get('PGHOST', 'localhost'),
-            'PORT': os.environ.get('PGPORT', '5432'),
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
         }
     }
 else:

@@ -1,9 +1,12 @@
-name: Django CI/CD
+name: Staging Deployment
 
 on:
   push:
     branches: [ test ]
-  pull_request:
+  workflow_run:
+    workflows: ["Test Suite (PR/Push Validation)"]
+    types:
+      - completed
     branches: [ test ]
 
 env:
@@ -15,7 +18,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/test'
+    if: |
+      github.ref == 'refs/heads/test' && 
+      (github.event_name == 'push' || 
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     
     steps:
     - name: Deploy to EC2
