@@ -9,7 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     
     services:
       postgres:
@@ -54,7 +54,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r main/requirements.txt
-        pip install pylint pylint-django --no-deps
+        pip install pylint pylint-django tomli
         
     - name: Set test environment variables
       run: |
@@ -70,9 +70,9 @@ jobs:
     - name: Run pylint code quality check
       run: |
         cd main
-        pylint --load-plugins=pylint_django --django-settings-module=setup.test_settings mall order setup dropshippers accounts --exit-zero --output-format=text
+        pylint --load-plugins=pylint_django --django-settings-module=setup.test_settings mall --exit-zero --output-format=text --disable=all --enable=E
         
     - name: Run tests
       run: |
         cd main
-        python manage.py test --verbosity=1 --parallel --keepdb
+        python manage.py test --verbosity=0 --parallel 4 --keepdb

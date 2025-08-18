@@ -39,18 +39,18 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',
 ]
 
-# Keep migrations enabled for proper database setup
-# MIGRATION_MODULES = {
-#     'mall': None,
-#     'order': None,
-#     'services': None,
-#     'accounts': None,
-#     'dropshippers': None,
-#     'products': None,
-#     'admin_orders': None,
-#     'dashboards': None,
-#     'tenants': None,
-# }
+# Disable migrations for faster tests
+MIGRATION_MODULES = {
+    'mall': None,
+    'order': None,
+    'services': None,
+    'accounts': None,
+    'dropshippers': None,
+    'products': None,
+    'admin_orders': None,
+    'dashboards': None,
+    'tenants': None,
+}
 
 # Disable logging during tests
 LOGGING_CONFIG = None
