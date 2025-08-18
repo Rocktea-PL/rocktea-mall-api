@@ -1,6 +1,8 @@
 name: Staging Deployment
 
 on:
+  push:
+    branches: [ test ]
   workflow_run:
     workflows: ["Code Quality Check (PR/Push Validation)"]
     types:
@@ -18,8 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'test'
+      github.ref == 'refs/heads/test' && 
+      (github.event_name == 'push' || 
+       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'))
     
     steps:
     - name: Deploy to EC2
