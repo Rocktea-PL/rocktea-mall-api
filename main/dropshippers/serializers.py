@@ -241,6 +241,12 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                 
                 # Send welcome email
                 transaction.on_commit(lambda: self._send_welcome_email(user))
+                
+                # Create domain if payment is made and no DNS record exists
+                if store and store_fields['is_payment'] and not store.dns_record_created:
+                    from mall.signals import create_store_domain_after_payment
+                    logger.info(f"Admin created dropshipper with payment - creating domain for store: {store.id}")
+                    transaction.on_commit(lambda: create_store_domain_after_payment(store))
                     
         except IntegrityError as e:
             error_msg = str(e).lower()
@@ -371,10 +377,24 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                             store.has_made_payment = store_fields['is_payment']
                         if store_fields['category'] is not None:
                             store.category_id = store_fields['category']
+                        
+                        # Check if payment status changed to True and domain not already created
+                        payment_changed_to_true = (
+                            store_fields['is_payment'] is True and 
+                            not store.has_made_payment and
+                            not store.dns_record_created
+                        )
+                        
                         store.save()
+                        
+                        # Create domain if payment status changed to True and no DNS record exists
+                        if payment_changed_to_true:
+                            from mall.signals import create_store_domain_after_payment
+                            logger.info(f"Admin updated dropshipper payment status - creating domain for store: {store.id}")
+                            transaction.on_commit(lambda: create_store_domain_after_payment(store))
                     else:
                         # Create new store
-                        Store.objects.create(
+                        store = Store.objects.create(
                             owner=instance,
                             name=store_fields['company_name'],
                             TIN_number=store_fields['tin_number'],
@@ -383,6 +403,12 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                             has_made_payment=store_fields['is_payment'] or False,
                             category_id=store_fields['category']
                         )
+                        
+                        # Create domain if payment is made and no DNS record exists
+                        if store_fields['is_payment'] and not store.dns_record_created:
+                            from mall.signals import create_store_domain_after_payment
+                            logger.info(f"Admin updated dropshipper with payment - creating domain for store: {store.id}")
+                            transaction.on_commit(lambda: create_store_domain_after_payment(store))
                     
         except IntegrityError as e:
             error_msg = str(e).lower()
