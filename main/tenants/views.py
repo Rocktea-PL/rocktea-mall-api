@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework.decorators import action
 from rest_framework.parsers import MultiPartParser, FormParser
-from .tasks import upload_profile_image
+from setup.image_utils import ImageOptimizer
 import base64
 
 from drf_yasg.utils import swagger_auto_schema
@@ -164,25 +164,17 @@ class UpdateProfile(APIView):
             setattr(user, field, data[field])
             updated_fields.append(field)
       
-      # Handle profile image separately for background processing
+      # Handle profile image with optimization
       if 'profile_image' in request.FILES:
          image_file = request.FILES['profile_image']
          
-         # Validate file size (5MB limit)
-         if image_file.size > 5 * 1024 * 1024:
-            return Response({'error': 'Image size must be less than 5MB'}, status=status.HTTP_400_BAD_REQUEST)
+         # Use shared image optimizer
+         image_result = ImageOptimizer.handle_image_upload(image_file, 'profile')
+         if not image_result['success']:
+            return Response({'error': image_result['error']}, status=status.HTTP_400_BAD_REQUEST)
          
-         # Validate file type
-         allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-         if image_file.content_type not in allowed_types:
-            return Response({'error': 'Only JPEG, PNG, and WebP images are allowed'}, status=status.HTTP_400_BAD_REQUEST)
-         
-         # Process image in background
-         file_content = base64.b64encode(image_file.read()).decode('utf-8')
-         upload_profile_image.delay(str(user.id), file_content, image_file.name)
-         
-         # Set temporary message for image processing
-         user.profile_image = 'processing'
+         # Set optimized image URL
+         user.profile_image = image_result['url']
          updated_fields.append('profile_image')
       
       # Save user with updated fields
@@ -191,7 +183,7 @@ class UpdateProfile(APIView):
          
          response_data = {'message': 'Profile updated successfully'}
          if 'profile_image' in updated_fields:
-            response_data['image_status'] = 'processing'
+            response_data['profile_image_url'] = user.profile_image
          
          return Response(response_data, status=status.HTTP_200_OK)
       

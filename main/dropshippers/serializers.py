@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.utils.timezone import now
 from django.db import transaction, IntegrityError
 from setup.utils import sendEmail
+from setup.image_utils import ImageOptimizer
 import logging
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ class DropshipperDetailSerializer(serializers.ModelSerializer):
     store = StoreSerializer(source='owners', read_only=True)
     
     def update(self, instance, validated_data):
-        # Handle profile image deletion safely
+        # Handle profile image update with optimization
         new_profile_image = validated_data.get('profile_image')
         if 'profile_image' in validated_data and new_profile_image != instance.profile_image:
             if instance.profile_image:
@@ -50,6 +51,14 @@ class DropshipperDetailSerializer(serializers.ModelSerializer):
                     instance.profile_image.delete(save=False)
                 except Exception as e:
                     logger.warning(f"Profile image deletion error: {e}")
+            
+            # Optimize new profile image
+            if new_profile_image:
+                image_result = ImageOptimizer.handle_image_upload(new_profile_image, 'profile')
+                if image_result['success']:
+                    validated_data['profile_image'] = image_result['url']
+                else:
+                    logger.warning(f"Profile image optimization failed: {image_result['error']}")
         
         # Update fields
         for attr, value in validated_data.items():
@@ -208,14 +217,24 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         username = f"{base_username}{counter}"
                         counter += 1
                 
-                # Create user with basic fields including profile_image
+                # Handle profile image optimization
+                profile_image_url = None
+                profile_image_file = validated_data.get('profile_image')
+                if profile_image_file:
+                    image_result = ImageOptimizer.handle_image_upload(profile_image_file, 'profile')
+                    if image_result['success']:
+                        profile_image_url = image_result['url']
+                    else:
+                        logger.warning(f"Profile image optimization failed: {image_result['error']}")
+                
+                # Create user with optimized profile image
                 user = CustomUser.objects.create(
                     first_name=validated_data.get('first_name', ''),
                     last_name=validated_data.get('last_name', ''),
                     email=validated_data.get('email'),
                     username=username,
                     contact=contact,
-                    profile_image=validated_data.get('profile_image'),
+                    profile_image=profile_image_url or profile_image_file,
                     is_store_owner=True,
                     is_active=True,
                     is_verified=True,
@@ -229,11 +248,21 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                 # Create store if company name provided
                 store = None
                 if store_fields['company_name']:
+                    # Handle store logo optimization
+                    logo_url = None
+                    logo_file = store_fields['logo']
+                    if logo_file:
+                        logo_result = ImageOptimizer.handle_image_upload(logo_file, 'store_logo')
+                        if logo_result['success']:
+                            logo_url = logo_result['url']
+                        else:
+                            logger.warning(f"Store logo optimization failed: {logo_result['error']}")
+                    
                     store = Store.objects.create(
                         owner=user,
                         name=store_fields['company_name'],
                         TIN_number=store_fields['tin_number'],
-                        logo=store_fields['logo'],
+                        logo=logo_url or logo_file,
                         year_of_establishment=store_fields['year'],
                         has_made_payment=store_fields['is_payment'],
                         category_id=store_fields['category']
@@ -370,7 +399,17 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                         if store_fields['tin_number'] is not None:
                             store.TIN_number = store_fields['tin_number']
                         if store_fields['logo'] is not None:
-                            store.logo = store_fields['logo']
+                            # Optimize store logo if provided
+                            logo_file = store_fields['logo']
+                            if logo_file:
+                                logo_result = ImageOptimizer.handle_image_upload(logo_file, 'store_logo')
+                                if logo_result['success']:
+                                    store.logo = logo_result['url']
+                                else:
+                                    store.logo = logo_file
+                                    logger.warning(f"Store logo optimization failed: {logo_result['error']}")
+                            else:
+                                store.logo = logo_file
                         if store_fields['year'] is not None:
                             store.year_of_establishment = store_fields['year']
                         if store_fields['is_payment'] is not None:

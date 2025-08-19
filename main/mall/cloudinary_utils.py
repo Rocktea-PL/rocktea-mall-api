@@ -33,6 +33,17 @@ class CloudinaryOptimizer:
             {'quality': 'auto:best'},
             {'fetch_format': 'auto'},
             {'background': 'white'}
+        ],
+        'profile_image': [
+            {'width': 200, 'height': 200, 'crop': 'fill', 'gravity': 'face'},
+            {'quality': 'auto:best'},
+            {'fetch_format': 'auto'},
+            {'radius': 'max'}
+        ],
+        'store_cover': [
+            {'width': 1200, 'height': 400, 'crop': 'fill'},
+            {'quality': 'auto:good'},
+            {'fetch_format': 'auto'}
         ]
     }
     

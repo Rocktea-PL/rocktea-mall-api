@@ -66,6 +66,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from django.db import transaction
 from .tasks import upload_image
+from setup.image_utils import ImageOptimizer
 import logging
 from workshop.processor import DomainNameHandler
 from .cloudinary_utils import optimize_product_image, CloudinaryOptimizer
@@ -110,6 +111,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
    queryset = CustomUser.objects.select_related('associated_domain')
    serializer_class = StoreOwnerSerializer
    renderer_classes= [JSONRenderer]
+   parser_classes = [MultiPartParser]
    http_method_names = ['get', 'post', 'patch', 'delete']
    
    def get_permissions(self):
@@ -155,9 +157,20 @@ class CreateStoreOwner(viewsets.ModelViewSet):
             status=status.HTTP_403_FORBIDDEN
          )
       
+      # Initialize user_updated flag
+      user_updated = False
+      
+      # Handle profile image update
+      if 'profile_image' in request.FILES:
+         image_file = request.FILES['profile_image']
+         image_result = ImageOptimizer.handle_image_upload(image_file, 'profile')
+         if not image_result['success']:
+            return Response({'error': image_result['error']}, status=status.HTTP_400_BAD_REQUEST)
+         user.profile_image = image_result['url']
+         user_updated = True
+      
       # Handle user details update
       user_fields = ['completed_steps', 'first_name', 'last_name', 'contact', 'shipping_address']
-      user_updated = False
       
       for field in user_fields:
          if field in request.data:
@@ -359,7 +372,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
             updated_fields.append(field)
             response_data[field] = request.data[field]
       
-      # Handle logo update with Cloudinary optimization
+      # Handle logo update with shared optimization
       if 'logo' in request.FILES:
          if store.logo:
             try:
@@ -368,15 +381,16 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
                logger.warning(f"Logo deletion error: {e}")
          
          logo_file = request.FILES['logo']
-         optimized_logo_url = self._optimize_store_image(logo_file, 'store_logos', 'store_logo')
-         if optimized_logo_url:
-            store.logo = optimized_logo_url
+         logo_result = ImageOptimizer.handle_image_upload(logo_file, 'store_logo')
+         if logo_result['success']:
+            store.logo = logo_result['url']
          else:
             store.logo = logo_file
+            logger.warning(f"Logo optimization failed: {logo_result['error']}")
          updated_fields.append('logo')
-         response_data['logo'] = store.logo.url if hasattr(store.logo, 'url') else store.logo
+         response_data['logo'] = store.logo
       
-      # Handle cover_image update with Cloudinary optimization
+      # Handle cover_image update with shared optimization
       if 'cover_image' in request.FILES:
          if store.cover_image:
             try:
@@ -385,13 +399,14 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
                logger.warning(f"Cover image deletion error: {e}")
          
          cover_file = request.FILES['cover_image']
-         optimized_cover_url = self._optimize_store_image(cover_file, 'store_covers', 'store_cover')
-         if optimized_cover_url:
-            store.cover_image = optimized_cover_url
+         cover_result = ImageOptimizer.handle_image_upload(cover_file, 'store_cover')
+         if cover_result['success']:
+            store.cover_image = cover_result['url']
          else:
             store.cover_image = cover_file
+            logger.warning(f"Cover optimization failed: {cover_result['error']}")
          updated_fields.append('cover_image')
-         response_data['cover_image'] = store.cover_image.url if hasattr(store.cover_image, 'url') else store.cover_image
+         response_data['cover_image'] = store.cover_image
       
       if updated_fields:
          store.save(update_fields=updated_fields)
@@ -402,19 +417,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
             status=status.HTTP_400_BAD_REQUEST
          )
    
-   def _optimize_store_image(self, image_file, folder, transformation_type):
-      """Optimize store images using Cloudinary"""
-      try:
-         from .cloudinary_utils import CloudinaryOptimizer
-         result = CloudinaryOptimizer.upload_optimized(
-            image_file.read(),
-            folder=folder,
-            transformation_type=transformation_type
-         )
-         return result.get('secure_url')
-      except Exception as e:
-         logger.error(f"Error optimizing store image: {e}")
-         return None
+
    
 # Sign In Store User
 class SignInUserView(TokenObtainPairView):
