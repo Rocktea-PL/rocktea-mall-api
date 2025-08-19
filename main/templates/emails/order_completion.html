@@ -86,7 +86,6 @@
         }
         .item {
             display: flex;
-            justify-content: space-between;
             align-items: center;
             padding: 12px 0;
             border-bottom: 1px solid #e2e8f0;
@@ -94,21 +93,34 @@
         .item:last-child {
             border-bottom: none;
         }
+        .item-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            object-fit: cover;
+            margin-right: 12px;
+            background-color: #f7fafc;
+        }
         .item-info {
             flex: 1;
         }
         .item-name {
             font-weight: 500;
             color: #2d3748;
+            margin-bottom: 4px;
         }
         .item-variant {
             font-size: 14px;
             color: #718096;
         }
+        .item-details {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
         .item-quantity {
             font-size: 14px;
             color: #718096;
-            margin: 0 16px;
         }
         .item-price {
             font-weight: 500;
@@ -238,14 +250,21 @@
                 <h4>Items Ordered:</h4>
                 {% for item in order_items %}
                 <div class="item">
+                    {% if item.product_image %}
+                    <img src="{{item.product_image}}" alt="{{item.product_name}}" class="item-image">
+                    {% else %}
+                    <div class="item-image" style="display: flex; align-items: center; justify-content: center; font-size: 12px; color: #a0aec0;">No Image</div>
+                    {% endif %}
                     <div class="item-info">
                         <div class="item-name">{{item.product_name}}</div>
                         {% if item.variant_name %}
                         <div class="item-variant">{{item.variant_name}}</div>
                         {% endif %}
                     </div>
-                    <div class="item-quantity">Qty: {{item.quantity}}</div>
-                    <div class="item-price">₦{{item.total_price}}</div>
+                    <div class="item-details">
+                        <div class="item-quantity">Qty: {{item.quantity}}</div>
+                        <div class="item-price">₦{{item.total_price}}</div>
+                    </div>
                 </div>
                 {% endfor %}
             </div>

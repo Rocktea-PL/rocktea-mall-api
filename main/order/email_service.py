@@ -13,30 +13,32 @@ class OrderEmailService:
     
     @staticmethod
     def get_order_items_data(order) -> tuple[List[Dict], Decimal]:
-        """Extract and format order items with accurate pricing"""
+        """Extract and format order items with accurate pricing and images"""
         order_items = []
         subtotal = Decimal('0.00')
         
         for item in order.items.all():
+            # Get store pricing - same as products endpoint
             try:
-                # Get store pricing for accurate customer pricing
                 from mall.models import StoreProductPricing
                 store_pricing = StoreProductPricing.objects.get(
                     product=item.product, 
                     store=order.store
                 )
                 unit_price = store_pricing.retail_price
-                item_total = unit_price * item.quantity
-                subtotal += item_total
-                
             except StoreProductPricing.DoesNotExist:
-                # Fallback to wholesale price if store pricing not found
-                unit_price = item.product_variant.wholesale_price if item.product_variant else Decimal('0.00')
-                item_total = unit_price * item.quantity
-                subtotal += item_total
-                logger.warning(f"Store pricing not found for product {item.product.id}, using wholesale price")
+                unit_price = Decimal('0.00')
             
-            # Format variant information
+            item_total = unit_price * item.quantity
+            subtotal += item_total
+            
+            # Get product image
+            product_image = None
+            first_image = item.product.images.first()
+            if first_image and first_image.images:
+                product_image = first_image.images.url
+            
+            # Format variant
             variant_name = OrderEmailService._format_variant_name(item.product_variant)
             
             order_items.append({
@@ -44,7 +46,8 @@ class OrderEmailService:
                 'variant_name': variant_name,
                 'quantity': item.quantity,
                 'unit_price': f"{float(unit_price):.2f}",
-                'total_price': f"{float(item_total):.2f}"
+                'total_price': f"{float(item_total):.2f}",
+                'product_image': product_image
             })
         
         return order_items, subtotal

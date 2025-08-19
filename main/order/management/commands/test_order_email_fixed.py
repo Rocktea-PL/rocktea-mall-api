@@ -29,15 +29,17 @@ class Command(BaseCommand):
             return
         
         try:
-            order = StoreOrder.objects.get(id=order_id)
-            self.stdout.write(f"Testing email for order: {order.order_sn}")
-            self.stdout.write(f"Customer: {order.buyer.email}")
-            self.stdout.write(f"Store: {order.store.name}")
-            self.stdout.write(f"Items count: {order.items.count()}")
+            # Debug order data first
+            from order.debug_email import debug_order_email
+            self.stdout.write("=== DEBUG ORDER DATA ===")
+            context = debug_order_email(order_id)
             
-            # Send email
-            result = send_order_completion_email_task.delay(order_id)
-            self.stdout.write(self.style.SUCCESS(f'Email task initiated: {result.id}'))
+            if context and context.get('has_items'):
+                # Send email
+                result = send_order_completion_email_task.delay(order_id)
+                self.stdout.write(self.style.SUCCESS(f'Email task initiated: {result.id}'))
+            else:
+                self.stdout.write(self.style.WARNING('No items found in order - email may be incomplete'))
             
         except StoreOrder.DoesNotExist:
             self.stdout.write(self.style.ERROR(f'Order not found: {order_id}'))
