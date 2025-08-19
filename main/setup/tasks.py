@@ -157,84 +157,16 @@ def send_order_completion_email_task(self, order_id):
     """Send order completion email for a specific order"""
     try:
         from order.models import StoreOrder
-        from datetime import datetime
+        from order.email_service import OrderEmailService
         
-        order = StoreOrder.objects.get(id=order_id)
+        order = StoreOrder.objects.select_related('buyer', 'store', 'state').prefetch_related('items__product', 'items__product_variant').get(id=order_id)
         
         if not order.buyer or not order.buyer.email:
             logger.warning(f"No buyer email for order {order_id}")
             return f"No buyer email for order {order_id}"
         
-        # Get order items with proper pricing
-        order_items = []
-        subtotal = 0
-        
-        for item in order.items.all():
-            try:
-                # Get store pricing for accurate customer pricing
-                from mall.models import StoreProductPricing
-                store_pricing = StoreProductPricing.objects.get(
-                    product=item.product, 
-                    store=order.store
-                )
-                item_price = float(store_pricing.retail_price) * item.quantity
-                subtotal += item_price
-                
-                variant_name = None
-                if item.product_variant:
-                    if item.product_variant.colors:
-                        variant_name = ', '.join(item.product_variant.colors)
-                    elif item.product_variant.size:
-                        variant_name = item.product_variant.size
-                
-                order_items.append({
-                    'product_name': item.product.name,
-                    'variant_name': variant_name,
-                    'quantity': item.quantity,
-                    'price': f"{item_price:.2f}"
-                })
-            except StoreProductPricing.DoesNotExist:
-                # Fallback to wholesale price if store pricing not found
-                item_price = float(item.product_variant.wholesale_price) * item.quantity if item.product_variant else 0
-                subtotal += item_price
-                
-                variant_name = None
-                if item.product_variant:
-                    if item.product_variant.colors:
-                        variant_name = ', '.join(item.product_variant.colors)
-                    elif item.product_variant.size:
-                        variant_name = item.product_variant.size
-                
-                order_items.append({
-                    'product_name': item.product.name,
-                    'variant_name': variant_name,
-                    'quantity': item.quantity,
-                    'price': f"{item_price:.2f}"
-                })
-        
-        # Get delivery fee
-        delivery_fee = 0
-        if order.state:
-            delivery_fee = float(order.state.delivery_fee)
-        elif order.shipping_fee:
-            delivery_fee = float(order.shipping_fee)
-        
-        # Prepare email context
-        context = {
-            'customer_name': f"{order.buyer.first_name} {order.buyer.last_name}".strip() or order.buyer.email,
-            'store_name': order.store.name,
-            'order_number': order.order_sn,
-            'order_date': order.created_at.strftime('%B %d, %Y') if order.created_at else datetime.now().strftime('%B %d, %Y'),
-            'order_status': order.status,
-            'subtotal': f"{subtotal:.2f}",
-            'delivery_fee': f"{delivery_fee:.2f}",
-            'total_amount': f"{float(order.total_price):.2f}" if order.total_price else "0.00",
-            'delivery_location': order.delivery_location,
-            'delivery_code': order.delivery_code,
-            'tracking_url': order.tracking_url,
-            'order_items': order_items,
-            'current_year': datetime.now().year
-        }
+        # Build email context using service
+        context = OrderEmailService.build_email_context(order)
         
         # Send email
         email_result = send_email_task(
@@ -245,14 +177,14 @@ def send_order_completion_email_task(self, order_id):
             tags=['order_completion', 'customer_notification']
         )
         
-        logger.info(f"Order completion email sent for order {order_id} to {order.buyer.email}")
-        return f"Email sent for order {order_id}"
+        logger.info(f"Order completion email sent for order {order_id} to {order.buyer.email} with {len(context.get('order_items', []))} items")
+        return f"Email sent for order {order_id} with {len(context.get('order_items', []))} items"
         
     except StoreOrder.DoesNotExist:
         logger.error(f"Order not found: {order_id}")
         return f"Order not found: {order_id}"
     except Exception as e:
-        logger.error(f"Failed to send order completion email for order {order_id}: {e}")
+        logger.error(f"Failed to send order completion email for order {order_id}: {e}", exc_info=True)
         try:
             self.retry(exc=e)
         except self.MaxRetriesExceededError:

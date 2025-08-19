@@ -217,13 +217,11 @@
                     <span>{{delivery_location}}</span>
                 </div>
                 {% endif %}
-                {% if subtotal %}
+                {% if delivery_fee and delivery_fee != '0.00' %}
                 <div class="order-detail">
                     <span>Subtotal:</span>
                     <span>₦{{subtotal}}</span>
                 </div>
-                {% endif %}
-                {% if delivery_fee and delivery_fee != '0.00' %}
                 <div class="order-detail">
                     <span>Delivery Fee:</span>
                     <span>₦{{delivery_fee}}</span>
@@ -235,7 +233,7 @@
                 </div>
             </div>
             
-            {% if order_items %}
+            {% if has_items and order_items %}
             <div class="order-items">
                 <h4>Items Ordered:</h4>
                 {% for item in order_items %}
@@ -247,9 +245,14 @@
                         {% endif %}
                     </div>
                     <div class="item-quantity">Qty: {{item.quantity}}</div>
-                    <div class="item-price">₦{{item.price}}</div>
+                    <div class="item-price">₦{{item.total_price}}</div>
                 </div>
                 {% endfor %}
+            </div>
+            {% elif not has_items %}
+            <div class="order-items">
+                <h4>Items Ordered:</h4>
+                <p style="color: #718096; font-style: italic;">Order items are being processed and will be updated shortly.</p>
             </div>
             {% endif %}
             

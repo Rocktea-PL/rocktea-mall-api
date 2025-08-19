@@ -278,6 +278,11 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
 
       # Process shipment if available
       process_shipment_details(user_id, order)
+      
+      # Send order completion email
+      from setup.tasks import send_order_completion_email_task
+      send_order_completion_email_task.delay(order.id)
+      logger.info(f"Order completion email task initiated for order: {order.id}")
 
       return JsonResponse(order_serializer.data, status=status.HTTP_201_CREATED)
 
