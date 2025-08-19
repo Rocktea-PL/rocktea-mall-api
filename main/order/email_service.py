@@ -81,31 +81,27 @@ class OrderEmailService:
     
     @staticmethod
     def _format_variant_name(product_variant) -> Optional[str]:
-        """Format product variant information"""
+        """Format product variant information - show selected values only"""
         if not product_variant:
             return None
             
         variant_parts = []
         
-        # Handle size - if it's a list, show as options, if single value, show as selected
+        # Handle size - extract single values from arrays
         if product_variant.size:
-            if isinstance(product_variant.size, list) and len(product_variant.size) == 1:
-                variant_parts.append(f"Size: {product_variant.size[0]}")
-            elif isinstance(product_variant.size, str):
-                variant_parts.append(f"Size: {product_variant.size}")
+            if isinstance(product_variant.size, list):
+                # Join multiple sizes with comma (shouldn't happen but handle gracefully)
+                sizes = ', '.join(product_variant.size)
+                variant_parts.append(f"Size: {sizes}")
             else:
-                # Multiple sizes - this shouldn't happen in order items but handle gracefully
-                sizes = ', '.join(product_variant.size) if isinstance(product_variant.size, list) else str(product_variant.size)
-                variant_parts.append(f"Size Options: {sizes}")
+                variant_parts.append(f"Size: {product_variant.size}")
             
-        # Handle colors - if it's a list, show as options, if single value, show as selected
+        # Handle colors - extract single values from arrays  
         if product_variant.colors:
             if isinstance(product_variant.colors, list):
-                if len(product_variant.colors) == 1:
-                    variant_parts.append(f"Color: {product_variant.colors[0]}")
-                else:
-                    colors = ', '.join(product_variant.colors)
-                    variant_parts.append(f"Color Options: {colors}")
+                # Join multiple colors with comma
+                colors = ', '.join(product_variant.colors)
+                variant_parts.append(f"Color: {colors}")
             else:
                 variant_parts.append(f"Color: {str(product_variant.colors)}")
         

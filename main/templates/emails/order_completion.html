@@ -86,9 +86,10 @@
         }
         .item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             padding: 12px 0;
             border-bottom: 1px solid #e2e8f0;
+            gap: 12px;
         }
         .item:last-child {
             border-bottom: none;
@@ -118,7 +119,8 @@
             flex-direction: column;
             align-items: flex-end;
             text-align: right;
-            min-width: 80px;
+            min-width: 100px;
+            flex-shrink: 0;
         }
         .item-quantity {
             font-size: 14px;
