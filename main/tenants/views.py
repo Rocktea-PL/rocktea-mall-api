@@ -19,11 +19,10 @@ import base64
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
-import logging  # Add this import at the top of your file
+import logging
 
 # Configure the logger
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.ERROR)  # Set the logging level
 
 handler = DomainNameHandler()
 
@@ -151,40 +150,51 @@ class UpdateProfile(APIView):
    )
    def patch(self, request):
       """Update user profile with background image processing"""
-      user = request.user
-      data = request.data
-      
-      # Fields that can be updated
-      updatable_fields = ['first_name', 'last_name', 'contact', 'username']
-      updated_fields = []
-      
-      # Update text fields
-      for field in updatable_fields:
-         if field in data and data[field]:
-            setattr(user, field, data[field])
-            updated_fields.append(field)
-      
-      # Handle profile image with optimization
-      if 'profile_image' in request.FILES:
-         image_file = request.FILES['profile_image']
+      try:
+         user = request.user
+         data = request.data
          
-         # Use shared image optimizer
-         image_result = ImageOptimizer.handle_image_upload(image_file, 'profile')
-         if not image_result['success']:
-            return Response({'error': image_result['error']}, status=status.HTTP_400_BAD_REQUEST)
+         # Fields that can be updated
+         updatable_fields = ['first_name', 'last_name', 'contact', 'username']
+         updated_fields = []
          
-         # Set optimized image URL
-         user.profile_image = image_result['url']
-         updated_fields.append('profile_image')
+         # Update text fields
+         for field in updatable_fields:
+            if field in data and data[field]:
+               setattr(user, field, data[field])
+               updated_fields.append(field)
+         
+         # Handle profile image with optimization
+         if 'profile_image' in request.FILES:
+            image_file = request.FILES['profile_image']
+            
+            try:
+               # Delete old profile image if exists
+               if user.profile_image:
+                  try:
+                     user.profile_image.delete(save=False)
+                  except Exception as e:
+                     logger.warning(f"Profile image deletion error: {e}")
+               
+               # Save the uploaded file directly - Cloudinary storage will handle optimization
+               user.profile_image = image_file
+               updated_fields.append('profile_image')
+            except Exception as e:
+               logger.error(f"Image upload error: {str(e)}")
+               return Response({'error': 'Image upload failed'}, status=status.HTTP_400_BAD_REQUEST)
+         
+         # Save user with updated fields
+         if updated_fields:
+            user.save(update_fields=updated_fields)
+            
+            response_data = {'message': 'Profile updated successfully'}
+            if 'profile_image' in updated_fields:
+               response_data['profile_image_url'] = user.profile_image.url if user.profile_image else None
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+         
+         return Response({'message': 'No fields to update'}, status=status.HTTP_400_BAD_REQUEST)
       
-      # Save user with updated fields
-      if updated_fields:
-         user.save(update_fields=updated_fields)
-         
-         response_data = {'message': 'Profile updated successfully'}
-         if 'profile_image' in updated_fields:
-            response_data['profile_image_url'] = user.profile_image
-         
-         return Response(response_data, status=status.HTTP_200_OK)
-      
-      return Response({'message': 'No fields to update'}, status=status.HTTP_400_BAD_REQUEST)
+      except Exception as e:
+         logger.error(f"Profile update error: {str(e)}")
+         return Response({'error': 'Profile update failed'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

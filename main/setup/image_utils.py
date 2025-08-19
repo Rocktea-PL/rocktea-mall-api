@@ -57,6 +57,9 @@ class ImageOptimizer:
             folder = folder_map.get(image_type, 'uploads')
             transformation = transformation_map.get(image_type, 'medium')
             
+            # Reset file pointer to beginning
+            image_file.seek(0)
+            
             result = CloudinaryOptimizer.upload_optimized(
                 image_file.read(),
                 folder=folder,
@@ -70,14 +73,18 @@ class ImageOptimizer:
     @classmethod
     def handle_image_upload(cls, image_file: InMemoryUploadedFile, image_type: str) -> Dict[str, Any]:
         """Handle image upload with validation using mall's infrastructure"""
-        # Validate image
-        validation = cls.validate_image(image_file)
-        if not validation['valid']:
-            return {'success': False, 'url': None, 'error': validation['error']}
-        
-        # Use mall's optimization for all image types
-        optimized_url = cls.optimize_store_image(image_file, image_type)
-        if optimized_url:
-            return {'success': True, 'url': optimized_url, 'error': None}
-        else:
-            return {'success': False, 'url': None, 'error': 'Image optimization failed'}
+        try:
+            # Validate image
+            validation = cls.validate_image(image_file)
+            if not validation['valid']:
+                return {'success': False, 'url': None, 'error': validation['error']}
+            
+            # Use mall's optimization for all image types
+            optimized_url = cls.optimize_store_image(image_file, image_type)
+            if optimized_url:
+                return {'success': True, 'url': optimized_url, 'error': None}
+            else:
+                return {'success': False, 'url': None, 'error': 'Image optimization failed'}
+        except Exception as e:
+            logger.error(f"Image upload handler error: {str(e)}")
+            return {'success': False, 'url': None, 'error': f'Upload failed: {str(e)}'}
