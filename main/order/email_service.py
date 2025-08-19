@@ -87,23 +87,47 @@ class OrderEmailService:
             
         variant_parts = []
         
+        # Handle size - if it's a list, show as options, if single value, show as selected
         if product_variant.size:
-            variant_parts.append(f"Size: {product_variant.size}")
+            if isinstance(product_variant.size, list) and len(product_variant.size) == 1:
+                variant_parts.append(f"Size: {product_variant.size[0]}")
+            elif isinstance(product_variant.size, str):
+                variant_parts.append(f"Size: {product_variant.size}")
+            else:
+                # Multiple sizes - this shouldn't happen in order items but handle gracefully
+                sizes = ', '.join(product_variant.size) if isinstance(product_variant.size, list) else str(product_variant.size)
+                variant_parts.append(f"Size Options: {sizes}")
             
+        # Handle colors - if it's a list, show as options, if single value, show as selected
         if product_variant.colors:
-            colors = ', '.join(product_variant.colors) if isinstance(product_variant.colors, list) else str(product_variant.colors)
-            variant_parts.append(f"Color: {colors}")
+            if isinstance(product_variant.colors, list):
+                if len(product_variant.colors) == 1:
+                    variant_parts.append(f"Color: {product_variant.colors[0]}")
+                else:
+                    colors = ', '.join(product_variant.colors)
+                    variant_parts.append(f"Color Options: {colors}")
+            else:
+                variant_parts.append(f"Color: {str(product_variant.colors)}")
         
         return ' | '.join(variant_parts) if variant_parts else None
     
     @staticmethod
     def get_delivery_fee(order) -> Decimal:
         """Calculate delivery fee from various sources"""
-        if order.state and order.state.delivery_fee:
-            return Decimal(str(order.state.delivery_fee))
-        elif order.shipping_fee:
-            return Decimal(str(order.shipping_fee))
-        return Decimal('0.00')
+        delivery_fee = Decimal('0.00')
+        
+        # Check shipping_fee first (from shipment processing)
+        if order.shipping_fee and order.shipping_fee > 0:
+            delivery_fee = Decimal(str(order.shipping_fee))
+            logger.info(f"Using shipping_fee: ₦{delivery_fee}")
+        # Fallback to state delivery fee
+        elif order.state and order.state.delivery_fee and order.state.delivery_fee > 0:
+            delivery_fee = Decimal(str(order.state.delivery_fee))
+            logger.info(f"Using state delivery_fee: ₦{delivery_fee}")
+        else:
+            logger.info(f"No delivery fee found, using ₦0.00")
+        
+        return delivery_fee
     
     @staticmethod
     def build_email_context(order) -> Dict:

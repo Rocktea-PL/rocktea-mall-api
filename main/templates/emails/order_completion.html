@@ -115,16 +115,20 @@
         }
         .item-details {
             display: flex;
-            align-items: center;
-            gap: 16px;
+            flex-direction: column;
+            align-items: flex-end;
+            text-align: right;
+            min-width: 80px;
         }
         .item-quantity {
             font-size: 14px;
             color: #718096;
+            margin-bottom: 4px;
         }
         .item-price {
             font-weight: 500;
             color: #2d3748;
+            font-size: 16px;
         }
         .tracking-info {
             background-color: #edf2f7;
@@ -188,6 +192,11 @@
                 flex-direction: column;
                 align-items: flex-start;
             }
+            .item-details {
+                align-items: flex-start;
+                text-align: left;
+                margin-top: 8px;
+            }
             .item-quantity {
                 margin: 4px 0;
             }
@@ -212,35 +221,35 @@
             <div class="order-summary">
                 <h3>Order Summary</h3>
                 <div class="order-detail">
-                    <span>Order Number:</span>
+                    <span>Order Number: </span>
                     <span><strong>#{{order_number}}</strong></span>
                 </div>
                 <div class="order-detail">
-                    <span>Order Date:</span>
+                    <span>Order Date: </span>
                     <span>{{order_date}}</span>
                 </div>
                 <div class="order-detail">
-                    <span>Status:</span>
+                    <span>Status: </span>
                     <span><strong>{{order_status}}</strong></span>
                 </div>
                 {% if delivery_location %}
                 <div class="order-detail">
-                    <span>Delivery Address:</span>
+                    <span>Delivery Address: </span>
                     <span>{{delivery_location}}</span>
                 </div>
                 {% endif %}
                 {% if delivery_fee and delivery_fee != '0.00' %}
                 <div class="order-detail">
-                    <span>Subtotal:</span>
+                    <span>Subtotal: </span>
                     <span>₦{{subtotal}}</span>
                 </div>
                 <div class="order-detail">
-                    <span>Delivery Fee:</span>
+                    <span>Delivery Fee: </span>
                     <span>₦{{delivery_fee}}</span>
                 </div>
                 {% endif %}
                 <div class="order-detail total">
-                    <span>Total Amount:</span>
+                    <span>Total Amount: </span>
                     <span><strong>₦{{total_amount}}</strong></span>
                 </div>
             </div>
