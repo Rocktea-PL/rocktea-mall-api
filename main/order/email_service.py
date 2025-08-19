@@ -17,7 +17,14 @@ class OrderEmailService:
         order_items = []
         subtotal = Decimal('0.00')
         
-        for item in order.items.all():
+        # Debug logging
+        logger.info(f"Getting order items for order {order.id} (#{order.order_sn})")
+        items_queryset = order.items.select_related('product', 'product_variant').prefetch_related('product__images')
+        logger.info(f"Found {items_queryset.count()} items in order")
+        
+        for item in items_queryset:
+            logger.info(f"Processing item: {item.product.name} (ID: {item.product.id})")
+            
             # Get store pricing - same as products endpoint
             try:
                 from mall.models import StoreProductPricing
@@ -26,7 +33,17 @@ class OrderEmailService:
                     store=order.store
                 )
                 unit_price = store_pricing.retail_price
+                logger.info(f"Found store pricing: ₦{unit_price}")
             except StoreProductPricing.DoesNotExist:
+                logger.warning(f"No store pricing found for product {item.product.name} in store {order.store.name}")
+                # Fallback to order total divided by quantity if available
+                if order.total_price and order.items.count() > 0:
+                    unit_price = Decimal(str(order.total_price)) / order.items.count()
+                    logger.info(f"Using fallback pricing: ₦{unit_price}")
+                else:
+                    unit_price = Decimal('0.00')
+            except Exception as e:
+                logger.error(f"Error getting store pricing: {e}")
                 unit_price = Decimal('0.00')
             
             item_total = unit_price * item.quantity
@@ -34,22 +51,32 @@ class OrderEmailService:
             
             # Get product image
             product_image = None
-            first_image = item.product.images.first()
-            if first_image and first_image.images:
-                product_image = first_image.images.url
+            try:
+                first_image = item.product.images.first()
+                if first_image and hasattr(first_image, 'images') and first_image.images:
+                    product_image = first_image.images.url
+                    logger.info(f"Found product image: {product_image}")
+                else:
+                    logger.info(f"No image found for product {item.product.name}")
+            except Exception as e:
+                logger.error(f"Error getting product image: {e}")
             
             # Format variant
             variant_name = OrderEmailService._format_variant_name(item.product_variant)
             
-            order_items.append({
+            order_item = {
                 'product_name': item.product.name,
                 'variant_name': variant_name,
                 'quantity': item.quantity,
                 'unit_price': f"{float(unit_price):.2f}",
                 'total_price': f"{float(item_total):.2f}",
                 'product_image': product_image
-            })
+            }
+            
+            order_items.append(order_item)
+            logger.info(f"Added order item: {order_item}")
         
+        logger.info(f"Total order items: {len(order_items)}, Subtotal: ₦{subtotal}")
         return order_items, subtotal
     
     @staticmethod
@@ -81,18 +108,26 @@ class OrderEmailService:
     @staticmethod
     def build_email_context(order) -> Dict:
         """Build complete email context for order completion email"""
+        logger.info(f"Building email context for order {order.id} (#{order.order_sn})")
+        
         order_items, subtotal = OrderEmailService.get_order_items_data(order)
         delivery_fee = OrderEmailService.get_delivery_fee(order)
         total_amount = Decimal(str(order.total_price)) if order.total_price else Decimal('0.00')
         
         # Customer name with fallback
-        customer_name = f"{order.buyer.first_name} {order.buyer.last_name}".strip()
-        if not customer_name:
-            customer_name = order.buyer.email.split('@')[0].title()
+        customer_name = ""
+        if order.buyer:
+            customer_name = f"{order.buyer.first_name or ''} {order.buyer.last_name or ''}".strip()
+            if not customer_name and order.buyer.email:
+                customer_name = order.buyer.email.split('@')[0].title()
         
-        return {
+        logger.info(f"Customer name: {customer_name}")
+        logger.info(f"Order items count: {len(order_items)}")
+        logger.info(f"Has items: {len(order_items) > 0}")
+        
+        context = {
             'customer_name': customer_name,
-            'store_name': order.store.name,
+            'store_name': order.store.name if order.store else 'Unknown Store',
             'order_number': order.order_sn,
             'order_date': order.created_at.strftime('%B %d, %Y') if order.created_at else datetime.now().strftime('%B %d, %Y'),
             'order_status': order.status,
@@ -106,3 +141,6 @@ class OrderEmailService:
             'current_year': datetime.now().year,
             'has_items': len(order_items) > 0
         }
+        
+        logger.info(f"Email context built successfully with {len(order_items)} items")
+        return context

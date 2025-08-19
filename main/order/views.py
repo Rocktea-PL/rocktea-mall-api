@@ -1032,18 +1032,27 @@ class Paystack(viewsets.ViewSet):
    @action(detail=False, methods=['post'], url_path='send-order-email')
    def send_order_completion_email(self, request):
       """Manually trigger order completion email for testing"""
+      order_sn = request.data.get('order_sn')
       order_id = request.data.get('order_id')
       
-      if not order_id:
-         return JsonResponse({"error": "order_id is required"}, status=400)
+      if not order_id and not order_sn:
+         return JsonResponse({"error": "order_id or order_sn is required"}, status=400)
       
       try:
+         # Find order by order_sn if provided, otherwise use order_id
+         if order_sn:
+            order = StoreOrder.objects.get(order_sn=order_sn)
+            order_id = order.id
+         
          from setup.tasks import send_order_completion_email_task
          task = send_order_completion_email_task.delay(order_id)
          return JsonResponse({
             "message": "Order completion email task initiated",
             "task_id": task.id,
-            "order_id": order_id
+            "order_id": order_id,
+            "order_sn": order_sn
          })
+      except StoreOrder.DoesNotExist:
+         return JsonResponse({"error": f"Order not found: {order_sn or order_id}"}, status=404)
       except Exception as e:
          return JsonResponse({"error": str(e)}, status=500)

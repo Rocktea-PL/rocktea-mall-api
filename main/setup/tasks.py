@@ -155,20 +155,35 @@ def log_webhook_attempt(self, reference, email, purpose, status):
 @app.task(bind=True, default_retry_delay=300, max_retries=3)
 def send_order_completion_email_task(self, order_id):
     """Send order completion email for a specific order"""
+    logger.info(f"=== ORDER EMAIL TASK STARTED for order_id: {order_id} ===")
+    
     try:
         from order.models import StoreOrder
         from order.email_service import OrderEmailService
         
-        order = StoreOrder.objects.select_related('buyer', 'store', 'state').prefetch_related('items__product', 'items__product_variant').get(id=order_id)
+        # Get order with all related data
+        order = StoreOrder.objects.select_related(
+            'buyer', 'store', 'state'
+        ).prefetch_related(
+            'items__product__images', 
+            'items__product_variant'
+        ).get(id=order_id)
+        
+        logger.info(f"Found order: #{order.order_sn} for buyer: {order.buyer.email if order.buyer else 'No buyer'}")
+        logger.info(f"Order has {order.items.count()} items")
         
         if not order.buyer or not order.buyer.email:
             logger.warning(f"No buyer email for order {order_id}")
             return f"No buyer email for order {order_id}"
         
         # Build email context using service
+        logger.info(f"Building email context...")
         context = OrderEmailService.build_email_context(order)
         
+        logger.info(f"Email context built - has_items: {context.get('has_items')}, items_count: {len(context.get('order_items', []))}")
+        
         # Send email
+        logger.info(f"Sending email to: {order.buyer.email}")
         email_result = send_email_task(
             recipient_email=order.buyer.email,
             template_name='emails/order_completion.html',
@@ -178,6 +193,8 @@ def send_order_completion_email_task(self, order_id):
         )
         
         logger.info(f"Order completion email sent for order {order_id} to {order.buyer.email} with {len(context.get('order_items', []))} items")
+        logger.info(f"Email result: {email_result}")
+        
         return f"Email sent for order {order_id} with {len(context.get('order_items', []))} items"
         
     except StoreOrder.DoesNotExist:
