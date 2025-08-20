@@ -61,8 +61,8 @@ class OrderEmailService:
             except Exception as e:
                 logger.error(f"Error getting product image: {e}")
             
-            # Format variant
-            variant_name = OrderEmailService._format_variant_name(item.product_variant)
+            # Format variant using selected values if available
+            variant_name = OrderEmailService._format_variant_name(item.product_variant, item)
             
             order_item = {
                 'product_name': item.product.name,
@@ -80,30 +80,36 @@ class OrderEmailService:
         return order_items, subtotal
     
     @staticmethod
-    def _format_variant_name(product_variant) -> Optional[str]:
+    def _format_variant_name(product_variant, order_item=None) -> Optional[str]:
         """Format product variant information - show selected values only"""
+        variant_parts = []
+        
+        # Use variant_details JSON if available (exact customer selection)
+        if order_item and hasattr(order_item, 'variant_details') and order_item.variant_details:
+            details = order_item.variant_details
+            if details.get('size'):
+                variant_parts.append(f"Size: {details['size']}")
+            if details.get('color'):
+                variant_parts.append(f"Color: {details['color']}")
+            return ' | '.join(variant_parts) if variant_parts else None
+        
+        # Fallback to product_variant data (show single values only)
         if not product_variant:
             return None
             
-        variant_parts = []
-        
-        # Handle size - extract single values from arrays
         if product_variant.size:
-            if isinstance(product_variant.size, list):
-                # Join multiple sizes with comma (shouldn't happen but handle gracefully)
-                sizes = ', '.join(product_variant.size)
-                variant_parts.append(f"Size: {sizes}")
-            else:
-                variant_parts.append(f"Size: {product_variant.size}")
-            
-        # Handle colors - extract single values from arrays  
+            size_value = product_variant.size
+            if isinstance(size_value, list) and len(size_value) == 1:
+                variant_parts.append(f"Size: {size_value[0]}")
+            elif isinstance(size_value, str):
+                variant_parts.append(f"Size: {size_value}")
+        
         if product_variant.colors:
-            if isinstance(product_variant.colors, list):
-                # Join multiple colors with comma
-                colors = ', '.join(product_variant.colors)
-                variant_parts.append(f"Color: {colors}")
-            else:
-                variant_parts.append(f"Color: {str(product_variant.colors)}")
+            color_value = product_variant.colors
+            if isinstance(color_value, list) and len(color_value) == 1:
+                variant_parts.append(f"Color: {color_value[0]}")
+            elif isinstance(color_value, str):
+                variant_parts.append(f"Color: {color_value}")
         
         return ' | '.join(variant_parts) if variant_parts else None
     

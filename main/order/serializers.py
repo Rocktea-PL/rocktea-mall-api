@@ -142,24 +142,42 @@ class OrderSerializer(serializers.ModelSerializer):
 
 class CartItemSerializer(serializers.ModelSerializer):
    product = serializers.SerializerMethodField()
+   formatted_price = serializers.SerializerMethodField()
    
    class Meta:
       model = CartItem
-      fields = ['id', 'product', 'product_variant', 'quantity', 'price']
+      fields = ['id', 'product', 'product_variant', 'quantity', 'price', 'formatted_price']
       
    def get_product(self, obj):
-      return {"id": obj.product.id, "name": obj.product.name, "images": [image.images.url for image in obj.product.images.all()] if obj.product.name else None} if obj.product.name else None
+      if obj.product:
+         return {
+            "id": obj.product.id, 
+            "name": obj.product.name, 
+            "images": [image.images.url for image in obj.product.images.all()]
+         }
+      return None
+   
+   def get_formatted_price(self, obj):
+      return f"{float(obj.price):.2f}" if obj.price else "0.00"
 
 class CartSerializer(serializers.ModelSerializer):
    items = CartItemSerializer(many=True, read_only=True)
    user = serializers.SerializerMethodField()
+   total_price = serializers.SerializerMethodField()
+   items_count = serializers.SerializerMethodField()
 
    class Meta:
       model = Cart
-      fields = ['id', 'user',  'store', 'created_at', 'items']
+      fields = ['id', 'user', 'store', 'created_at', 'items', 'total_price', 'items_count']
 
    def get_user(self, obj):
       return f"{obj.user.first_name} {obj.user.last_name}"
+   
+   def get_total_price(self, obj):
+      return f"{float(obj.price):.2f}" if obj.price else "0.00"
+   
+   def get_items_count(self, obj):
+      return obj.items.count()
 
    def validate_items(self, value):
       if not value:

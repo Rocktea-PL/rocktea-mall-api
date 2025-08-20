@@ -465,11 +465,12 @@ class OrderItemsViewSet(ModelViewSet):
    serializer_class = OrderItemsSerializer
 
 class CartViewSet(viewsets.ViewSet):
-   # authentication_classes = [TokenAuthentication]
    renderer_classes = [JSONRenderer,]
    permission_classes = [IsAuthenticated]
 
    def create(self, request):
+      from .cart_service import CartService
+      
       user = request.user
       store_domain = handler.process_request(store_domain=get_store_domain(request))
       verified_store = get_object_or_404(Store, id=store_domain)
@@ -478,52 +479,35 @@ class CartViewSet(viewsets.ViewSet):
       if not products:
          return Response({"error": "Products are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-      # Check if the user already has a cart
-      # cart = Cart.objects.filter(user=user, store=verified_store).first()
-      # cart, created = Cart.objects.get_or_create(user=user, store=verified_store)
-      # Get or create the cart using get_or_create instead of filter/create
+      # Get or create cart
       cart, created = Cart.objects.get_or_create(
          user=user,
          store=verified_store,
-         defaults={'price': Decimal('0.00')}  # Add any default values here
+         defaults={'price': Decimal('0.00')}
       )
          
       for product in products:
-         product_id                 = product.get('id')
-         quantity                   = int(product.get('quantity', 1))
-         product_variant_id         = product.get('variant')
-         product_price              = product.get('price')
-         product_price_from_retail  = StoreProductPricing.objects.filter(store=verified_store, product=product)
+         product_id = product.get('id')
+         quantity = int(product.get('quantity', 1))
+         product_variant_id = product.get('variant')
 
-         if not product_id or not product_variant_id or not product_price:
-               return JsonResponse({"error": "Product ID is required"}, status=400)
+         if not product_id or not product_variant_id:
+            return Response({"error": "Product ID and variant are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Check if the same product variant is already in the cart
-         existing_item = cart.items.filter(
-            product_id=product_id, product_variant_id=product_variant_id).first()
+         # Use service to add/update item with correct pricing
+         CartService.add_or_update_item(cart, product_id, product_variant_id, quantity, verified_store)
 
-         if existing_item:
-            # If the product variant is already in the cart, update the quantity
-            existing_item.quantity += quantity
-            existing_item.price += Decimal(str(product_price))
-            existing_item.save()
-         else:
-            # Otherwise, create a new CartItem for the product variant
-            product_variant = get_object_or_404(
-               ProductVariant, id=product_variant_id)
-            cart_item = CartItem.objects.create(
-               cart=cart, product_variant=product_variant, price=product_price, product_id=product_id, quantity=quantity)
-
+      # Update cart total
+      CartService.update_cart_total(cart)
+      
       serializer = CartSerializer(cart)
       return Response(serializer.data, status=status.HTTP_201_CREATED)
-      
       
    def list(self, request):
       user = request.user
       queryset = Cart.objects.filter(user=user).select_related("user", "store")
       serializer = CartSerializer(queryset, many=True)
       return Response(serializer.data) 
-
 
    def delete(self, request):
       cart_id = self.request.query_params.get("id")
@@ -541,6 +525,28 @@ class CartItemModifyView(viewsets.ModelViewSet):
    queryset = CartItem.objects.all()
    serializer_class = CartItemSerializer
    permission_classes = [IsAuthenticated]
+   
+   def update(self, request, *args, **kwargs):
+      from .cart_service import CartService
+      
+      partial = kwargs.pop('partial', False)
+      instance = self.get_object()
+      
+      # Get new quantity from request
+      new_quantity = request.data.get('quantity')
+      if new_quantity is not None:
+         new_quantity = int(new_quantity)
+         # Use service to update quantity and price
+         updated_item = CartService.update_item_quantity(instance, new_quantity)
+         
+         if updated_item is None:
+            return Response({"message": "Item removed from cart"}, status=status.HTTP_204_NO_CONTENT)
+         
+         serializer = self.get_serializer(updated_item)
+         return Response(serializer.data)
+      
+      # Fallback to default update
+      return super().update(request, *args, **kwargs)
 
 # Checkout Cart and Delete Cart
 class CheckOutCart(viewsets.ViewSet):
