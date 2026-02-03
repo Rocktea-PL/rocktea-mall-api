@@ -114,7 +114,7 @@ class OrderItems(models.Model):
    userorder = models.ForeignKey(StoreOrder, on_delete=models.CASCADE, related_name='items', null=True)
    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='order_product', null=True)
    product_variant = models.ForeignKey(ProductVariant, on_delete=models.DO_NOTHING, null=True)
-   variant_details = models.JSONField(null=True, blank=True, help_text="Stores exact variant selection: {size: 'Large', color: 'Red'}")
+   # variant_details = models.JSONField(null=True, blank=True, help_text="Stores exact variant selection: {size: 'Large', color: 'Red'}")
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True, null=True)
 

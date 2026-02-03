@@ -84,16 +84,7 @@ class OrderEmailService:
         """Format product variant information - show selected values only"""
         variant_parts = []
         
-        # Use variant_details JSON if available (exact customer selection)
-        if order_item and hasattr(order_item, 'variant_details') and order_item.variant_details:
-            details = order_item.variant_details
-            if details.get('size'):
-                variant_parts.append(f"Size: {details['size']}")
-            if details.get('color'):
-                variant_parts.append(f"Color: {details['color']}")
-            return ' | '.join(variant_parts) if variant_parts else None
-        
-        # Fallback to product_variant data (show single values only)
+        # Use product_variant data (show single values only)
         if not product_variant:
             return None
             
