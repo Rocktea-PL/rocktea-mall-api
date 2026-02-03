@@ -61,9 +61,9 @@ class SubdomainMiddleware:
         # Skip API domains and dropshipper admin domains
         api_domains = [
             'api.yourockteamall.com',
-            'api-dev.yourockteamall.com',
+            'api.staging.yourockteamall.com',
             'dropshippers.yourockteamall.com',
-            'dropshippers-dev.yourockteamall.com'
+            'dropshippers.staging.yourockteamall.com'
         ]
         
         if host in api_domains:
@@ -71,7 +71,7 @@ class SubdomainMiddleware:
             
         store_domains = [
             'yourockteamall.com',
-            'user-dev.yourockteamall.com'
+            'staging.yourockteamall.com'
         ]
         
         for domain in store_domains:
@@ -81,8 +81,8 @@ class SubdomainMiddleware:
     
     def _extract_subdomain(self, host):
         """Extract subdomain from host"""
-        if host.endswith('.user-dev.yourockteamall.com'):
-            return host.replace('.user-dev.yourockteamall.com', '')
+        if host.endswith('.staging.yourockteamall.com'):
+            return host.replace('.staging.yourockteamall.com', '')
         elif host.endswith('.yourockteamall.com'):
             return host.replace('.yourockteamall.com', '')
         return None

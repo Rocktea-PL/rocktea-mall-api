@@ -57,15 +57,14 @@ os.environ['DJANGO_DEBUG'] = str(DEBUG)
 # Security settings
 if PRODUCTION:
     ALLOWED_HOSTS = [
-        "rocktea-mall.vercel.app",
-        "rocktea-dropshippers.vercel.app",
-        "rocktea-users.vercel.app",
-        "api-dev.yourockteamall.com",
+        "api.staging.yourockteamall.com",
         "api.yourockteamall.com",
-        "rocktea-mall-api-production.up.railway.app",
-        "rocktea-mall-api-test.up.railway.app",
+        "admin.yourockteamall.com",
+        "admin.staging.yourockteamall.com",
+        "dropshippers.yourockteamall.com",
+        "dropshippers.staging.yourockteamall.com",
         '.yourockteamall.com',
-        "18.217.233.199",
+        "34.244.101.132",
         socket.gethostname()
     ]
     SECURE_SSL_REDIRECT = True
