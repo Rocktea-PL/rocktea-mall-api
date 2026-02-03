@@ -72,11 +72,13 @@ jobs:
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           cd ~/django-app/prod
+          git stash
           git pull origin master
+          git stash pop || true
           source venv/bin/activate
           pip install --no-deps -r main/requirements.txt
           python main/manage.py migrate --run-syncdb
-          sudo systemctl reload gunicorn-rocktea-prod
-          sudo systemctl restart celery-worker-rocktea-prod.service
-          sudo systemctl restart celery-beat-rocktea-prod.service
-          #sudo systemctl restart flower-prod.service
+          sudo systemctl restart gunicorn-rocktea-prod
+          sudo systemctl restart celery-worker-rocktea-prod
+          sudo systemctl restart celery-beat-rocktea-prod
+          #sudo systemctl restart flower-prod
