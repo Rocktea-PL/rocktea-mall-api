@@ -79,4 +79,4 @@ jobs:
           sudo systemctl reload gunicorn-rocktea
           sudo systemctl restart celery-worker-rocktea.service
           sudo systemctl restart celery-beat-rocktea.service
-          sudo systemctl restart flower-dev.service
+          #sudo systemctl restart flower-dev.service
