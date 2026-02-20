@@ -76,6 +76,10 @@ class CategoryModelTest(TestCase):
 
 class ProductModelTest(TestCase):
     def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            email='product@example.com',
+            password='test123'
+        )
         self.category = Category.objects.create(name='Electronics')
         self.subcategory = SubCategories.objects.create(
             name='Phones', 
@@ -96,14 +100,20 @@ class ProductModelTest(TestCase):
             subcategory=self.subcategory,
             producttype=self.product_type,
             brand=self.brand,
-            quantity=10
+            quantity=10,
+            created_by=self.user
         )
         self.assertEqual(product.name, 'iPhone 14')
         self.assertEqual(product.quantity, 10)
         self.assertEqual(product.sales_count, 0)
+        self.assertEqual(product.created_by, self.user)
 
 class ProductVariantModelTest(TestCase):
     def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            email='variant@example.com',
+            password='test123'
+        )
         self.category = Category.objects.create(name='Electronics')
         self.subcategory = SubCategories.objects.create(
             name='Phones', 
@@ -122,7 +132,8 @@ class ProductVariantModelTest(TestCase):
             subcategory=self.subcategory,
             producttype=self.product_type,
             brand=self.brand,
-            quantity=10
+            quantity=10,
+            created_by=self.user
         )
 
     def test_create_product_variant(self):
@@ -187,7 +198,8 @@ class SavedProductModelTest(TestCase):
             subcategory=self.subcategory,
             producttype=self.product_type,
             brand=self.brand,
-            quantity=10
+            quantity=10,
+            created_by=self.user
         )
 
     def test_create_saved_product(self):
