@@ -539,28 +539,31 @@ if not PRODUCTION:
 else:
     CORS_ALLOWED_ORIGINS = [
         # Local development origins
+        "http://localhost:4040",
         "http://localhost:5174",
         "http://localhost:5173",
-        "http://127.0.0.1:8000", # If your frontend runs here during dev
+        "http://127.0.0.1:8000",
 
-        # Your production/staging frontend origins
-        "https://user-dev.yourockteamall.com",
-        "https://www.user-dev.yourockteamall.com",
+        # Production frontend origins
         "https://yourockteamall.com",
         "https://www.yourockteamall.com",
         "https://dropshippers.yourockteamall.com",
         "https://www.dropshippers.yourockteamall.com",
-        "https://dropshippers-dev.yourockteamall.com",
-        "https://www.dropshippers-dev.yourockteamall.com",
         "https://admin.yourockteamall.com",
         "https://www.admin.yourockteamall.com",
-        "https://admin-dev.yourockteamall.com",
-        "https://www.admin-dev.yourockteamall.com",
+        
+        # Staging frontend origins
+        "https://staging.yourockteamall.com",
+        "https://www.staging.yourockteamall.com",
+        "https://dropshippers.staging.yourockteamall.com",
+        "https://www.dropshippers.staging.yourockteamall.com",
+        "https://admin.staging.yourockteamall.com",
+        "https://www.admin.staging.yourockteamall.com",
     ]
     
     # Allow all subdomains for store domains
     CORS_ALLOWED_ORIGIN_REGEXES = [
-        r"^https://[\w-]+\.user-dev\.yourockteamall\.com$",
+        r"^https://[\w-]+\.staging\.yourockteamall\.com$",
         r"^https://[\w-]+\.yourockteamall\.com$",
     ]
 
@@ -571,26 +574,29 @@ CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-users.vercel.app",
 
     # Local development origins
+    "http://localhost:4040",
     "http://localhost:5174",
     "http://localhost:5173",
     "http://127.0.0.1:8000",
 
-    # Your production/staging frontend origins
-    "https://user-dev.yourockteamall.com",
-    "https://www.user-dev.yourockteamall.com",
+    # Production frontend origins
     "https://yourockteamall.com",
     "https://www.yourockteamall.com",
     "https://dropshippers.yourockteamall.com",
     "https://www.dropshippers.yourockteamall.com",
-    "https://dropshippers-dev.yourockteamall.com",
-    "https://www.dropshippers-dev.yourockteamall.com",
     "https://admin.yourockteamall.com",
     "https://www.admin.yourockteamall.com",
-    "https://admin-dev.yourockteamall.com",
-    "https://www.admin-dev.yourockteamall.com",
+    
+    # Staging frontend origins
+    "https://staging.yourockteamall.com",
+    "https://www.staging.yourockteamall.com",
+    "https://dropshippers.staging.yourockteamall.com",
+    "https://www.dropshippers.staging.yourockteamall.com",
+    "https://admin.staging.yourockteamall.com",
+    "https://www.admin.staging.yourockteamall.com",
     
     # Allow all store subdomains
-    "https://*.user-dev.yourockteamall.com",
+    "https://*.staging.yourockteamall.com",
     "https://*.yourockteamall.com",
 ]
 
