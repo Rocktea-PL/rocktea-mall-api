@@ -21,9 +21,13 @@ class QueryCountMiddleware:
         queries_after = len(connection.queries)
         query_count = queries_after - queries_before
         
-        # Log excessive queries
+        # Log excessive queries with details
         if query_count > 10:
             logger.warning(f"High query count for {request.path}: {query_count} queries")
+            # Always log queries when count is high
+            for i, query in enumerate(connection.queries[queries_before:queries_after], 1):
+                sql = query['sql'][:300]  # Truncate long queries
+                logger.warning(f"  Query {i}: {sql}... (Time: {query['time']}s)")
         
         # Add query count to response headers in debug mode
         if settings.DEBUG:

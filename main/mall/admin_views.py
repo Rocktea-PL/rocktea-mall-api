@@ -18,7 +18,9 @@ class AdminUserListCreateView(generics.ListCreateAPIView):
         return AdminUserSerializer
     
     def get_queryset(self):
-        return User.objects.filter(is_active_admin=True).order_by('-date_joined')
+        return User.objects.filter(is_active_admin=True).prefetch_related(
+            'admin_roles', 'custom_permissions'
+        ).order_by('-date_joined')
     
     @require_permission(PermissionType.USER_VIEW)
     def get(self, request, *args, **kwargs):

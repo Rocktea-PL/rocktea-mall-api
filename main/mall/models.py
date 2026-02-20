@@ -372,6 +372,7 @@ class Product(models.Model):
         'ProductTypes', on_delete=models.CASCADE, null=True)
     brand = models.ForeignKey('Brand', on_delete=models.CASCADE, null=True)
     created_at = models.DateTimeField(auto_now_add=True, null=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='created_products')
     on_promo = models.BooleanField(default=False)
     is_available = models.BooleanField(default=True)
     upload_status = models.CharField(
@@ -529,6 +530,7 @@ class StoreProductPricing(models.Model):
             models.Index(fields=['created_at'], name='store_pricing_created_idx'),
         ]
         unique_together = [['store', 'product']]  # Prevent duplicates
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.store.name} - {self.product.name} (${self.retail_price})"
@@ -849,3 +851,4 @@ def invalidate_store_pricing_cache(sender, instance, **kwargs):
 @receiver([post_save, post_delete], sender=MarketPlace)
 def invalidate_marketplace_cache(sender, instance, **kwargs):
     cache.delete(f'store_stats_{instance.store.id}')
+

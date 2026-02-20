@@ -1,12 +1,14 @@
 from django.http import Http404
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from rest_framework import viewsets, status, filters, serializers
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from mall.models import Product, ProductImage
+from mall.models import Product, ProductImage, ProductVariant
+from mall.admin_audit import AdminAuditLog
+from mall.permissions import PermissionType
 from .serializers import (
     AdminProductSerializer, 
     AdminProductCreateSerializer,
@@ -25,9 +27,25 @@ logger = logging.getLogger(__name__)
 
 class AdminProductViewSet(viewsets.ModelViewSet):
     """Admin Product Management ViewSet"""
-    queryset = Product.objects.select_related(
-        'category', 'subcategory', 'producttype', 'brand'
-    ).prefetch_related('images', 'product_variants')
+    def get_queryset(self):
+        """Filter products based on user role"""
+        from django.db.models import Sum, Count
+        
+        queryset = Product.objects.select_related(
+            'category', 'subcategory', 'producttype', 'brand', 'created_by'
+        ).prefetch_related('images', 'product_variants')
+        
+        # Product Managers can only see their own products
+        if self.request.user.is_active_admin and not self.request.user.is_superuser:
+            # Cache roles to avoid repeated queries
+            if not hasattr(self.request.user, '_cached_roles'):
+                self.request.user._cached_roles = self.request.user.get_assigned_roles()
+            roles = self.request.user._cached_roles
+            
+            if 'product_manager' in roles and 'product_admin' not in roles:
+                queryset = queryset.filter(created_by=self.request.user)
+        
+        return queryset
     permission_classes = [IsAuthenticated, IsAdminUser]
     # Allow both JSON and multipart requests
     parser_classes = [JSONParser, MultiPartParser, FormParser]
@@ -133,6 +151,10 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """Enhanced create method with better error handling"""
+        # Check permission
+        if not request.user.has_permission(PermissionType.PRODUCT_ADD):
+            return Response({'error': 'You do not have permission to add products'}, status=status.HTTP_403_FORBIDDEN)
+        
         try:
             # Log the incoming data for debugging
             logger.info(f"Creating product with data: {request.data}")
@@ -160,8 +182,19 @@ class AdminProductViewSet(viewsets.ModelViewSet):
                 first_error = next(iter(serializer.errors.values()))[0]
                 return Response({'error': str(first_error)}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Save the product
-            product = serializer.save()
+            # Save the product with created_by
+            product = serializer.save(created_by=request.user)
+            
+            # Log activity
+            AdminAuditLog.objects.create(
+                admin_user=request.user,
+                action='CREATE',
+                resource_type='PRODUCT',
+                resource_id=str(product.id),
+                details={'product_name': product.name, 'sku': product.sku},
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
             
             # Return success response with created product data
             response_serializer = AdminProductDetailSerializer(product)
@@ -194,13 +227,25 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def update(self, request, *args, **kwargs):
         """Handle full update - signals will manage Cloudinary deletion"""
+        # Check permission
+        if not request.user.has_permission(PermissionType.PRODUCT_EDIT):
+            return Response({'error': 'You do not have permission to edit products'}, status=status.HTTP_403_FORBIDDEN)
+        
         # Handle JSON requests by changing parser behavior
         if not request.FILES and not request.data.get('images'):
             request.parsers = [JSONParser()]
-        # return super().update(request, *args, **kwargs)
         #  Get partial parameter
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        
+        # Product Managers can only edit their own products
+        if request.user.is_active_admin and not request.user.is_superuser:
+            if not hasattr(request.user, '_cached_roles'):
+                request.user._cached_roles = request.user.get_assigned_roles()
+            roles = request.user._cached_roles
+            
+            if 'product_manager' in roles and instance.created_by != request.user:
+                return Response({'error': 'You can only edit products you created'}, status=status.HTTP_403_FORBIDDEN)
         
         # Use the update serializer
         serializer = AdminProductSerializer(
@@ -212,12 +257,21 @@ class AdminProductViewSet(viewsets.ModelViewSet):
         
         try:
             serializer.is_valid(raise_exception=True)
-            # self.perform_update(serializer)
-
             updated_instance = serializer.save()
+            
+            # Log activity
+            AdminAuditLog.objects.create(
+                admin_user=request.user,
+                action='UPDATE',
+                resource_type='PRODUCT',
+                resource_id=str(updated_instance.id),
+                details={'product_name': updated_instance.name, 'sku': updated_instance.sku},
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
+            )
 
             detailed_serializer = AdminProductDetailSerializer(
-                updated_instance,  # Use the updated instance
+                updated_instance,
                 context=self.get_serializer_context()
             )
             return Response(detailed_serializer.data)
@@ -242,13 +296,6 @@ class AdminProductViewSet(viewsets.ModelViewSet):
                 {"error": "Update failed", "details": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Return detailed representation
-        # detailed_serializer = AdminProductDetailSerializer(
-        #     instance, 
-        #     context=self.get_serializer_context()
-        # )
-        # return Response(detailed_serializer.data)
     
     @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
@@ -263,7 +310,22 @@ class AdminProductViewSet(viewsets.ModelViewSet):
     @transaction.atomic
     def perform_destroy(self, instance):
         """Delete product and associated images"""
+        # Check permission
+        if not self.request.user.has_permission(PermissionType.PRODUCT_DELETE):
+            raise PermissionError('You do not have permission to delete products')
+        
         try:
+            # Log activity before deletion
+            AdminAuditLog.objects.create(
+                admin_user=self.request.user,
+                action='DELETE',
+                resource_type='PRODUCT',
+                resource_id=str(instance.id),
+                details={'product_name': instance.name, 'sku': instance.sku},
+                ip_address=self.request.META.get('REMOTE_ADDR'),
+                user_agent=self.request.META.get('HTTP_USER_AGENT', '')
+            )
+            
             # Delete product variants first
             variants = instance.product_variants.all()
             for variant in variants:

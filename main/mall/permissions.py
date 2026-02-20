@@ -34,6 +34,7 @@ class PermissionType(models.TextChoices):
 class AdminRole(models.TextChoices):
     SUPER_ADMIN = 'super_admin', 'Super Admin'
     PRODUCT_ADMIN = 'product_admin', 'Product Admin'
+    PRODUCT_MANAGER = 'product_manager', 'Product Manager'
     STORE_ADMIN = 'store_admin', 'Store Admin'
     ORDER_ADMIN = 'order_admin', 'Order Admin'
     USER_ADMIN = 'user_admin', 'User Admin'
@@ -47,6 +48,11 @@ ROLE_PERMISSIONS = {
         PermissionType.PRODUCT_ADD,
         PermissionType.PRODUCT_EDIT,
         PermissionType.PRODUCT_DELETE,
+    ],
+    AdminRole.PRODUCT_MANAGER: [
+        PermissionType.PRODUCT_VIEW,
+        PermissionType.PRODUCT_ADD,
+        PermissionType.PRODUCT_EDIT,
     ],
     AdminRole.STORE_ADMIN: [
         PermissionType.STORE_VIEW,
