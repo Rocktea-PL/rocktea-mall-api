@@ -106,7 +106,7 @@ class ProductModelTest(TestCase):
         self.assertEqual(product.name, 'iPhone 14')
         self.assertEqual(product.quantity, 10)
         self.assertEqual(product.sales_count, 0)
-        self.assertEqual(product.created_by, self.user)
+        self.assertEqual(product.created_by.id, self.user.id)
 
 class ProductVariantModelTest(TestCase):
     def setUp(self):
