@@ -5,7 +5,7 @@ class BlockWebDAVMiddleware:
         self.get_response = get_response
         self.blocked_methods = [
             'PROPFIND', 'PROPPATCH', 'MKCOL', 'COPY', 'MOVE', 
-            'LOCK', 'UNLOCK', 'OPTIONS', 'TRACE'
+            'LOCK', 'UNLOCK', 'TRACE'
         ]
 
     def __call__(self, request):
