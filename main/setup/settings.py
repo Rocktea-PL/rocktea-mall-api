@@ -138,36 +138,19 @@ if not CI_ENVIRONMENT:
     # INSTALLED_APPS.append("cloudinary")
     print("Added Cloudinary to INSTALLED_APPS", file=sys.stderr)
 
-# Corrected middleware order with all security middleware
 MIDDLEWARE = [
-    # Security middleware must come first
     'django.middleware.security.SecurityMiddleware',
-    
-    # Performance monitoring (disabled for now)
-    # 'mall.performance_middleware.PerformanceMonitoringMiddleware',
-    # 'mall.performance_middleware.CacheHitRateMiddleware',
-    
-    # File validation (simple version without python-magic)
+    'mall.block_webdav_middleware.BlockWebDAVMiddleware',
     'mall.simple_file_validation.SimpleFileUploadMiddleware',
-    
-    # Query monitoring (only in debug)
     'mall.query_monitor.QueryCountMiddleware',
-    
-    # Other middleware
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    
-    # CSRF protection
     'django.middleware.csrf.CsrfViewMiddleware',
-    
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    
-    # Clickjacking protection
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
     'mall.middleware.RequestMiddleware',
     'mall.middleware.SubdomainMiddleware',
 ]

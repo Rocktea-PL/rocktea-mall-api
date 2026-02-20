@@ -39,6 +39,7 @@ class StoreOrder(models.Model):
          models.Index(fields=['store', 'status']),
          models.Index(fields=['total_price']),
       ]
+      ordering = ['-created_at']
    
    def save(self, *args, **kwargs):
       if not self.order_sn:

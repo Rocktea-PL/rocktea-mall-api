@@ -255,7 +255,9 @@ class DropshipperAdminViewSet(viewsets.ModelViewSet):
          'profile_image', 'is_store_owner', 'completed_steps', 'is_active',
          'is_verified', 'date_joined', 'last_login',
          'owners__id', 'owners__name', 'owners__domain_name', 'owners__logo',
-         'owners__cover_image', 'owners__category__id', 'owners__category__name'
+         'owners__cover_image', 'owners__category__id', 'owners__category__name',
+         'owners__completed', 'owners__has_made_payment', 'owners__created_at',
+         'owners__TIN_number', 'owners__year_of_establishment'
       ).order_by('-date_joined')
    
    http_method_names = ['get', 'post', 'put', 'patch', 'delete']

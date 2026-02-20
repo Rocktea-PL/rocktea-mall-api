@@ -446,8 +446,12 @@ class ProductViewSet(viewsets.ModelViewSet):
       
       # Handle category filtering
       category_id = self.request.query_params.get('category')
-      if category_id:
-         return Product.objects.by_category(category_id).select_related('category', 'subcategory', 'brand', 'producttype')
+      if category_id and category_id != 'null':
+         try:
+            category_id = int(category_id)
+            return Product.objects.by_category(category_id).select_related('category', 'subcategory', 'brand', 'producttype')
+         except (ValueError, TypeError):
+            pass
       
       return Product.objects.available().select_related('category', 'subcategory', 'brand', 'producttype')
 

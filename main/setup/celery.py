@@ -28,7 +28,7 @@ app.conf.update(
    task_compression='gzip',
    result_compression='gzip',
    result_expires=3600,  # 1 hour
-   task_ignore_result=True,  # Don't store results for fire-and-forget tasks
+   task_ignore_result=False,  # Store results for debugging
    beat_schedule={
       'check-shipping-status': {
          'task': 'mall.tasks.check_shipping_status',
@@ -53,6 +53,9 @@ app.conf.update(
    },
    timezone='UTC',
    task_routes={
+      'setup.tasks.send_email_task': {'queue': 'emails'},
+      'setup.tasks.create_store_domain_task': {'queue': 'default'},
+      'setup.tasks.send_order_completion_email_task': {'queue': 'emails'},
       'mall.tasks.upload_image': {'queue': 'media'},
       'mall.tasks.check_shipping_status': {'queue': 'periodic'},
       'mall.tasks.cancel_unpaid_shipments': {'queue': 'periodic'},
