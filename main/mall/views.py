@@ -420,9 +420,11 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
 
    
 # Sign In Store User
+@method_decorator(csrf_exempt, name='dispatch')
 class SignInUserView(TokenObtainPairView):
    permission_classes = (permissions.AllowAny,)
    serializer_class = MyTokenObtainPairSerializer
+   http_method_names = ['post', 'options']
 
 class ProductViewSet(viewsets.ModelViewSet):
    serializer_class = OptimizedProductSerializer
