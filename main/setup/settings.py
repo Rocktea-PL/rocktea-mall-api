@@ -527,45 +527,43 @@ AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')
 
 # Domain Configuration
 STORE_DOMAINS = {
-    'dev': 'user-dev.yourockteamall.com',
+    'dev': 'staging.yourockteamall.com',
     'prod': 'yourockteamall.com'
 }
 
 # APPEND_SLASH = False
 
-# CORS
-if not PRODUCTION:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOWED_ORIGINS = [
-        # Local development origins
-        "http://localhost:4040",
-        "http://localhost:5174",
-        "http://localhost:5173",
-        "http://127.0.0.1:8000",
+# CORS - Always configure explicitly
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    # Local development origins
+    "http://localhost:4040",
+    "http://localhost:5174",
+    "http://localhost:5173",
+    "http://127.0.0.1:8000",
 
-        # Production frontend origins
-        "https://yourockteamall.com",
-        "https://www.yourockteamall.com",
-        "https://dropshippers.yourockteamall.com",
-        "https://www.dropshippers.yourockteamall.com",
-        "https://admin.yourockteamall.com",
-        "https://www.admin.yourockteamall.com",
-        
-        # Staging frontend origins
-        "https://staging.yourockteamall.com",
-        "https://www.staging.yourockteamall.com",
-        "https://dropshippers.staging.yourockteamall.com",
-        "https://www.dropshippers.staging.yourockteamall.com",
-        "https://admin.staging.yourockteamall.com",
-        "https://www.admin.staging.yourockteamall.com",
-    ]
+    # Production frontend origins
+    "https://yourockteamall.com",
+    "https://www.yourockteamall.com",
+    "https://dropshippers.yourockteamall.com",
+    "https://www.dropshippers.yourockteamall.com",
+    "https://admin.yourockteamall.com",
+    "https://www.admin.yourockteamall.com",
     
-    # Allow all subdomains for store domains
-    CORS_ALLOWED_ORIGIN_REGEXES = [
-        r"^https://[\w-]+\.staging\.yourockteamall\.com$",
-        r"^https://[\w-]+\.yourockteamall\.com$",
-    ]
+    # Staging frontend origins
+    "https://staging.yourockteamall.com",
+    "https://www.staging.yourockteamall.com",
+    "https://dropshippers.staging.yourockteamall.com",
+    "https://www.dropshippers.staging.yourockteamall.com",
+    "https://admin.staging.yourockteamall.com",
+    "https://www.admin.staging.yourockteamall.com",
+]
+
+# Allow all subdomains for store domains
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://[\w-]+\.staging\.yourockteamall\.com$",
+    r"^https://[\w-]+\.yourockteamall\.com$",
+]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://rocktea-mall.vercel.app",
