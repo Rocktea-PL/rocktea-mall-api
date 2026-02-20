@@ -103,9 +103,11 @@ class ProductModelTest(TestCase):
             quantity=10,
             created_by=self.user
         )
+        product.refresh_from_db()
         self.assertEqual(product.name, 'iPhone 14')
         self.assertEqual(product.quantity, 10)
         self.assertEqual(product.sales_count, 0)
+        self.assertIsNotNone(product.created_by)
         self.assertEqual(product.created_by.id, self.user.id)
 
 class ProductVariantModelTest(TestCase):
