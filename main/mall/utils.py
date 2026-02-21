@@ -33,9 +33,9 @@ def determine_environment_config(request=None):
     # Try to get environment from request first
     if request:
         current_domain = request.get_host()
-        if "dropshippers-dev.yourockteamall.com" in current_domain:
+        if "dropshippers.staging.yourockteamall.com" in current_domain:
             return {
-                'target_domain': 'user-dev.yourockteamall.com',
+                'target_domain': 'staging.yourockteamall.com',
                 'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
                 'environment': 'dev',
                 'is_local': False
@@ -59,7 +59,7 @@ def determine_environment_config(request=None):
     
     # Default to dev
     return {
-        'target_domain': 'user-dev.yourockteamall.com',
+        'target_domain': 'staging.yourockteamall.com',
         'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
         'environment': 'dev',
         'is_local': False
@@ -72,7 +72,7 @@ def generate_store_domain(store_slug, environment='dev'):
     elif environment == 'prod':
         return f"{store_slug}.yourockteamall.com"
     else:
-        return f"{store_slug}.user-dev.yourockteamall.com"
+        return f"{store_slug}.staging.yourockteamall.com"
 
 def get_store_from_request(request):
     """
