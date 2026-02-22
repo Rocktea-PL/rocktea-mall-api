@@ -31,12 +31,12 @@ def update_pending_webhooks():
     skipped_count = 0
     
     for webhook in pending_webhooks:
-        email = webhook.email
-        
         try:
-            # Find the store for this email
-            from mall.models import CustomUser
-            user = CustomUser.objects.get(email=email)
+            # Get user from webhook
+            user = webhook.user
+            email = user.email
+            
+            # Find the store for this user
             store = Store.objects.get(owner=user)
             
             # Check if store has been paid
@@ -59,8 +59,12 @@ def update_pending_webhooks():
                 print(f"   Skipping...\n")
                 skipped_count += 1
                 
+        except Store.DoesNotExist:
+            print(f"📧 {webhook.user.email if webhook.user else 'Unknown'}")
+            print(f"   ❌ No store found for this user\n")
+            skipped_count += 1
         except Exception as e:
-            print(f"📧 {email}")
+            print(f"📧 {webhook.user.email if webhook.user else 'Unknown'}")
             print(f"   ❌ Error: {e}\n")
             skipped_count += 1
     
