@@ -26,6 +26,7 @@ def manually_process_store(store_id):
         print(f"  Payment: {store.has_made_payment}")
         print(f"  Completed: {store.completed}")
         print(f"  DNS Created: {store.dns_record_created}")
+        print(f"  User completed_steps: {store.owner.completed_steps}")
         print(f"{'='*80}\n")
         
         # Confirm before proceeding
@@ -35,17 +36,27 @@ def manually_process_store(store_id):
             print("Cancelled.")
             return
         
-        # Update store payment status
+        # Update store payment status (matching webhook behavior)
         store.has_made_payment = True
         store.completed = True
         store.save(update_fields=['has_made_payment', 'completed'])
-        print("✓ Store marked as paid")
+        print("✓ Store marked as paid and completed")
         
-        # Update user completed_steps
+        # Update user completed_steps to 3 (matching webhook behavior)
         user = store.owner
         user.completed_steps = 3
         user.save(update_fields=['completed_steps'])
-        print("✓ User completed_steps updated")
+        print("✓ User completed_steps updated to 3")
+        
+        # Create notification for store owner (matching webhook behavior)
+        from mall.models import Notification
+        notification_message = f"Your dropshipping payment has been successfully processed. Your store is now active!"
+        Notification.objects.create(
+            store=store,
+            message=notification_message, 
+            notification_type='payment'
+        )
+        print("✓ Notification created")
         
         # Trigger DNS creation
         print("\n🚀 Creating DNS record...")
@@ -53,9 +64,12 @@ def manually_process_store(store_id):
         
         # Refresh and show result
         store.refresh_from_db()
+        user.refresh_from_db()
         print(f"\n{'='*80}")
         print(f"RESULT:")
         print(f"  Payment: {store.has_made_payment}")
+        print(f"  Completed: {store.completed}")
+        print(f"  User completed_steps: {user.completed_steps}")
         print(f"  DNS Created: {store.dns_record_created}")
         print(f"  Domain: {store.domain_name or 'Not set'}")
         print(f"{'='*80}\n")
