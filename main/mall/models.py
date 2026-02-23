@@ -74,6 +74,7 @@ class CustomUserManager(BaseUserManager):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', False)
         extra_fields.setdefault('is_active_admin', True)
+        extra_fields.setdefault('is_verified', True)  # Auto-verify superusers
         extra_fields.setdefault('admin_role', AdminRole.SUPER_ADMIN)
 
         if extra_fields.get('is_staff') is not True:
@@ -85,6 +86,7 @@ class CustomUserManager(BaseUserManager):
         # Create actual superuser - only for system administration
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_verified', True)  # Auto-verify superusers
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Superuser must have is_staff=True.')

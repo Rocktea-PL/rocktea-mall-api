@@ -53,6 +53,7 @@ class CreateAdminUserSerializer(serializers.ModelSerializer):
         # Create user
         validated_data['is_staff'] = True
         validated_data['is_active_admin'] = True
+        validated_data['is_verified'] = True  # Auto-verify admin users
         user = User.objects.create_user(password=password, **validated_data)
         
         # Assign roles
