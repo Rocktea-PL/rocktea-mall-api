@@ -153,6 +153,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+# Migration scripts with credentials
+migrate_postgres.sh
+
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
