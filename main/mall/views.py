@@ -1468,3 +1468,38 @@ class EmailVerificationViewSet(viewsets.ViewSet):
          'success': False,
          'errors': serializer.errors
       }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PublicStoreThemeView(APIView):
+    """
+    Public endpoint to get store theme data (background_color, logo, name)
+    No authentication required - for user-facing store pages
+    """
+    permission_classes = [permissions.AllowAny]
+    renderer_classes = [JSONRenderer]
+    
+    def get(self, request, store_id):
+        """Get store theme data without authentication"""
+        try:
+            store = Store.objects.only(
+                'id', 'name', 'logo', 'background_color'
+            ).get(id=store_id)
+            
+            return Response({
+                'id': str(store.id),
+                'name': store.name,
+                'logo': store.logo.url if store.logo else None,
+                'background_color': store.background_color
+            }, status=status.HTTP_200_OK)
+            
+        except Store.DoesNotExist:
+            return Response(
+                {'error': 'Store not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error fetching store theme: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch store theme'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
