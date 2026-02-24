@@ -214,12 +214,37 @@
         </div>
         
         <div class="content">
+            {% if is_admin %}
+            <p class="greeting">Hello Admin,</p>
+            
+            <p class="message">
+                A new order has been placed on the platform. Here are the details:
+            </p>
+            
+            <div style="background-color: #edf2f7; padding: 12px; border-radius: 6px; margin: 16px 0;">
+                <p style="margin: 4px 0; font-size: 14px;"><strong>Customer:</strong> {{customer_name}} ({{customer_email}})</p>
+                <p style="margin: 4px 0; font-size: 14px;"><strong>Store:</strong> {{store_name}}</p>
+                <p style="margin: 4px 0; font-size: 14px;"><strong>Store Owner:</strong> {{store_owner_email}}</p>
+            </div>
+            {% elif is_store_owner %}
+            <p class="greeting">Hello Store Owner,</p>
+            
+            <p class="message">
+                Great news! You have received a new order in your store <strong>{{store_name}}</strong>. 
+                Please prepare the items for shipment.
+            </p>
+            
+            <div style="background-color: #edf2f7; padding: 12px; border-radius: 6px; margin: 16px 0;">
+                <p style="margin: 4px 0; font-size: 14px;"><strong>Customer:</strong> {{customer_name}} ({{customer_email}})</p>
+            </div>
+            {% else %}
             <p class="greeting">Hello {{customer_name}},</p>
             
             <p class="message">
                 Great news! Your order has been confirmed and is now being processed. 
                 We'll keep you updated on its progress.
             </p>
+            {% endif %}
             
             <div class="order-summary">
                 <h3>Order Summary</h3>
@@ -303,10 +328,21 @@
             </div>
             {% endif %}
             
+            {% if is_admin %}
+            <p class="message">
+                This is an automated notification for platform monitoring. No action required unless there are issues.
+            </p>
+            {% elif is_store_owner %}
+            <p class="message">
+                Please process this order promptly and update the shipping status once dispatched.
+                If you have any questions, contact our support team.
+            </p>
+            {% else %}
             <p class="message">
                 We'll send you another email when your order ships. If you have any questions, 
                 feel free to contact our support team.
             </p>
+            {% endif %}
             
             <p class="message">
                 Thank you for choosing {{store_name}}!

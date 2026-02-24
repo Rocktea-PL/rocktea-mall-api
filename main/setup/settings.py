@@ -455,6 +455,9 @@ SENDER_NAME = env("SENDER_NAME", default="")
 SENDER_EMAIL = env("SENDER_EMAIL", default="")
 BREVO_API_KEY = env("BREVO_API_KEY", default="")
 
+# Admin email for notifications (fallback to SENDER_EMAIL if not set)
+ADMIN_EMAIL = env("ADMIN_EMAIL", default=env("SENDER_EMAIL", default=""))
+
 # =====================
 # CELERY CONFIGURATION WITH REDIS
 # =====================
