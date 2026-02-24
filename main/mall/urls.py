@@ -10,7 +10,8 @@ from .views import (
     SalesCountView,
     ProductFilter,
     CustomResetPasswordRequestToken, 
-    CustomResetPasswordConfirm
+    CustomResetPasswordConfirm,
+    PublicStoreThemeView
     )
 # PaystackWebhookView,
 from order.views import paystack_webhook
@@ -21,6 +22,7 @@ from mall.payments.payouts import PayoutDropshipper
 
 urlpatterns = [
     path("signin/", SignInUserView.as_view(), name="signin"),
+    path("store/<uuid:store_id>/theme/", PublicStoreThemeView.as_view(), name="public-store-theme"),
     path("otp_payment/", OTP.StoreOTPPayment.as_view(), name="otp_payment"),
     path("verify/", OTP.VerifyPayment.as_view(), name="verify-transaction"),
     path("upload-image/", UploadProductImage.as_view(), name='uploadimage'),
