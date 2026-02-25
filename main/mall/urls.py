@@ -11,7 +11,8 @@ from .views import (
     ProductFilter,
     CustomResetPasswordRequestToken, 
     CustomResetPasswordConfirm,
-    PublicStoreThemeView
+    PublicStoreThemeView,
+    PublicStoreDetailsView
     )
 # PaystackWebhookView,
 from order.views import paystack_webhook
@@ -24,6 +25,8 @@ urlpatterns = [
     path("signin/", SignInUserView.as_view(), name="signin"),
     path("store/<uuid:store_id>/theme/", PublicStoreThemeView.as_view(), name="public-store-theme"),
     path("store/<uuid:store_id>/public-theme/", PublicStoreThemeView.as_view(), name="public-store-theme-alt"),
+    path("store/by-slug/<slug:store_slug>/", PublicStoreThemeView.as_view(), name="public-store-by-slug"),
+    path("store/details/by-slug/<slug:store_slug>/", PublicStoreDetailsView.as_view(), name="public-store-details-by-slug"),
     path("otp_payment/", OTP.StoreOTPPayment.as_view(), name="otp_payment"),
     path("verify/", OTP.VerifyPayment.as_view(), name="verify-transaction"),
     path("upload-image/", UploadProductImage.as_view(), name='uploadimage'),
