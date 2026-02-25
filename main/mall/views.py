@@ -1482,17 +1482,16 @@ class PublicStoreThemeView(APIView):
     def get(self, request, store_id):
         """Get store theme data without authentication"""
         try:
-            store = Store.objects.only(
-                'id', 'name', 'logo', 'background_color'
-            ).get(id=store_id)
+            # Use simple get() instead of only() to avoid select_related conflict
+            store = Store.objects.get(id=store_id)
             
             # Safely get logo URL
             logo_url = None
             if store.logo:
                 try:
                     logo_url = store.logo.url
-                except (ValueError, AttributeError):
-                    # Handle cases where logo exists but URL generation fails
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Logo URL generation failed: {e}")
                     logo_url = None
             
             return Response({
