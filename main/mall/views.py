@@ -1477,6 +1477,7 @@ class PublicStoreThemeView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     renderer_classes = [JSONRenderer]
+    authentication_classes = []  # Explicitly disable authentication
     
     def get(self, request, store_id):
         """Get store theme data without authentication"""
@@ -1485,10 +1486,19 @@ class PublicStoreThemeView(APIView):
                 'id', 'name', 'logo', 'background_color'
             ).get(id=store_id)
             
+            # Safely get logo URL
+            logo_url = None
+            if store.logo:
+                try:
+                    logo_url = store.logo.url
+                except (ValueError, AttributeError):
+                    # Handle cases where logo exists but URL generation fails
+                    logo_url = None
+            
             return Response({
                 'id': str(store.id),
                 'name': store.name,
-                'logo': store.logo.url if store.logo else None,
+                'logo': logo_url,
                 'background_color': store.background_color
             }, status=status.HTTP_200_OK)
             
@@ -1498,7 +1508,7 @@ class PublicStoreThemeView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            logger.error(f"Error fetching store theme: {str(e)}")
+            logger.error(f"Error fetching store theme for store {store_id}: {str(e)}")
             return Response(
                 {'error': 'Failed to fetch store theme'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
