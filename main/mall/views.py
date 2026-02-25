@@ -1470,7 +1470,74 @@ class EmailVerificationViewSet(viewsets.ViewSet):
       }, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PublicStoreThemeView(APIView):
+class PublicStoreDetailsView(APIView):
+    """
+    Public endpoint to get comprehensive store details by slug
+    No authentication required - returns owner and category info for public use
+    """
+    permission_classes = [permissions.AllowAny]
+    renderer_classes = [JSONRenderer]
+    authentication_classes = []  # Explicitly disable authentication
+    
+    def get(self, request, store_slug):
+        """Get comprehensive store details by slug without authentication"""
+        try:
+            store = Store.objects.select_related('owner', 'category').get(slug=store_slug)
+            
+            # Safely get logo URL
+            logo_url = None
+            if store.logo:
+                try:
+                    logo_url = store.logo.url
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Logo URL generation failed: {e}")
+                    logo_url = None
+            
+            # Safely get cover image URL
+            cover_image_url = None
+            if store.cover_image:
+                try:
+                    cover_image_url = store.cover_image.url
+                except (ValueError, AttributeError) as e:
+                    logger.warning(f"Cover image URL generation failed: {e}")
+                    cover_image_url = None
+            
+            return Response({
+                'id': str(store.id),
+                'name': store.name,
+                'slug': store.slug,
+                'logo': logo_url,
+                'cover_image': cover_image_url,
+                'background_color': store.background_color,
+                'button_color': store.button_color,
+                'card_color': store.card_color,
+                'facebook': store.facebook,
+                'whatsapp': store.whatsapp,
+                'instagram': store.instagram,
+                'twitter': store.twitter,
+                'category': {
+                    'id': store.category.id,
+                    'name': store.category.name
+                } if store.category else None,
+                'owner': {
+                    'id': store.owner.id,
+                    'first_name': store.owner.first_name,
+                    'last_name': store.owner.last_name,
+                    'email': store.owner.email
+                } if store.owner else None
+            }, status=status.HTTP_200_OK)
+            
+        except Store.DoesNotExist:
+            return Response(
+                {'error': 'Store not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f"Error fetching store details by slug {store_slug}: {str(e)}")
+            return Response(
+                {'error': 'Failed to fetch store details'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     """
     Public endpoint to get store theme data (background_color, logo, name)
     No authentication required - for user-facing store pages
@@ -1479,11 +1546,19 @@ class PublicStoreThemeView(APIView):
     renderer_classes = [JSONRenderer]
     authentication_classes = []  # Explicitly disable authentication
     
-    def get(self, request, store_id):
+    def get(self, request, store_id=None, store_slug=None):
         """Get store theme data without authentication"""
         try:
-            # Use simple get() instead of only() to avoid select_related conflict
-            store = Store.objects.get(id=store_id)
+            # Get store by ID or slug
+            if store_slug:
+                store = Store.objects.get(slug=store_slug)
+            elif store_id:
+                store = Store.objects.get(id=store_id)
+            else:
+                return Response(
+                    {'error': 'Store ID or slug required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
             # Safely get logo URL
             logo_url = None
@@ -1497,6 +1572,7 @@ class PublicStoreThemeView(APIView):
             return Response({
                 'id': str(store.id),
                 'name': store.name,
+                'slug': store.slug,
                 'logo': logo_url,
                 'background_color': store.background_color
             }, status=status.HTTP_200_OK)
@@ -1507,7 +1583,7 @@ class PublicStoreThemeView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:
-            logger.error(f"Error fetching store theme for store {store_id}: {str(e)}")
+            logger.error(f"Error fetching store theme: {str(e)}")
             return Response(
                 {'error': 'Failed to fetch store theme'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
