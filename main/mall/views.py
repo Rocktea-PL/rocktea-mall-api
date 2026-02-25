@@ -1538,6 +1538,9 @@ class PublicStoreDetailsView(APIView):
                 {'error': 'Failed to fetch store details'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class PublicStoreThemeView(APIView):
     """
     Public endpoint to get store theme data (background_color, logo, name)
     No authentication required - for user-facing store pages
