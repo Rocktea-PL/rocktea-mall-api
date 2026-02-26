@@ -271,7 +271,7 @@ def sendStoreWelcomeEmail(token, email, firstName, store, request):
             'store_domain': store.domain_name if store else store_url,
             'verification_url': verification_url,  # Keep for backend but hidden in template
             'current_year': timezone.now().year,
-            'support_email': 'support@yourockteamall.com',
+            'support_email': 'support@rockteapl.com',
          }
         
         from setup.utils import sendEmail

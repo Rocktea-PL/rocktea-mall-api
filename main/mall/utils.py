@@ -17,6 +17,7 @@ def generate_store_slug(store_name):
 def determine_environment_config(request=None):
     """
     Determine the environment configuration based on request or settings.
+    Supports both yourockteamall.com and rockteapl.com domains.
     """
     # Check ENVIRONMENT setting first
     environment = getattr(settings, 'ENVIRONMENT', 'local')
@@ -27,52 +28,84 @@ def determine_environment_config(request=None):
             'environment': 'local',
             'target_domain': None,
             'hosted_zone_id': '',
-            'is_local': True
+            'is_local': True,
+            'domain_suffix': None
         }
     
     # Try to get environment from request first
     if request:
         current_domain = request.get_host()
-        if "dropshippers.staging.yourockteamall.com" in current_domain:
-            return {
-                'target_domain': 'staging.yourockteamall.com',
-                'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
-                'environment': 'dev',
-                'is_local': False
-            }
-        elif "dropshippers.yourockteamall.com" in current_domain:
-            return {
-                'target_domain': 'yourockteamall.com',
-                'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
-                'environment': 'prod',
-                'is_local': False
-            }
+        
+        # Check for rockteapl.com domains (new domain)
+        if "rockteapl.com" in current_domain:
+            if "staging.rockteapl.com" in current_domain:
+                return {
+                    'target_domain': 'staging.rockteapl.com',
+                    'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+                    'environment': 'dev',
+                    'is_local': False,
+                    'domain_suffix': 'rockteapl.com'
+                }
+            else:
+                return {
+                    'target_domain': 'rockteapl.com',
+                    'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
+                    'environment': 'prod',
+                    'is_local': False,
+                    'domain_suffix': 'rockteapl.com'
+                }
+        
+        # Check for yourockteamall.com domains (old domain)
+        elif "yourockteamall.com" in current_domain:
+            if "staging.yourockteamall.com" in current_domain:
+                return {
+                    'target_domain': 'staging.yourockteamall.com',
+                    'hosted_zone_id': getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', ''),
+                    'environment': 'dev',
+                    'is_local': False,
+                    'domain_suffix': 'yourockteamall.com'
+                }
+            else:
+                return {
+                    'target_domain': 'yourockteamall.com',
+                    'hosted_zone_id': getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', ''),
+                    'environment': 'prod',
+                    'is_local': False,
+                    'domain_suffix': 'yourockteamall.com'
+                }
     
-    # Fallback to settings-based determination
+    # Fallback to settings-based determination (use new domain by default)
     if environment in ['prod', 'production']:
         return {
-            'target_domain': 'yourockteamall.com',
+            'target_domain': 'rockteapl.com',
             'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
             'environment': 'prod',
-            'is_local': False
+            'is_local': False,
+            'domain_suffix': 'rockteapl.com'
         }
     
-    # Default to dev
+    # Default to dev with new domain
     return {
-        'target_domain': 'staging.yourockteamall.com',
+        'target_domain': 'staging.rockteapl.com',
         'hosted_zone_id': getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', ''),
         'environment': 'dev',
-        'is_local': False
+        'is_local': False,
+        'domain_suffix': 'rockteapl.com'
     }
 
-def generate_store_domain(store_slug, environment='dev'):
+def generate_store_domain(store_slug, environment='dev', domain_suffix=None):
     """Generate full domain name for a store"""
     if environment == 'local':
         return "http://localhost:8000"
-    elif environment == 'prod':
-        return f"{store_slug}.yourockteamall.com"
+    
+    # Use provided domain suffix or default to rockteapl.com
+    if not domain_suffix:
+        domain_suffix = 'rockteapl.com'
+    
+    if environment == 'prod':
+        return f"{store_slug}.{domain_suffix}"
     else:
-        return f"{store_slug}.staging.yourockteamall.com"
+        return f"{store_slug}.staging.{domain_suffix}"
 
 def get_store_from_request(request):
     """

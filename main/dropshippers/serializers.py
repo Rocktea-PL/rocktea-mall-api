@@ -491,7 +491,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                 context={
                     'full_name': user.get_full_name() or user.email,
                     'store_domain': 'Pending setup',
-                    'support_email': 'support@yourockteamall.com',
+                    'support_email': 'support@rockteapl.com',
                     'current_year': timezone.now().year,
                     'owner_email': user.email,
                     'is_local': False,

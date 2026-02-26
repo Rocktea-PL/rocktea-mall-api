@@ -60,18 +60,30 @@ class SubdomainMiddleware:
         """Check if host is a store subdomain"""
         # Skip API domains and dropshipper admin domains
         api_domains = [
+            # Old domain (yourockteamall.com)
             'api.yourockteamall.com',
             'api.staging.yourockteamall.com',
             'dropshippers.yourockteamall.com',
-            'dropshippers.staging.yourockteamall.com'
+            'dropshippers.staging.yourockteamall.com',
+            
+            # New domain (rockteapl.com)
+            'api.rockteapl.com',
+            'api.staging.rockteapl.com',
+            'dropshippers.rockteapl.com',
+            'dropshippers.staging.rockteapl.com',
         ]
         
         if host in api_domains:
             return False
             
         store_domains = [
+            # Old domain
             'yourockteamall.com',
-            'staging.yourockteamall.com'
+            'staging.yourockteamall.com',
+            
+            # New domain
+            'rockteapl.com',
+            'staging.rockteapl.com',
         ]
         
         for domain in store_domains:
@@ -81,10 +93,18 @@ class SubdomainMiddleware:
     
     def _extract_subdomain(self, host):
         """Extract subdomain from host"""
+        # Old domain (yourockteamall.com)
         if host.endswith('.staging.yourockteamall.com'):
             return host.replace('.staging.yourockteamall.com', '')
         elif host.endswith('.yourockteamall.com'):
             return host.replace('.yourockteamall.com', '')
+        
+        # New domain (rockteapl.com)
+        elif host.endswith('.staging.rockteapl.com'):
+            return host.replace('.staging.rockteapl.com', '')
+        elif host.endswith('.rockteapl.com'):
+            return host.replace('.rockteapl.com', '')
+        
         return None
     
     def _find_store_by_subdomain(self, subdomain, request):

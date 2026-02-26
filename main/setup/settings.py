@@ -57,6 +57,7 @@ os.environ['DJANGO_DEBUG'] = str(DEBUG)
 # Security settings
 if PRODUCTION:
     ALLOWED_HOSTS = [
+        # Old domain (yourockteamall.com)
         "api.staging.yourockteamall.com",
         "api.yourockteamall.com",
         "admin.yourockteamall.com",
@@ -64,6 +65,16 @@ if PRODUCTION:
         "dropshippers.yourockteamall.com",
         "dropshippers.staging.yourockteamall.com",
         '.yourockteamall.com',
+        
+        # New domain (rockteapl.com)
+        "api.staging.rockteapl.com",
+        "api.rockteapl.com",
+        "admin.rockteapl.com",
+        "admin.staging.rockteapl.com",
+        "dropshippers.rockteapl.com",
+        "dropshippers.staging.rockteapl.com",
+        '.rockteapl.com',
+        
         "34.244.101.132",
         socket.gethostname()
     ]
@@ -520,18 +531,24 @@ CELERY_FLOWER_STATE_SAVE_INTERVAL = 1000
 EMAIL_VERIFICATION_TIMEOUT = 86400
 
 # AWS Route 53 DNS Configuration
-# IMPORTANT: Replace with the actual Hosted Zone IDs you copied from Route 53
-ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='')
+ROUTE53_PRODUCTION_HOSTED_ZONE_ID = env('ROUTE53_PRODUCTION_HOSTED_ZONE_ID', default='')  # rockteapl.com
+ROUTE53_OLD_HOSTED_ZONE_ID = env('ROUTE53_OLD_HOSTED_ZONE_ID', default='')  # yourockteamall.com
 
-# AWS Region for Route 53 API calls (e.g., 'us-east-1', 'eu-west-2')
+# AWS Region for Route 53 API calls
 AWS_REGION_NAME = env('AWS_REGION_NAME', default='us-east-1')
 AWS_ACCESS_KEY_ID = env('AWS_ACCESS_KEY_ID', default='')
 AWS_SECRET_ACCESS_KEY = env('AWS_SECRET_ACCESS_KEY', default='')
 
-# Domain Configuration
+# Domain Configuration - supports both domains
 STORE_DOMAINS = {
-    'dev': 'staging.yourockteamall.com',
-    'prod': 'yourockteamall.com'
+    'dev': {
+        'old': 'staging.yourockteamall.com',
+        'new': 'staging.rockteapl.com'
+    },
+    'prod': {
+        'old': 'yourockteamall.com',
+        'new': 'rockteapl.com'
+    }
 }
 
 # APPEND_SLASH = False
@@ -545,7 +562,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:8000",
 
-    # Production frontend origins
+    # Old domain (yourockteamall.com) - Production
     "https://yourockteamall.com",
     "https://www.yourockteamall.com",
     "https://dropshippers.yourockteamall.com",
@@ -553,19 +570,37 @@ CORS_ALLOWED_ORIGINS = [
     "https://admin.yourockteamall.com",
     "https://www.admin.yourockteamall.com",
     
-    # Staging frontend origins
+    # Old domain (yourockteamall.com) - Staging
     "https://staging.yourockteamall.com",
     "https://www.staging.yourockteamall.com",
     "https://dropshippers.staging.yourockteamall.com",
     "https://www.dropshippers.staging.yourockteamall.com",
     "https://admin.staging.yourockteamall.com",
     "https://www.admin.staging.yourockteamall.com",
+    
+    # New domain (rockteapl.com) - Production
+    "https://rockteapl.com",
+    "https://www.rockteapl.com",
+    "https://dropshippers.rockteapl.com",
+    "https://www.dropshippers.rockteapl.com",
+    "https://admin.rockteapl.com",
+    "https://www.admin.rockteapl.com",
+    
+    # New domain (rockteapl.com) - Staging
+    "https://staging.rockteapl.com",
+    "https://www.staging.rockteapl.com",
+    "https://dropshippers.staging.rockteapl.com",
+    "https://www.dropshippers.staging.rockteapl.com",
+    "https://admin.staging.rockteapl.com",
+    "https://www.admin.staging.rockteapl.com",
 ]
 
-# Allow all subdomains for store domains
+# Allow all subdomains for both store domains
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://[\w-]+\.staging\.yourockteamall\.com$",
     r"^https://[\w-]+\.yourockteamall\.com$",
+    r"^https://[\w-]+\.staging\.rockteapl\.com$",
+    r"^https://[\w-]+\.rockteapl\.com$",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -580,7 +615,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:8000",
 
-    # Production frontend origins
+    # Old domain (yourockteamall.com) - Production
     "https://yourockteamall.com",
     "https://www.yourockteamall.com",
     "https://dropshippers.yourockteamall.com",
@@ -588,7 +623,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://admin.yourockteamall.com",
     "https://www.admin.yourockteamall.com",
     
-    # Staging frontend origins
+    # Old domain (yourockteamall.com) - Staging
     "https://staging.yourockteamall.com",
     "https://www.staging.yourockteamall.com",
     "https://dropshippers.staging.yourockteamall.com",
@@ -596,9 +631,27 @@ CSRF_TRUSTED_ORIGINS = [
     "https://admin.staging.yourockteamall.com",
     "https://www.admin.staging.yourockteamall.com",
     
-    # Allow all store subdomains
+    # New domain (rockteapl.com) - Production
+    "https://rockteapl.com",
+    "https://www.rockteapl.com",
+    "https://dropshippers.rockteapl.com",
+    "https://www.dropshippers.rockteapl.com",
+    "https://admin.rockteapl.com",
+    "https://www.admin.rockteapl.com",
+    
+    # New domain (rockteapl.com) - Staging
+    "https://staging.rockteapl.com",
+    "https://www.staging.rockteapl.com",
+    "https://dropshippers.staging.rockteapl.com",
+    "https://www.dropshippers.staging.rockteapl.com",
+    "https://admin.staging.rockteapl.com",
+    "https://www.admin.staging.rockteapl.com",
+    
+    # Allow all store subdomains for both domains
     "https://*.staging.yourockteamall.com",
     "https://*.yourockteamall.com",
+    "https://*.staging.rockteapl.com",
+    "https://*.rockteapl.com",
 ]
 
 CORS_ALLOW_METHODS = [

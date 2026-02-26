@@ -37,7 +37,8 @@ class EmailService:
         """Get common context used in all emails"""
         return {
             'current_year': timezone.now().year,
-            'support_email': 'support@yourockteamall.com',
+            'support_email': 'support@rockteapl.com',  # Default to new domain
+            'support_email_legacy': 'support@yourockteamall.com',  # Legacy support
             'company_name': 'RockTeaMall',
         }
     
@@ -56,11 +57,17 @@ class EmailService:
         store_domain = store.domain_name
         if store_domain and '{store_id}' in store_domain:
             store_domain = store_domain.replace('{store_id}', str(store.id))
+        
+        # Determine which support email to use based on domain
+        support_email = 'support@rockteapl.com'
+        if store_domain and 'yourockteamall.com' in store_domain:
+            support_email = 'support@yourockteamall.com'
             
         return {
             'store_name': store.name,
             'store_id': str(store.id),
             'store_domain': store_domain,
+            'support_email': support_email,
             **EmailService.get_user_context(store.owner)
         }
     

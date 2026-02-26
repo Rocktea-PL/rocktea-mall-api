@@ -133,7 +133,7 @@ class StoreOwnerSerializer(ModelSerializer):
       send_welcome_email = self.context.get('send_welcome_email', True)
       if send_welcome_email:
          request = self.context.get("request")
-         current_site = get_current_site(request).domain if request else "yourockteamall.com"
+         current_site = get_current_site(request).domain if request else "rockteapl.com"
          protocol = request.scheme if request else "https"
          domain_name = f"{protocol}://{current_site}"
          verify_email_url = f"{domain_name}/verify-email?token="+str(token)
@@ -1068,6 +1068,6 @@ class ResendVerificationSerializer(serializers.Serializer):
                if parsed_referer.hostname:
                   domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
       else:
-         domain_name = "https://yourockteamall.com"
+         domain_name = "https://rockteapl.com"
       
       return f"{domain_name}/verify-email?token={token}"
