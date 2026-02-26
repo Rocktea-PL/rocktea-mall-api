@@ -200,7 +200,7 @@ def send_store_dns_error_email_async(store_instance, error_message):
             "store_id": store_instance.id,
             "error_reference": error_ref,
             "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
+            "support_email": "support@rockteapl.com",
         }
         
         sendEmail(
@@ -224,7 +224,7 @@ def send_deletion_success_email_async(user_email, store_name):
             "store_name": store_name,
             "deletion_date": timezone.now().strftime("%B %d, %Y at %I:%M %p"),
             "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
+            "support_email": "support@rockteapl.com",
         }
         
         sendEmail(
@@ -247,7 +247,7 @@ def send_deletion_failure_email_async(user_email, store_name):
         context = {
             "store_name": store_name,
             "current_year": timezone.now().year,
-            "support_email": "support@yourockteamall.com",
+            "support_email": "support@rockteapl.com",
         }
         
         sendEmail(
