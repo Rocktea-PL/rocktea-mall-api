@@ -133,18 +133,10 @@ class StoreOwnerSerializer(ModelSerializer):
       send_welcome_email = self.context.get('send_welcome_email', True)
       if send_welcome_email:
          request = self.context.get("request")
-         current_site = get_current_site(request).domain if request else "rockteapl.com"
-         protocol = request.scheme if request else "https"
-         domain_name = f"{protocol}://{current_site}"
-         verify_email_url = f"{domain_name}/verify-email?token="+str(token)
-
-         # Fallback to referer for better frontend targeting
-         if request:
-            referer = request.META.get("HTTP_REFERER", "")
-            if referer and 'swagger' not in referer.lower():
-               parsed_referer = urlparse(referer)
-               domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
-               verify_email_url = f"{domain_name}/verify-email?token={token}"
+         
+         # Use domain utility to get correct verification URL
+         from .domain_utils import get_verification_url
+         verify_email_url = get_verification_url(user, token, request)
 
          # Send welcome email
          try:
@@ -1027,8 +1019,9 @@ class ResendVerificationSerializer(serializers.Serializer):
    def _send_verification_email(self, user, token, request):
       """Send verification email with proper error handling"""
       try:
-         # Build verification URL
-         verification_url = self._build_verification_url(token, request)
+         # Use domain utility to get correct verification URL
+         from .domain_utils import get_verification_url
+         verification_url = get_verification_url(user, token, request)
          
          # Import sendEmail function
          from setup.utils import sendEmail
@@ -1053,21 +1046,3 @@ class ResendVerificationSerializer(serializers.Serializer):
       except Exception as e:
          logger.error(f"Failed to send verification email to {user.email}: {str(e)}")
          raise ValidationError("Failed to send verification email. Please try again later.")
-   
-   def _build_verification_url(self, token, request):
-      """Build verification URL with proper domain handling"""
-      if request:
-         current_site = get_current_site(request).domain
-         protocol = request.scheme
-         domain_name = f"{protocol}://{current_site}"
-         
-         # Check referer for better frontend targeting
-         referer = request.META.get("HTTP_REFERER", "")
-         if referer and 'swagger' not in referer.lower():
-               parsed_referer = urlparse(referer)
-               if parsed_referer.hostname:
-                  domain_name = f"{parsed_referer.scheme}://{parsed_referer.hostname}"
-      else:
-         domain_name = "https://rockteapl.com"
-      
-      return f"{domain_name}/verify-email?token={token}"
