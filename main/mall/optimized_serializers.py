@@ -7,7 +7,7 @@ class OptimizedProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     subcategory_name = serializers.CharField(source='subcategory.name', read_only=True)
     brand_name = serializers.CharField(source='brand.name', read_only=True)
-    producttype_name = serializers.CharField(source='producttype.name', read_only=True)
+    producttype = serializers.CharField(source='producttype.name', read_only=True)
     optimized_image = serializers.SerializerMethodField()
     product_images = serializers.SerializerMethodField()
     store_price = serializers.SerializerMethodField()
@@ -15,7 +15,7 @@ class OptimizedProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = ['id', 'sku', 'name', 'description', 'quantity', 'category_name', 'subcategory_name', 
-                 'brand_name', 'producttype_name', 'optimized_image', 'product_images', 'sales_count', 
+                 'brand_name', 'producttype', 'optimized_image', 'product_images', 'sales_count', 
                  'is_available', 'store_price', 'created_at']
     
     def get_optimized_image(self, obj):
