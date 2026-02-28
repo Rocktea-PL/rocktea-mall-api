@@ -77,9 +77,19 @@ def create_marketplace(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=CustomUser)
 def delete_dropshipper_domain(sender, instance, **kwargs):
-    """Delete DNS record when dropshipper is deleted"""
+    """Delete DNS record and images when dropshipper is deleted"""
     logger.info(f"Delete signal triggered for user: {instance.email}, is_store_owner: {instance.is_store_owner}")
-    logger.info(f"User instance details: ID={instance.id}, email={instance.email}, first_name={instance.first_name}, last_name={instance.last_name}")
+    
+    # Delete user profile image
+    if instance.profile_image:
+        try:
+            if hasattr(instance.profile_image, 'public_id') and instance.profile_image.public_id:
+                import cloudinary.uploader as uploader
+                uploader.destroy(instance.profile_image.public_id)
+                logger.info(f"Deleted profile image from Cloudinary for user: {instance.email}")
+            instance.profile_image.delete(save=False)
+        except Exception as e:
+            logger.error(f"Error deleting profile image for {instance.email}: {e}")
     
     if not instance.is_store_owner:
         logger.info(f"User {instance.email} is not a store owner, skipping DNS deletion")
@@ -94,10 +104,31 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         logger.info(f"Store query result: {store}")
         
         if store:
-            logger.info(f"Found store: name={store.name}, ID={store.id}, dns_record_created={store.dns_record_created}, domain_name={store.domain_name}")
+            logger.info(f"Found store: name={store.name}, ID={store.id}")
             
+            # Delete store images
+            if store.logo:
+                try:
+                    if hasattr(store.logo, 'public_id') and store.logo.public_id:
+                        import cloudinary.uploader as uploader
+                        uploader.destroy(store.logo.public_id)
+                        logger.info(f"Deleted store logo from Cloudinary for store: {store.name}")
+                    store.logo.delete(save=False)
+                except Exception as e:
+                    logger.error(f"Error deleting store logo: {e}")
+            
+            if store.cover_image:
+                try:
+                    if hasattr(store.cover_image, 'public_id') and store.cover_image.public_id:
+                        import cloudinary.uploader as uploader
+                        uploader.destroy(store.cover_image.public_id)
+                        logger.info(f"Deleted store cover image from Cloudinary for store: {store.name}")
+                    store.cover_image.delete(save=False)
+                except Exception as e:
+                    logger.error(f"Error deleting store cover image: {e}")
+            
+            # Delete DNS record
             if store.dns_record_created and store.domain_name:
-                # Extract clean domain from domain_name
                 from urllib.parse import urlparse
                 parsed_url = urlparse(store.domain_name)
                 clean_domain = parsed_url.netloc
@@ -116,8 +147,6 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
                 except Exception as dns_error:
                     logger.error(f"DNS deletion error for store {store.name}: {dns_error}")
                     _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
-            else:
-                logger.info(f"Store {store.name} has dns_record_created={store.dns_record_created} and domain_name={store.domain_name} - skipping DNS deletion")
         else:
             logger.info(f"No store found for user: {instance.email}")
                 
