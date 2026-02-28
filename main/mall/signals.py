@@ -92,61 +92,58 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
             logger.error(f"Error deleting profile image for {instance.email}: {e}")
     
     if not instance.is_store_owner:
-        logger.info(f"User {instance.email} is not a store owner, skipping DNS deletion")
+        logger.info(f"User {instance.email} is not a store owner, skipping store deletion")
         return
         
     user_email = instance.email
     user_name = instance.get_full_name() or instance.first_name or instance.email
     
     try:
-        # Query store directly before it gets deleted
         store = Store.objects.filter(owner=instance).first()
-        logger.info(f"Store query result: {store}")
         
         if store:
-            logger.info(f"Found store: name={store.name}, ID={store.id}")
+            # Store images for deletion (get references before store is deleted)
+            logo_public_id = store.logo.public_id if store.logo and hasattr(store.logo, 'public_id') else None
+            cover_public_id = store.cover_image.public_id if store.cover_image and hasattr(store.cover_image, 'public_id') else None
+            store_name = store.name
+            store_domain = store.domain_name
+            dns_created = store.dns_record_created
             
-            # Delete store images
-            if store.logo:
+            # Delete store images from Cloudinary
+            import cloudinary.uploader as uploader
+            if logo_public_id:
                 try:
-                    if hasattr(store.logo, 'public_id') and store.logo.public_id:
-                        import cloudinary.uploader as uploader
-                        uploader.destroy(store.logo.public_id)
-                        logger.info(f"Deleted store logo from Cloudinary for store: {store.name}")
-                    store.logo.delete(save=False)
+                    uploader.destroy(logo_public_id)
+                    logger.info(f"Deleted store logo from Cloudinary: {logo_public_id}")
                 except Exception as e:
                     logger.error(f"Error deleting store logo: {e}")
             
-            if store.cover_image:
+            if cover_public_id:
                 try:
-                    if hasattr(store.cover_image, 'public_id') and store.cover_image.public_id:
-                        import cloudinary.uploader as uploader
-                        uploader.destroy(store.cover_image.public_id)
-                        logger.info(f"Deleted store cover image from Cloudinary for store: {store.name}")
-                    store.cover_image.delete(save=False)
+                    uploader.destroy(cover_public_id)
+                    logger.info(f"Deleted store cover image from Cloudinary: {cover_public_id}")
                 except Exception as e:
                     logger.error(f"Error deleting store cover image: {e}")
             
             # Delete DNS record
-            if store.dns_record_created and store.domain_name:
+            if dns_created and store_domain:
                 from urllib.parse import urlparse
-                parsed_url = urlparse(store.domain_name)
+                parsed_url = urlparse(store_domain)
                 clean_domain = parsed_url.netloc
-                logger.info(f"Extracted clean domain: {clean_domain} from {store.domain_name}")
                 
                 try:
                     success = delete_store_dns_record(clean_domain)
                     
                     if success:
-                        logger.info(f"Successfully deleted DNS record for store: {store.name}")
-                        _send_deletion_success_email(user_email, user_name, store.name, store.domain_name)
+                        logger.info(f"Successfully deleted DNS record for store: {store_name}")
+                        _send_deletion_success_email(user_email, user_name, store_name, store_domain)
                     else:
-                        logger.error(f"Failed to delete DNS record for store: {store.name}")
-                        _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
+                        logger.error(f"Failed to delete DNS record for store: {store_name}")
+                        _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
                         
                 except Exception as dns_error:
-                    logger.error(f"DNS deletion error for store {store.name}: {dns_error}")
-                    _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
+                    logger.error(f"DNS deletion error for store {store_name}: {dns_error}")
+                    _send_deletion_failure_email(user_email, user_name, store_name, store_domain)
         else:
             logger.info(f"No store found for user: {instance.email}")
                 
