@@ -77,9 +77,19 @@ def create_marketplace(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=CustomUser)
 def delete_dropshipper_domain(sender, instance, **kwargs):
-    """Delete DNS record when dropshipper is deleted"""
+    """Delete DNS record and images when dropshipper is deleted"""
     logger.info(f"Delete signal triggered for user: {instance.email}, is_store_owner: {instance.is_store_owner}")
-    logger.info(f"User instance details: ID={instance.id}, email={instance.email}, first_name={instance.first_name}, last_name={instance.last_name}")
+    
+    # Delete user profile image
+    if instance.profile_image:
+        try:
+            if hasattr(instance.profile_image, 'public_id') and instance.profile_image.public_id:
+                import cloudinary.uploader as uploader
+                uploader.destroy(instance.profile_image.public_id)
+                logger.info(f"Deleted profile image from Cloudinary for user: {instance.email}")
+            instance.profile_image.delete(save=False)
+        except Exception as e:
+            logger.error(f"Error deleting profile image for {instance.email}: {e}")
     
     if not instance.is_store_owner:
         logger.info(f"User {instance.email} is not a store owner, skipping DNS deletion")
@@ -94,10 +104,31 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         logger.info(f"Store query result: {store}")
         
         if store:
-            logger.info(f"Found store: name={store.name}, ID={store.id}, dns_record_created={store.dns_record_created}, domain_name={store.domain_name}")
+            logger.info(f"Found store: name={store.name}, ID={store.id}")
             
+            # Delete store images
+            if store.logo:
+                try:
+                    if hasattr(store.logo, 'public_id') and store.logo.public_id:
+                        import cloudinary.uploader as uploader
+                        uploader.destroy(store.logo.public_id)
+                        logger.info(f"Deleted store logo from Cloudinary for store: {store.name}")
+                    store.logo.delete(save=False)
+                except Exception as e:
+                    logger.error(f"Error deleting store logo: {e}")
+            
+            if store.cover_image:
+                try:
+                    if hasattr(store.cover_image, 'public_id') and store.cover_image.public_id:
+                        import cloudinary.uploader as uploader
+                        uploader.destroy(store.cover_image.public_id)
+                        logger.info(f"Deleted store cover image from Cloudinary for store: {store.name}")
+                    store.cover_image.delete(save=False)
+                except Exception as e:
+                    logger.error(f"Error deleting store cover image: {e}")
+            
+            # Delete DNS record
             if store.dns_record_created and store.domain_name:
-                # Extract clean domain from domain_name
                 from urllib.parse import urlparse
                 parsed_url = urlparse(store.domain_name)
                 clean_domain = parsed_url.netloc
@@ -116,8 +147,6 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
                 except Exception as dns_error:
                     logger.error(f"DNS deletion error for store {store.name}: {dns_error}")
                     _send_deletion_failure_email(user_email, user_name, store.name, store.domain_name)
-            else:
-                logger.info(f"Store {store.name} has dns_record_created={store.dns_record_created} and domain_name={store.domain_name} - skipping DNS deletion")
         else:
             logger.info(f"No store found for user: {instance.email}")
                 
@@ -179,18 +208,23 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
 
 def create_store_domain_after_payment(store, domain_suffix=None):
     """Create domain for store after payment confirmation"""
-    logger.info(f"Starting domain creation for store: {store.name} (ID: {store.id}), domain_suffix: {domain_suffix}")
+    logger.info(f"=== DOMAIN CREATION START ===")
+    logger.info(f"Store: {store.name} (ID: {store.id})")
+    logger.info(f"Domain suffix provided: {domain_suffix}")
+    logger.info(f"Store slug: {store.slug}")
+    logger.info(f"DNS already created: {store.dns_record_created}")
     
     if store.dns_record_created:
-        logger.info(f"DNS already created for store: {store.name}")
+        logger.info(f"DNS already created for store: {store.name}, skipping")
         return
         
     try:
         env_config = determine_environment_config(get_current_request())
+        logger.info(f"Initial env_config: {env_config}")
         
         # Override with provided domain_suffix if available
         if domain_suffix:
-            logger.info(f"Using provided domain_suffix: {domain_suffix}")
+            logger.info(f"Overriding with domain_suffix: {domain_suffix}")
             env_config['domain_suffix'] = domain_suffix
             
             # Determine target domain based on suffix
@@ -209,56 +243,67 @@ def create_store_domain_after_payment(store, domain_suffix=None):
                     env_config['target_domain'] = 'staging.yourockteamall.com'
                     env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', '')
         
-        logger.info(f"Environment config: {env_config}")
+        logger.info(f"Final env_config: {env_config}")
+        
+        # Clean hosted_zone_id - remove any comments
+        if 'hosted_zone_id' in env_config and env_config['hosted_zone_id']:
+            env_config['hosted_zone_id'] = env_config['hosted_zone_id'].split('#')[0].strip()
+        
+        logger.info(f"Hosted Zone ID (cleaned): {env_config.get('hosted_zone_id', 'NOT SET')}")
+        logger.info(f"Target Domain: {env_config.get('target_domain', 'NOT SET')}")
         
         # Handle local environment
         if env_config.get('is_local', False):
             logger.info(f"Local environment detected for store: {store.name}")
-            # Set domain name for local environment only after marking DNS as created
             store.dns_record_created = True
             store.domain_name = f"http://localhost:8000?mall={store.id}"
             store.save(update_fields=['dns_record_created', 'domain_name'])
             send_local_development_email(store, store.domain_name)
+            logger.info(f"=== DOMAIN CREATION END (LOCAL) ===")
             return
         
         # Generate full domain using existing slug
         if not store.slug:
             logger.error(f"No slug found for store {store.name}")
+            logger.info(f"=== DOMAIN CREATION END (NO SLUG) ===")
             return
             
         full_domain = f"{store.slug}.{env_config['target_domain']}"
-        logger.info(f"Creating DNS record for domain: {full_domain}")
+        logger.info(f"Full domain to create: {full_domain}")
+        logger.info(f"Calling create_cname_record with:")
+        logger.info(f"  - zone_id: {env_config['hosted_zone_id']}")
+        logger.info(f"  - subdomain: {full_domain}")
+        logger.info(f"  - target: {env_config['target_domain']}")
         
         # Create DNS record
-        logger.info(f"Attempting DNS creation with zone_id: {env_config['hosted_zone_id']}, domain: {full_domain}, target: {env_config['target_domain']}")
-        
         dns_result = create_cname_record(
             zone_id=env_config['hosted_zone_id'],
             subdomain=full_domain,
             target=env_config['target_domain']
         )
         
-        logger.info(f"DNS creation result: {dns_result is not None}, Result: {dns_result}")
+        logger.info(f"DNS creation result: {dns_result}")
+        logger.info(f"DNS result is not None: {dns_result is not None}")
         
         if dns_result is not None:
-            # Set domain name only after successful DNS creation
             store.dns_record_created = True
             store.domain_name = f"https://{full_domain}?mall={store.id}"
             store.save(update_fields=['dns_record_created', 'domain_name'])
-            logger.info(f"DNS record and domain name set for store: {store.name}")
+            logger.info(f"Store updated - dns_record_created: True, domain_name: {store.domain_name}")
             
-            # Send success email
             send_store_success_email(store, store.domain_name, env_config['environment'])
             logger.info(f"Success email sent for store: {store.name}")
+            logger.info(f"=== DOMAIN CREATION END (SUCCESS) ===")
         else:
-            logger.error(f"DNS creation failed for store: {store.name}")
-            # Still send failure email so user knows what happened
+            logger.error(f"DNS creation returned None for store: {store.name}")
             send_store_dns_failure_email(store, full_domain)
             logger.info(f"DNS failure email sent for store: {store.name}")
+            logger.info(f"=== DOMAIN CREATION END (FAILED) ===")
             
     except Exception as e:
-        logger.error(f"DNS creation failed for {store.name}: {e}", exc_info=True)
+        logger.error(f"Exception in domain creation for {store.name}: {e}", exc_info=True)
         send_store_dns_error_email(store, str(e))
+        logger.info(f"=== DOMAIN CREATION END (EXCEPTION) ===")
 
 # Cache invalidation signals
 @receiver(post_save, sender=Product)
