@@ -130,11 +130,19 @@ def send_store_welcome_email(store, environment: str, is_local: bool = False):
 
 def send_store_dns_failure_email(store, attempted_domain: str):
     """Send DNS failure email"""
+    # Determine support email based on attempted domain
+    support_email = 'support@rockteapl.com'
+    if 'yourockteamall.com' in attempted_domain:
+        support_email = 'support@yourockteamall.com'
+    
     return EmailService.send_store_email(
         store=store,
         template=EmailTemplates.STORE_DNS_FAILURE,
         subject=EmailSubjects.STORE_DNS_PENDING,
-        extra_context={'attempted_domain': attempted_domain},
+        extra_context={
+            'attempted_domain': attempted_domain,
+            'support_email': support_email
+        },
         tags=["store-created", "dns-failure", "pending"]
     )
 
