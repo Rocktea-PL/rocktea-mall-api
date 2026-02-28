@@ -447,17 +447,41 @@ class ProductViewSet(viewsets.ModelViewSet):
    def get_queryset(self):
       # Handle store-specific products
       store_id = self.request.query_params.get('mall')
+      store = None
+      
       if store_id:
          try:
             store = Store.objects.get(id=store_id)
-            # Get products that are in this store's marketplace and available
-            return Product.objects.filter(
-               id__in=StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True),
-               is_available=True,
-               upload_status='Approved'
-            ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images').distinct().order_by('-created_at')
          except Store.DoesNotExist:
             return Product.objects.none()
+      else:
+         # Try to get store from subdomain
+         request_host = self.request.get_host()
+         # Extract store slug from subdomain (e.g., raspib-technology-solutions.staging.yourockteamall.com)
+         if request_host and '.' in request_host:
+            store_slug = request_host.split('.')[0]
+            try:
+               store = Store.objects.get(slug=store_slug)
+            except Store.DoesNotExist:
+               pass
+      
+      if store:
+         # Validate store belongs to current domain
+         if store.domain_name:
+            from .domain_utils import extract_primary_domain
+            store_platform = extract_primary_domain(store.domain_name)
+            request_host = self.request.get_host()
+            request_platform = extract_primary_domain(request_host)
+            
+            if store_platform != request_platform:
+               return Product.objects.none()
+         
+         # Get products that are in this store's marketplace and available
+         return Product.objects.filter(
+            id__in=StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True),
+            is_available=True,
+            upload_status='Approved'
+         ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images').distinct().order_by('-created_at')
       
       # Handle category filtering
       category_id = self.request.query_params.get('category')
