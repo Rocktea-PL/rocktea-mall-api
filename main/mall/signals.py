@@ -208,23 +208,14 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
 
 def create_store_domain_after_payment(store, domain_suffix=None):
     """Create domain for store after payment confirmation"""
-    logger.info(f"=== DOMAIN CREATION START ===")
-    logger.info(f"Store: {store.name} (ID: {store.id})")
-    logger.info(f"Domain suffix provided: {domain_suffix}")
-    logger.info(f"Store slug: {store.slug}")
-    logger.info(f"DNS already created: {store.dns_record_created}")
-    
     if store.dns_record_created:
-        logger.info(f"DNS already created for store: {store.name}, skipping")
         return
         
     try:
         env_config = determine_environment_config(get_current_request())
-        logger.info(f"Initial env_config: {env_config}")
         
         # Override with provided domain_suffix if available
         if domain_suffix:
-            logger.info(f"Overriding with domain_suffix: {domain_suffix}")
             env_config['domain_suffix'] = domain_suffix
             
             # Determine target domain based on suffix
@@ -243,37 +234,23 @@ def create_store_domain_after_payment(store, domain_suffix=None):
                     env_config['target_domain'] = 'staging.yourockteamall.com'
                     env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', '')
         
-        logger.info(f"Final env_config: {env_config}")
-        
         # Clean hosted_zone_id - remove any comments
         if 'hosted_zone_id' in env_config and env_config['hosted_zone_id']:
             env_config['hosted_zone_id'] = env_config['hosted_zone_id'].split('#')[0].strip()
         
-        logger.info(f"Hosted Zone ID (cleaned): {env_config.get('hosted_zone_id', 'NOT SET')}")
-        logger.info(f"Target Domain: {env_config.get('target_domain', 'NOT SET')}")
-        
         # Handle local environment
         if env_config.get('is_local', False):
-            logger.info(f"Local environment detected for store: {store.name}")
             store.dns_record_created = True
             store.domain_name = f"http://localhost:8000?mall={store.id}"
             store.save(update_fields=['dns_record_created', 'domain_name'])
             send_local_development_email(store, store.domain_name)
-            logger.info(f"=== DOMAIN CREATION END (LOCAL) ===")
             return
         
         # Generate full domain using existing slug
         if not store.slug:
-            logger.error(f"No slug found for store {store.name}")
-            logger.info(f"=== DOMAIN CREATION END (NO SLUG) ===")
             return
             
         full_domain = f"{store.slug}.{env_config['target_domain']}"
-        logger.info(f"Full domain to create: {full_domain}")
-        logger.info(f"Calling create_cname_record with:")
-        logger.info(f"  - zone_id: {env_config['hosted_zone_id']}")
-        logger.info(f"  - subdomain: {full_domain}")
-        logger.info(f"  - target: {env_config['target_domain']}")
         
         # Create DNS record
         dns_result = create_cname_record(
@@ -282,28 +259,17 @@ def create_store_domain_after_payment(store, domain_suffix=None):
             target=env_config['target_domain']
         )
         
-        logger.info(f"DNS creation result: {dns_result}")
-        logger.info(f"DNS result is not None: {dns_result is not None}")
-        
         if dns_result is not None:
             store.dns_record_created = True
             store.domain_name = f"https://{full_domain}?mall={store.id}"
             store.save(update_fields=['dns_record_created', 'domain_name'])
-            logger.info(f"Store updated - dns_record_created: True, domain_name: {store.domain_name}")
-            
             send_store_success_email(store, store.domain_name, env_config['environment'])
-            logger.info(f"Success email sent for store: {store.name}")
-            logger.info(f"=== DOMAIN CREATION END (SUCCESS) ===")
         else:
-            logger.error(f"DNS creation returned None for store: {store.name}")
             send_store_dns_failure_email(store, full_domain)
-            logger.info(f"DNS failure email sent for store: {store.name}")
-            logger.info(f"=== DOMAIN CREATION END (FAILED) ===")
             
     except Exception as e:
         logger.error(f"Exception in domain creation for {store.name}: {e}", exc_info=True)
         send_store_dns_error_email(store, str(e))
-        logger.info(f"=== DOMAIN CREATION END (EXCEPTION) ===")
 
 # Cache invalidation signals
 @receiver(post_save, sender=Product)

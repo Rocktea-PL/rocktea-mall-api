@@ -6,17 +6,24 @@
     <title>Welcome to {{ store_name }}</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
         .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
-        .welcome-box { background: white; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea; }
+        .welcome-box { background: white; padding: 25px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b; }
         .store-info { background: #e8f2ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 15px 0; }
+        .button { display: inline-block; background: #f59e0b; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 15px 0; }
         .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px; }
-        .highlight { color: #667eea; font-weight: bold; }
+        .highlight { color: #f59e0b; font-weight: bold; }
     </style>
 </head>
 <body>
     <div class="header">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+            <tr>
+                <td align="center" style="padding-bottom: 20px;">
+                    <img src="https://res.cloudinary.com/dovtyocni/image/upload/v1772201447/logo_wopzel.png" alt="RockTeaMall" width="150" height="auto" style="display: block; border: 0; outline: none; text-decoration: none; max-width: 150px; height: auto;">
+                </td>
+            </tr>
+        </table>
         <h1>🎉 Welcome to {{ store_name }}!</h1>
         <p>Your account has been successfully created</p>
     </div>
