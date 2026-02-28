@@ -347,8 +347,17 @@ def handle_dropshipping_payment(data, paystack_webhook, email):
          
          # Create domain and DNS after payment confirmation
          from mall.signals import create_store_domain_after_payment
-         logger.info(f"Starting domain creation for store: {store.id}")
-         transaction.on_commit(lambda: create_store_domain_after_payment(store))
+         from mall.domain_utils import extract_primary_domain
+         
+         # Extract domain suffix from webhook metadata if available
+         domain_suffix = None
+         metadata = data.get('metadata', {})
+         if 'domain_suffix' in metadata:
+            domain_suffix = metadata['domain_suffix']
+            logger.info(f"Domain suffix from metadata: {domain_suffix}")
+         
+         logger.info(f"Starting domain creation for store: {store.id}, domain_suffix: {domain_suffix}")
+         transaction.on_commit(lambda: create_store_domain_after_payment(store, domain_suffix))
          logger.info(f"Domain creation initiated for store: {store.id}")
          
          logger.info(f"=== DROPSHIPPING PAYMENT COMPLETED SUCCESSFULLY ===")
@@ -448,9 +457,17 @@ class InitiatePayment(viewsets.ViewSet):
          amount = 150000  # Fixed price for dropshipper payments
          logger.info(f"Dropshipping payment - Amount: {amount}, Purpose: {purpose}")
 
+      # Extract domain suffix from request host
+      from mall.domain_utils import extract_primary_domain
+      domain_suffix = None
+      request_host = request.get_host()
+      if request_host:
+         domain_suffix = extract_primary_domain(request_host)
+         logger.info(f"Extracted domain_suffix from request: {domain_suffix}")
+
       # Initiate payment
-      logger.info(f"Calling initiate_payment with: email={email}, amount={amount}, user_id={user_id}, purpose={purpose}")
-      payment_response = initiate_payment(email, amount, user_id, purpose, base_url)
+      logger.info(f"Calling initiate_payment with: email={email}, amount={amount}, user_id={user_id}, purpose={purpose}, domain_suffix={domain_suffix}")
+      payment_response = initiate_payment(email, amount, user_id, purpose, base_url, domain_suffix)
       logger.info(f"Payment response received: {payment_response}")
 
       if payment_response.get("status") is True:

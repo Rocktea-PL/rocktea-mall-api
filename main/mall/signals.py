@@ -177,9 +177,9 @@ def _send_deletion_failure_email(user_email, user_name, store_name, store_domain
     except Exception as e:
         logger.error(f"Failed to send deletion failure email to {user_email}: {e}")
 
-def create_store_domain_after_payment(store):
+def create_store_domain_after_payment(store, domain_suffix=None):
     """Create domain for store after payment confirmation"""
-    logger.info(f"Starting domain creation for store: {store.name} (ID: {store.id})")
+    logger.info(f"Starting domain creation for store: {store.name} (ID: {store.id}), domain_suffix: {domain_suffix}")
     
     if store.dns_record_created:
         logger.info(f"DNS already created for store: {store.name}")
@@ -187,6 +187,28 @@ def create_store_domain_after_payment(store):
         
     try:
         env_config = determine_environment_config(get_current_request())
+        
+        # Override with provided domain_suffix if available
+        if domain_suffix:
+            logger.info(f"Using provided domain_suffix: {domain_suffix}")
+            env_config['domain_suffix'] = domain_suffix
+            
+            # Determine target domain based on suffix
+            if domain_suffix == 'rockteapl.com':
+                if env_config['environment'] == 'prod':
+                    env_config['target_domain'] = 'rockteapl.com'
+                    env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', '')
+                else:
+                    env_config['target_domain'] = 'staging.rockteapl.com'
+                    env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_PRODUCTION_HOSTED_ZONE_ID', '')
+            elif domain_suffix == 'yourockteamall.com':
+                if env_config['environment'] == 'prod':
+                    env_config['target_domain'] = 'yourockteamall.com'
+                    env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', '')
+                else:
+                    env_config['target_domain'] = 'staging.yourockteamall.com'
+                    env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', '')
+        
         logger.info(f"Environment config: {env_config}")
         
         # Handle local environment
