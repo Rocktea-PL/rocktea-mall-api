@@ -28,7 +28,7 @@ def verify_payment(request, transaction_id):
     response = requests.get(url, headers=headers)
     return Response(response.json())
 
-def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
+def initiate_payment(email, amount, user_id, purpose="order", base_url=None, domain_suffix=None):
     headers = {
         'Authorization': f'Bearer {PAYSTACK_SECRET_KEY}',
         'Content-Type': 'application/json',
@@ -54,6 +54,11 @@ def initiate_payment(email, amount, user_id, purpose="order", base_url=None):
             'purpose': purpose
         }
     }
+    
+    # Add domain_suffix to metadata if provided
+    if domain_suffix:
+        data['metadata']['domain_suffix'] = domain_suffix
+    
     logger.info(f"data from payment initialization: {data}")
     # dropshipping_payment
 
