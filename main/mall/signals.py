@@ -215,7 +215,12 @@ def create_store_domain_after_payment(store, domain_suffix=None):
                     env_config['hosted_zone_id'] = getattr(settings, 'ROUTE53_OLD_HOSTED_ZONE_ID', '')
         
         logger.info(f"Final env_config: {env_config}")
-        logger.info(f"Hosted Zone ID: {env_config.get('hosted_zone_id', 'NOT SET')}")
+        
+        # Clean hosted_zone_id - remove any comments
+        if 'hosted_zone_id' in env_config and env_config['hosted_zone_id']:
+            env_config['hosted_zone_id'] = env_config['hosted_zone_id'].split('#')[0].strip()
+        
+        logger.info(f"Hosted Zone ID (cleaned): {env_config.get('hosted_zone_id', 'NOT SET')}")
         logger.info(f"Target Domain: {env_config.get('target_domain', 'NOT SET')}")
         
         # Handle local environment
