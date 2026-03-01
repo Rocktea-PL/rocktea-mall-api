@@ -102,26 +102,26 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         store = Store.objects.filter(owner=instance).first()
         
         if store:
-            # Store images for deletion (get references before store is deleted)
-            logo_public_id = store.logo.public_id if store.logo and hasattr(store.logo, 'public_id') else None
-            cover_public_id = store.cover_image.public_id if store.cover_image and hasattr(store.cover_image, 'public_id') else None
+            # Store image URLs for deletion (get references before store is deleted)
+            logo_url = str(store.logo) if store.logo else None
+            cover_url = str(store.cover_image) if store.cover_image else None
             store_name = store.name
             store_domain = store.domain_name
             dns_created = store.dns_record_created
             
             # Delete store images from Cloudinary
-            import cloudinary.uploader as uploader
-            if logo_public_id:
+            from .cloudinary_utils import CloudinaryOptimizer
+            if logo_url:
                 try:
-                    uploader.destroy(logo_public_id)
-                    logger.info(f"Deleted store logo from Cloudinary: {logo_public_id}")
+                    CloudinaryOptimizer.delete_image_from_url(logo_url)
+                    logger.info(f"Deleted store logo from Cloudinary: {logo_url}")
                 except Exception as e:
                     logger.error(f"Error deleting store logo: {e}")
             
-            if cover_public_id:
+            if cover_url:
                 try:
-                    uploader.destroy(cover_public_id)
-                    logger.info(f"Deleted store cover image from Cloudinary: {cover_public_id}")
+                    CloudinaryOptimizer.delete_image_from_url(cover_url)
+                    logger.info(f"Deleted store cover image from Cloudinary: {cover_url}")
                 except Exception as e:
                     logger.error(f"Error deleting store cover image: {e}")
             
