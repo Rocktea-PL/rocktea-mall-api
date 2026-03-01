@@ -166,9 +166,9 @@ class CreateStoreOwner(viewsets.ModelViewSet):
          
          # Delete old profile image from Cloudinary if exists
          if user.profile_image:
+            old_image_url = str(user.profile_image)
             try:
-               from mall.cloudinary_utils import CloudinaryOptimizer
-               CloudinaryOptimizer.delete_image_from_url(user.profile_image)
+               CloudinaryOptimizer.delete_image_from_url(old_image_url)
             except Exception as e:
                logger.warning(f"Failed to delete old profile image: {e}")
          
