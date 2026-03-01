@@ -233,7 +233,10 @@ class CreateStoreOwner(viewsets.ModelViewSet):
       
       response_data = {'message': 'Updated successfully'}
       if user_updated:
-         response_data['user'] = {'completed_steps': user.completed_steps}
+         response_data['user'] = {
+            'completed_steps': user.completed_steps,
+            'profile_image': user.profile_image
+         }
       if store_updated:
          response_data['store'] = store_data
       
