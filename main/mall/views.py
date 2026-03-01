@@ -421,10 +421,11 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
       # Handle logo update with shared optimization
       if 'logo' in request.FILES:
          if store.logo:
+            old_logo_url = str(store.logo)
             try:
-               store.logo.delete(save=False)
+               CloudinaryOptimizer.delete_image_from_url(old_logo_url)
             except Exception as e:
-               logger.warning(f"Logo deletion error: {e}")
+               logger.warning(f"Failed to delete old logo: {e}")
          
          logo_file = request.FILES['logo']
          logo_result = ImageOptimizer.handle_image_upload(logo_file, 'store_logo')
@@ -434,15 +435,16 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
             store.logo = logo_file
             logger.warning(f"Logo optimization failed: {logo_result['error']}")
          updated_fields.append('logo')
-         response_data['logo'] = store.logo
+         response_data['logo'] = store.logo.url if store.logo else None
       
       # Handle cover_image update with shared optimization
       if 'cover_image' in request.FILES:
          if store.cover_image:
+            old_cover_url = str(store.cover_image)
             try:
-               store.cover_image.delete(save=False)
+               CloudinaryOptimizer.delete_image_from_url(old_cover_url)
             except Exception as e:
-               logger.warning(f"Cover image deletion error: {e}")
+               logger.warning(f"Failed to delete old cover image: {e}")
          
          cover_file = request.FILES['cover_image']
          cover_result = ImageOptimizer.handle_image_upload(cover_file, 'store_cover')
@@ -452,7 +454,7 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
             store.cover_image = cover_file
             logger.warning(f"Cover optimization failed: {cover_result['error']}")
          updated_fields.append('cover_image')
-         response_data['cover_image'] = store.cover_image
+         response_data['cover_image'] = store.cover_image.url if store.cover_image else None
       
       if updated_fields:
          store.save(update_fields=updated_fields)
@@ -728,21 +730,12 @@ class CreateAndGetStoreProductPricing(APIView):
          if StoreProductPricing.objects.filter(store=store, product_id=product_id).exists():
             return Response({"error": "Pricing for this product in this store already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Verify product exists
-         try:
-            product = Product.objects.get(id=product_id)
-            logger.info(f"Adding product {product.id} (upload_status={product.upload_status}) to store {store.id}")
-         except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
          # Create StoreProductPricing (MarketPlace will be created automatically by signal)
          store_product_price = StoreProductPricing.objects.create(
             store=store,
             product_id=product_id,
             retail_price=retail_price
          )
-         
-         logger.info(f"StoreProductPricing created: store={store.id}, product={product_id}")
 
          serializer = StoreProductPricingSerializer(store_product_price)
          return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
