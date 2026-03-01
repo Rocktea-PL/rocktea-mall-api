@@ -1,5 +1,5 @@
 """
-Centralized email service for RockTea Mall
+Centralized email service for RockTea PL
 Handles all email operations with consistent templates and error handling
 """
 from django.utils import timezone

@@ -1,4 +1,4 @@
-# 🚀 RockTea Mall API
+# 🚀 RockTea PL API
 
 **Your Complete Dropshipping Platform** - Custom domains, product selection, and seamless e-commerce. Start your business effortlessly.
 
@@ -85,7 +85,7 @@ ROUTE53_PRODUCTION_HOSTED_ZONE_ID=your_hosted_zone_id
 
 # Email Service (Brevo)
 BREVO_API_KEY=your_brevo_api_key
-SENDER_NAME=RockTea Mall
+SENDER_NAME=RockTea PL
 SENDER_EMAIL=noreply@yourockteamall.com
 
 # Payment (Paystack)
@@ -330,4 +330,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ by the RockTea Mall Team**
+**Built with ❤️ by the RockTea PL Team**

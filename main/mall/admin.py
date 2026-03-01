@@ -12,7 +12,7 @@ admin.site.register(ProductVariant)
 # admin.site.register(Store)
 admin.site.register(ProductImage)
 
-admin.site.site_header = 'RockTea Mall'
+admin.site.site_header = 'RockTea PL'
 admin.site.site_title = 'Dropshipping Made Easy'
 
 

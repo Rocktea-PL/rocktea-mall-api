@@ -141,7 +141,7 @@ class StoreOwnerSerializer(ModelSerializer):
          # Send welcome email
          try:
             from setup.tasks import send_email_task
-            subject = "Welcome to Rocktea Mall - Your Dropshipping Journey Begins!"
+            subject = "Welcome to RockTea PL - Your Dropshipping Journey Begins!"
             context = {
                'full_name': user.get_full_name() or user.email,
                'confirmation_url': verify_email_url,
@@ -1026,7 +1026,7 @@ class ResendVerificationSerializer(serializers.Serializer):
          # Import sendEmail function
          from setup.utils import sendEmail
          
-         subject = "Email Verification - Rocktea Mall"
+         subject = "Email Verification - RockTea PL"
          context = {
                'full_name': user.get_full_name() or user.email,
                'confirmation_url': verification_url,

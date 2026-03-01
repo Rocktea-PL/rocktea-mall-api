@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Quick test runner for Rocktea Mall API
+Quick test runner for RockTea PL API
 Usage: python run_tests.py [app_name]
 """
 

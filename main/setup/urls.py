@@ -33,9 +33,9 @@ from tenants.views import TenantSignUp, VerifyEmail
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="RockTea Mall API",
+        title="RockTea PL API",
         default_version='v1.0',
-        description="RockTea Mall API: Empowering seamless integration and enhanced shopping experiences with a versatile and efficient e-commerce application programming interface.",
+        description="RockTea PL API: Empowering seamless integration and enhanced shopping experiences with a versatile and efficient e-commerce application programming interface.",
         terms_of_service="https://www.google.com/policies/terms/",
         contact=openapi.Contact(email="rockteapl1@gmail.com"),
         license=openapi.License(name="MIT License"),

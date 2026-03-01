@@ -1,5 +1,5 @@
 #!/bin/bash
-# Production setup script for RockTea Mall
+# Production setup script for RockTea PL
 
 echo "Setting up production environment..."
 
