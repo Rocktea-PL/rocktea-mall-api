@@ -163,6 +163,15 @@ class CreateStoreOwner(viewsets.ModelViewSet):
       # Handle profile image update
       if 'profile_image' in request.FILES:
          image_file = request.FILES['profile_image']
+         
+         # Delete old profile image from Cloudinary if exists
+         if user.profile_image:
+            try:
+               from mall.cloudinary_utils import CloudinaryOptimizer
+               CloudinaryOptimizer.delete_image_from_url(user.profile_image)
+            except Exception as e:
+               logger.warning(f"Failed to delete old profile image: {e}")
+         
          image_result = ImageOptimizer.handle_image_upload(image_file, 'profile')
          if not image_result['success']:
             return Response({'error': image_result['error']}, status=status.HTTP_400_BAD_REQUEST)
