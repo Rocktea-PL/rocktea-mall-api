@@ -98,6 +98,34 @@ class CloudinaryOptimizer:
             'medium': cls.get_optimized_url(public_id, 'medium'),
             'large': cls.get_optimized_url(public_id, 'large')
         }
+    
+    @classmethod
+    def delete_image_from_url(cls, image_url):
+        """Delete image from Cloudinary using URL"""
+        if not image_url or 'cloudinary.com' not in image_url:
+            return False
+        
+        try:
+            # Extract public_id from URL
+            # URL format: https://res.cloudinary.com/{cloud_name}/image/upload/{transformations}/{public_id}.{format}
+            parts = image_url.split('/')
+            # Find 'upload' index and get everything after it
+            upload_index = parts.index('upload')
+            # Get public_id (remove version if present and file extension)
+            public_id_with_ext = '/'.join(parts[upload_index + 1:])
+            # Remove transformations (anything starting with v followed by numbers)
+            if public_id_with_ext.startswith('v') and public_id_with_ext.split('/')[0][1:].isdigit():
+                public_id_with_ext = '/'.join(public_id_with_ext.split('/')[1:])
+            # Remove file extension
+            public_id = public_id_with_ext.rsplit('.', 1)[0]
+            
+            # Delete from Cloudinary
+            result = uploader.destroy(public_id)
+            return result.get('result') == 'ok'
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to delete image from Cloudinary: {e}")
+            return False
 
 def optimize_product_image(image_url):
     """Optimize product image URL"""
