@@ -267,18 +267,39 @@ class GetStoreDropshippers(viewsets.ModelViewSet):
       try:
          store = Store.objects.select_related('owner', 'category').get(id=pk)
          
-         # Validate store belongs to current domain
-         if store.domain_name:
-            from .domain_utils import extract_primary_domain
-            store_platform = extract_primary_domain(store.domain_name)
-            request_host = request.get_host()
-            request_platform = extract_primary_domain(request_host)
-            
-            if store_platform != request_platform:
-               return Response(
-                  {'error': 'Store not found'},
-                  status=status.HTTP_404_NOT_FOUND
-               )
+         # Check if user owns the store OR validate domain platform match
+         is_owner = store.owner == request.user
+         
+         if not is_owner:
+            # If not owner, validate domain platform
+            if store.domain_name:
+               from .domain_utils import extract_primary_domain
+               store_platform = extract_primary_domain(store.domain_name)
+               request_host = request.get_host()
+               request_platform = extract_primary_domain(request_host)
+               
+               if store_platform != request_platform:
+                  return Response(
+                     {'error': 'Store not found'},
+                     status=status.HTTP_404_NOT_FOUND
+                  )
+         else:
+            # Owner accessing their store - check platform match
+            if store.domain_name:
+               request_host = request.get_host()
+               # Check if both are on same platform (rockteapl or yourockteamall)
+               store_is_rockteapl = 'rockteapl.com' in store.domain_name
+               store_is_yourockteamall = 'yourockteamall.com' in store.domain_name
+               request_is_rockteapl = 'rockteapl.com' in request_host
+               request_is_yourockteamall = 'yourockteamall.com' in request_host
+               
+               # Allow if both on same platform
+               if not ((store_is_rockteapl and request_is_rockteapl) or 
+                       (store_is_yourockteamall and request_is_yourockteamall)):
+                  return Response(
+                     {'error': 'Store not found'},
+                     status=status.HTTP_404_NOT_FOUND
+                  )
          
          # Get comprehensive store data
          store_data = {
