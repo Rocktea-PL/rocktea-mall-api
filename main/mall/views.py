@@ -235,7 +235,7 @@ class CreateStoreOwner(viewsets.ModelViewSet):
       if user_updated:
          response_data['user'] = {
             'completed_steps': user.completed_steps,
-            'profile_image': user.profile_image
+            'profile_image': user.profile_image.url if user.profile_image else None
          }
       if store_updated:
          response_data['store'] = store_data
