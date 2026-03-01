@@ -509,11 +509,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             if store_platform != request_platform:
                return Product.objects.none()
          
-         # Get products that are in this store's marketplace and available
+         # Get products that are in this store's marketplace
+         # Note: For store-specific queries, we show all products added by dropshipper
+         # regardless of approval status, since they control their own inventory
          return Product.objects.filter(
             id__in=StoreProductPricing.objects.filter(store=store).values_list('product_id', flat=True),
-            is_available=True,
-            upload_status='Approved'
+            is_available=True
          ).select_related('category', 'subcategory', 'brand', 'producttype').prefetch_related('images').distinct().order_by('-created_at')
       
       # Handle category filtering
