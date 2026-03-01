@@ -1,5 +1,5 @@
 [Unit]
-Description=Celery Worker for Rocktea Mall Django project
+Description=Celery Worker for RockTea PL Django project
 After=network.target redis-server.service
 
 [Service]
@@ -55,7 +55,7 @@ WantedBy=multi-user.target
 
 
 [Unit]
-Description=Celery Worker for Rocktea Mall Django project (PROD)
+Description=Celery Worker for RockTea PL Django project (PROD)
 After=network.target redis-server.service
 
 [Service]

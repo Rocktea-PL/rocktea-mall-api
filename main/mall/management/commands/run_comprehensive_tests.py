@@ -27,7 +27,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write(
-            self.style.SUCCESS('🚀 Starting Rocktea Mall API Comprehensive Test Suite')
+            self.style.SUCCESS('🚀 Starting RockTea PL API Comprehensive Test Suite')
         )
         self.stdout.write('=' * 60)
 

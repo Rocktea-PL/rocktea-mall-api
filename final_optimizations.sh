@@ -1,5 +1,5 @@
 #!/bin/bash
-# Final production optimizations for RockTea Mall
+# Final production optimizations for RockTea PL
 
 echo "Applying final optimizations..."
 
@@ -76,7 +76,7 @@ python manage.py collectstatic --noinput
 # 7. Setup process monitoring
 sudo tee /etc/systemd/system/rocktea-monitor.service << 'EOF'
 [Unit]
-Description=RockTea Mall Health Monitor
+Description=RockTea PL Health Monitor
 After=network.target
 
 [Service]

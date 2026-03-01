@@ -496,7 +496,7 @@ class DropshipperAdminSerializer(StoreOwnerSerializer):
                     'owner_email': user.email,
                     'is_local': False,
                 },
-                subject="Welcome to Rocktea Mall - Your Account is Ready!",
+                subject="Welcome to RockTea PL - Your Account is Ready!",
                 tags=["admin-created-account", "account-setup"]
             )
         except Exception as e:

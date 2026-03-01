@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Email Queue Monitoring Script for Rocktea Mall
+Email Queue Monitoring Script for RockTea PL
 Run this script to check the health of your email processing system.
 
 Usage: python monitor_email_queue.py
@@ -93,7 +93,7 @@ def check_failed_tasks():
 def main():
     """Main monitoring function"""
     print("=" * 60)
-    print("ROCKTEA MALL EMAIL QUEUE HEALTH CHECK")
+    print("RockTea PL EMAIL QUEUE HEALTH CHECK")
     print("=" * 60)
     print(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print()

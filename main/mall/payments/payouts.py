@@ -51,7 +51,7 @@ class PayoutDropshipper(APIView):
             "account_bank": str(wallet.bank_code),
             "account_number": str(wallet.nuban),
             "amount": int(wallet.balance),
-            "narration": f"RockTea Mall Payout -- {datetime.datetime.now()}",
+            "narration": f"RockTea PL Payout -- {datetime.datetime.now()}",
             "currency": "NGN",
             "reference": self.generate_tx_ref(),
             "callback_url": "https://www.flutterwave.com/ng/",
