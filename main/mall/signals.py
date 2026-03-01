@@ -102,14 +102,14 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
         store = Store.objects.filter(owner=instance).first()
         
         if store:
-            # Store image URLs for deletion (get references before store is deleted)
+            # IMPORTANT: Capture image URLs BEFORE any deletion happens
             logo_url = str(store.logo) if store.logo else None
             cover_url = str(store.cover_image) if store.cover_image else None
             store_name = store.name
             store_domain = store.domain_name
             dns_created = store.dns_record_created
             
-            # Delete store images from Cloudinary
+            # Delete store images from Cloudinary BEFORE store deletion
             from .cloudinary_utils import CloudinaryOptimizer
             if logo_url:
                 try:
@@ -124,6 +124,10 @@ def delete_dropshipper_domain(sender, instance, **kwargs):
                     logger.info(f"Deleted store cover image from Cloudinary: {cover_url}")
                 except Exception as e:
                     logger.error(f"Error deleting store cover image: {e}")
+            
+            # Now delete the store (this will cascade delete related objects)
+            store.delete()
+            logger.error(f"Error deleting store cover image: {e}")
             
             # Delete DNS record
             if dns_created and store_domain:
