@@ -140,6 +140,11 @@ urlpatterns = [
         'post': 'create',
         'patch': 'update_user_store'
     }), name='storeowner-list-patch'),
+    re_path(r'^rocktea/storeowner/(?P<pk>[0-9a-f-]+)/$', CreateStoreOwner.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update',
+        'delete': 'destroy'
+    }), name='storeowner-detail'),
 ]
 
 # Add router URLs (maintains existing /rocktea/ endpoints)
