@@ -728,21 +728,12 @@ class CreateAndGetStoreProductPricing(APIView):
          if StoreProductPricing.objects.filter(store=store, product_id=product_id).exists():
             return Response({"error": "Pricing for this product in this store already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
-         # Verify product exists
-         try:
-            product = Product.objects.get(id=product_id)
-            logger.info(f"Adding product {product.id} (upload_status={product.upload_status}) to store {store.id}")
-         except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
-
          # Create StoreProductPricing (MarketPlace will be created automatically by signal)
          store_product_price = StoreProductPricing.objects.create(
             store=store,
             product_id=product_id,
             retail_price=retail_price
          )
-         
-         logger.info(f"StoreProductPricing created: store={store.id}, product={product_id}")
 
          serializer = StoreProductPricingSerializer(store_product_price)
          return Response({"message": "Product pricing validated successfully.", "data": serializer.data})
