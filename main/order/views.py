@@ -220,12 +220,20 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
       
       logger.info(f"Processing order for user: {user.email}, store: {verified_store.name}")
 
-      cart_total = sum(item.price for item in cart.items.all())
+      shipment_feedback = cache.get(f'shipment_{user_id}')
+      shipping_fee = 0
+      if shipment_feedback:
+         try:
+            shipment_data = json.loads(shipment_feedback)
+            shipping_fee = shipment_data['data']['payment']['shipping_fee']
+         except (json.JSONDecodeError, KeyError):
+            pass
       
       order_data = {
          'buyer': user.id,
          'store': cart.store.id,
-         'total_price': cart_total,
+         'total_price': total_price,
+         'shipping_fee': shipping_fee,
          'status': 'Completed',
       }
       
@@ -406,7 +414,6 @@ def process_shipment_details(user_id, order):
          order.tracking_url = shipment_data['data']['tracking_url']
          order.tracking_status = shipment_data['data']['status']
          order.delivery_location = shipment_data['data']['ship_to']['address']
-         order.shipping_fee = shipment_data['data']['payment']['shipping_fee']
          order.save()
          cache.delete(f'shipment_{user_id}')
          logger.info(f"Shipment details processed for order: {order.id}")
