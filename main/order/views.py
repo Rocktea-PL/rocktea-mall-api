@@ -234,7 +234,7 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
          'store': cart.store.id,
          'total_price': total_price,
          'shipping_fee': shipping_fee,
-         'status': 'Completed',
+         'status': 'Pending',
       }
       
       order_serializer = OrderSerializer(data=order_data)
@@ -269,6 +269,10 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
          order_item_serializer.save()
 
       cart.items.all().delete()
+      
+      # Update order status to Completed after all items are added
+      order.status = 'Completed'
+      order.save(update_fields=['status'])
 
       # Update webhook record
       paystack_webhook.store_id = order_data['store']
