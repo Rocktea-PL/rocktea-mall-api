@@ -220,10 +220,12 @@ def handle_order_payment(data, paystack_webhook, total_price, metadata):
       
       logger.info(f"Processing order for user: {user.email}, store: {verified_store.name}")
 
+      cart_total = sum(item.price for item in cart.items.all())
+      
       order_data = {
          'buyer': user.id,
          'store': cart.store.id,
-         'total_price': total_price,
+         'total_price': cart_total,
          'status': 'Completed',
       }
       
