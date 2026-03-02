@@ -38,8 +38,8 @@ def create_payment_history(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=StoreOrder)
 def send_order_completion_email(sender, instance, created, **kwargs):
-   """Send order completion email when order status is Completed"""
-   if instance.status == 'Completed' and instance.buyer and instance.buyer.email:
+   """Send order completion email when order status changes to Completed"""
+   if not created and instance.status == 'Completed' and instance.buyer and instance.buyer.email:
       from order.email_service import OrderEmailService
       from setup.tasks import send_order_completion_email_task
       
