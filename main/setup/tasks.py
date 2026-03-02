@@ -185,15 +185,17 @@ def send_order_completion_email_task(self, order_id):
         # 1. Send email to customer
         if order.buyer and order.buyer.email:
             logger.info(f"Sending email to customer: {order.buyer.email}")
-            customer_result = send_email_task(
-                recipient_email=order.buyer.email,
-                template_name='emails/order_completion.html',
-                context=context,
-                subject=f'Order Confirmed - #{order.order_sn} from {order.store.name}',
-                tags=['order_completion', 'customer_notification']
+            send_email_task.apply_async(
+                args=[
+                    order.buyer.email,
+                    'emails/order_completion.html',
+                    context,
+                    f'Order Confirmed - #{order.order_sn} from {order.store.name}',
+                    ['order_completion', 'customer_notification']
+                ],
+                countdown=2
             )
             emails_sent.append(f"Customer: {order.buyer.email}")
-            logger.info(f"Customer email sent: {customer_result}")
         else:
             logger.warning(f"No buyer email for order {order_id}")
         
@@ -205,15 +207,17 @@ def send_order_completion_email_task(self, order_id):
             owner_context['is_store_owner'] = True
             owner_context['customer_email'] = order.buyer.email if order.buyer else 'N/A'
             
-            owner_result = send_email_task(
-                recipient_email=order.store.owner.email,
-                template_name='emails/order_completion.html',
-                context=owner_context,
-                subject=f'New Order Received - #{order.order_sn} in {order.store.name}',
-                tags=['order_completion', 'store_owner_notification']
+            send_email_task.apply_async(
+                args=[
+                    order.store.owner.email,
+                    'emails/order_completion.html',
+                    owner_context,
+                    f'New Order Received - #{order.order_sn} in {order.store.name}',
+                    ['order_completion', 'store_owner_notification']
+                ],
+                countdown=2
             )
             emails_sent.append(f"Store Owner: {order.store.owner.email}")
-            logger.info(f"Store owner email sent: {owner_result}")
         else:
             logger.warning(f"No store owner email for order {order_id}")
         
@@ -226,15 +230,16 @@ def send_order_completion_email_task(self, order_id):
         admin_context['customer_email'] = order.buyer.email if order.buyer else 'N/A'
         admin_context['store_owner_email'] = order.store.owner.email if order.store and order.store.owner else 'N/A'
         
-        admin_result = send_email_task(
-            recipient_email=admin_email,
-            template_name='emails/order_completion.html',
-            context=admin_context,
-            subject=f'New Order Placed - #{order.order_sn} in {order.store.name}',
-            tags=['order_completion', 'admin_notification']
+        send_email_task.apply_async(
+            args=[
+                admin_email,
+                'emails/order_completion.html',
+                admin_context,
+                f'New Order Placed - #{order.order_sn} in {order.store.name}',
+                ['order_completion', 'admin_notification']
+            ],
+            countdown=2
         )
-        emails_sent.append(f"Admin: {admin_email}")
-        logger.info(f"Admin email sent: {admin_result}")
         
         logger.info(f"Order completion emails sent to: {', '.join(emails_sent)}")
         return f"Emails sent for order {order_id} to: {', '.join(emails_sent)}"
