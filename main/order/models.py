@@ -158,6 +158,7 @@ class CartItem(models.Model):
    quantity = models.PositiveIntegerField(default=1)
    created_at = models.DateTimeField(auto_now_add=True)
    price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
+   unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, null=True)
    
    def __str__(self):
     return str(self.cart.id)  # Convert to string

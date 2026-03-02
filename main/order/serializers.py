@@ -146,7 +146,7 @@ class CartItemSerializer(serializers.ModelSerializer):
    
    class Meta:
       model = CartItem
-      fields = ['id', 'product', 'product_variant', 'quantity', 'price', 'formatted_price']
+      fields = ['id', 'product', 'product_variant', 'quantity', 'price', 'unit_price', 'formatted_price']
       
    def get_product(self, obj):
       if obj.product:
